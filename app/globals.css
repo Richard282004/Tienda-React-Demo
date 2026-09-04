@@ -108,3 +108,10 @@
   html { scroll-behavior: auto; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.product-description { margin: 4px 0 6px; color: #a4919a; font-size: 12px; line-height: 1.5; }
+.availability-badge { display: inline-block; margin-top: 2px; border-radius: 99px; padding: 3px 9px; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.availability-badge.available { background: #e4f0e2; color: #4f7a4a; }
+.availability-badge.unavailable { background: #f4dede; color: #9a4b4b; }
+.add-button:disabled { opacity: .5; cursor: not-allowed; }
+.add-button:disabled:hover { border-color: #ddcbc5 !important; background: transparent !important; color: var(--ink) !important; }

@@ -1,4 +1,4 @@
--- Run this file once in the Supabase SQL Editor.
+-- Run this file once in the Supabase SQL Editor. Safe to re-run.
 create extension if not exists pgcrypto;
 
 create table if not exists public.profiles (
@@ -12,6 +12,7 @@ create table if not exists public.profiles (
 create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  description text,
   type text not null check (type in ('Llaveros', 'Peluches')),
   price integer not null check (price >= 0),
   color text not null default '#f3dedb',
@@ -29,6 +30,8 @@ create table if not exists public.site_content (
   value jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
+
+alter table public.products add column if not exists description text;
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -120,16 +123,16 @@ insert into public.site_content (key, value)
 values ('store', '{"heroEyebrow":"Pequeñas cosas, grandes sonrisas","heroTitle":"Un poquito de","heroHighlight":"ternura para llevar.","heroDescription":"Llaveros y peluches tejidos a mano, puntada por puntada, para acompañarte todos los días.","phone":"+56 9 1234 5678","email":"hola@lumina.cl","shippingMessage":"Envío gratis sobre $45.000 · cada pieza se hace a mano","aboutTitle":"Hecho lento,","aboutHighlight":"hecho bonito.","aboutText":"Cada pieza nace en un pequeño taller, entre ovillos de colores, café calentito y muchas ganas de crear algo especial."}'::jsonb)
 on conflict (key) do nothing;
 
-insert into public.products (name, type, price, color, art, tag, sort_order)
-select seed.name, seed.type, seed.price, seed.color, seed.art, seed.tag, seed.sort_order
+insert into public.products (name, description, type, price, color, art, tag, sort_order)
+select seed.name, seed.description, seed.type, seed.price, seed.color, seed.art, seed.tag, seed.sort_order
 from (values
-  ('Bunny Lila', 'Llaveros', 12990, '#d8c1ec', '🐰', 'Más vendido', 1),
-  ('Osito Miel', 'Peluches', 18990, '#f2d17c', '🐻', null, 2),
-  ('Honguito Rosa', 'Llaveros', 10990, '#f1a2a7', '🍄', 'Nuevo', 3),
-  ('Gatita Vainilla', 'Peluches', 19990, '#f6e4c8', '🐱', null, 4),
-  ('Fresa Dulce', 'Llaveros', 9990, '#ee9a9c', '🍓', null, 5),
-  ('Nube Sueño', 'Peluches', 17990, '#c6d8e8', '☁️', null, 6)
-) as seed(name, type, price, color, art, tag, sort_order)
+  ('Bunny Lila', 'Llavero de conejito tejido a mano en algodón suave, orejitas bordadas a mano.', 'Llaveros', 12990, '#d8c1ec', '🐰', 'Más vendido', 1),
+  ('Osito Miel', 'Peluche de osito color miel, relleno hipoalergénico, ideal para abrazar.', 'Peluches', 18990, '#f2d17c', '🐻', null, 2),
+  ('Honguito Rosa', 'Llavero de honguito rosado, tejido puntada por puntada con hilo de algodón.', 'Llaveros', 10990, '#f1a2a7', '🍄', 'Nuevo', 3),
+  ('Gatita Vainilla', 'Peluche de gatita tono vainilla, con bigotes bordados y lazo removible.', 'Peluches', 19990, '#f6e4c8', '🐱', null, 4),
+  ('Fresa Dulce', 'Llavero de fresita dulce, perfecto para mochilas y regalos pequeños.', 'Llaveros', 9990, '#ee9a9c', '🍓', null, 5),
+  ('Nube Sueño', 'Peluche de nubecita suave, textura esponjosa y colores pastel.', 'Peluches', 17990, '#c6d8e8', '☁️', null, 6)
+) as seed(name, description, type, price, color, art, tag, sort_order)
 where not exists (select 1 from public.products);
 
 -- After registering the owner, replace the email and run this statement:
