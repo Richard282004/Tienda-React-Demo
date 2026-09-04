@@ -89,6 +89,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!carouselApi || carouselPaused) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const interval = window.setInterval(() => carouselApi.scrollNext(), 2800);
     return () => window.clearInterval(interval);
   }, [carouselApi, carouselPaused]);
