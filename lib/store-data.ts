@@ -1,6 +1,7 @@
 export type Product = {
   id: string;
   name: string;
+  description?: string | null;
   type: 'Llaveros' | 'Peluches';
   price: number;
   color: string;
@@ -25,12 +26,12 @@ export type StoreContent = {
 };
 
 export const defaultProducts: Product[] = [
-  { id: 'bunny-lila', name: 'Bunny Lila', type: 'Llaveros', price: 12990, color: '#d8c1ec', art: '🐰', tag: 'Más vendido', active: true, sort_order: 1 },
-  { id: 'osito-miel', name: 'Osito Miel', type: 'Peluches', price: 18990, color: '#f2d17c', art: '🐻', active: true, sort_order: 2 },
-  { id: 'honguito-rosa', name: 'Honguito Rosa', type: 'Llaveros', price: 10990, color: '#f1a2a7', art: '🍄', tag: 'Nuevo', active: true, sort_order: 3 },
-  { id: 'gatita-vainilla', name: 'Gatita Vainilla', type: 'Peluches', price: 19990, color: '#f6e4c8', art: '🐱', active: true, sort_order: 4 },
-  { id: 'fresa-dulce', name: 'Fresa Dulce', type: 'Llaveros', price: 9990, color: '#ee9a9c', art: '🍓', active: true, sort_order: 5 },
-  { id: 'nube-sueno', name: 'Nube Sueño', type: 'Peluches', price: 17990, color: '#c6d8e8', art: '☁️', active: true, sort_order: 6 },
+  { id: 'bunny-lila', name: 'Bunny Lila', description: 'Llavero de conejito tejido a mano en algodón suave, orejitas bordadas a mano.', type: 'Llaveros', price: 12990, color: '#d8c1ec', art: '🐰', tag: 'Más vendido', active: true, sort_order: 1 },
+  { id: 'osito-miel', name: 'Osito Miel', description: 'Peluche de osito color miel, relleno hipoalergénico, ideal para abrazar.', type: 'Peluches', price: 18990, color: '#f2d17c', art: '🐻', active: true, sort_order: 2 },
+  { id: 'honguito-rosa', name: 'Honguito Rosa', description: 'Llavero de honguito rosado, tejido puntada por puntada con hilo de algodón.', type: 'Llaveros', price: 10990, color: '#f1a2a7', art: '🍄', tag: 'Nuevo', active: true, sort_order: 3 },
+  { id: 'gatita-vainilla', name: 'Gatita Vainilla', description: 'Peluche de gatita tono vainilla, con bigotes bordados y lazo removible.', type: 'Peluches', price: 19990, color: '#f6e4c8', art: '🐱', active: true, sort_order: 4 },
+  { id: 'fresa-dulce', name: 'Fresa Dulce', description: 'Llavero de fresita dulce, perfecto para mochilas y regalos pequeños.', type: 'Llaveros', price: 9990, color: '#ee9a9c', art: '🍓', active: true, sort_order: 5 },
+  { id: 'nube-sueno', name: 'Nube Sueño', description: 'Peluche de nubecita suave, textura esponjosa y colores pastel.', type: 'Peluches', price: 17990, color: '#c6d8e8', art: '☁️', active: true, sort_order: 6 },
 ];
 
 export const defaultStoreContent: StoreContent = {
