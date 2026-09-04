@@ -21,3 +21,23 @@
 .product-dialog { max-width: 650px !important; border-radius: 22px !important; padding: 28px !important; background: #fffaf5 !important; color: #351f2c !important; }.product-dialog [data-slot='dialog-title'] { font-family: Georgia, serif; font-size: 29px; font-weight: 400; }.product-form { margin-top: 14px; }.admin-select { width: 100%; }.admin-select select { height: 36px; background: white; }.upload-field > div { position: relative; display: grid; min-height: 82px; place-items: center; border: 1px dashed #ccb9b2; border-radius: 13px; padding: 14px; color: #9a737f; }.upload-field input { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; opacity: 0; }.upload-field small { margin-top: 5px; color: #8c777e; font-weight: 400; }.save-product { width: 100%; margin-top: 20px; }
 @media (max-width: 900px) { .admin-product-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 620px) { .admin-shell { padding-inline: 18px; }.admin-header { align-items: start; flex-direction: column; }.admin-product-grid { grid-template-columns: 1fr; }.admin-section-heading { align-items: start; flex-direction: column; }.form-grid { grid-template-columns: 1fr; }.form-grid .full { grid-column: auto; }.admin-tabs-list { width: 100% !important; }.admin-tabs-list button { min-width: 0; }.setup-card, .admin-login { padding: 28px 23px; } }
+
+@media (max-width: 900px) {
+  .admin-shell { padding-inline: 24px; }
+  .admin-header { align-items: start; }
+  .admin-tabs-list button { min-height: 40px; }
+  .product-dialog { width: calc(100% - 32px) !important; max-height: calc(100dvh - 32px); overflow-y: auto; }
+}
+
+@media (max-width: 620px) {
+  .admin-center { padding: 20px 14px; }
+  .admin-shell { padding: 26px 16px 50px; }
+  .admin-header > div:last-child { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+  .admin-tabs-list { height: auto !important; min-height: 46px; }
+  .admin-tabs-list button { min-height: 38px; padding-inline: 8px !important; font-size: 12px; }
+  .admin-product { grid-template-columns: 72px minmax(0, 1fr) auto; gap: 10px; }
+  .admin-product-image { width: 72px; height: 72px; }
+  .content-editor section { padding: 20px 16px; }
+  .product-dialog { width: calc(100% - 20px) !important; max-height: calc(100dvh - 20px); padding: 24px 18px !important; }
+  .setup-card, .admin-login { max-height: calc(100dvh - 28px); overflow-y: auto; padding: 28px 22px; }
+}
