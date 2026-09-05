@@ -1,94 +1,147 @@
-import { env } from 'cloudflare:workers';
-import { NextResponse } from 'next/server';
-
-import { createMercadoPagoPreference } from '@/lib/mercadopago';
-import { getSupabaseAdmin } from '@/lib/supabase-admin';
-
-type CheckoutPayload = {
-  items: { productId: string; quantity: number }[];
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  region: string;
-  comuna: string;
-  address: string;
-  addressExtra?: string;
-};
+import { env } from "cloudflare:workers";
+import { NextResponse } from "next/server";
+import {
+  calculateShipping,
+  parseCheckoutPayload,
+  type CheckoutPayload,
+} from "@/lib/checkout-validation";
+import { createMercadoPagoPreference } from "@/lib/mercadopago";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(request: Request) {
-  const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
-  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-  const mpAccessToken = env.MP_ACCESS_TOKEN as string | undefined;
-  if (!supabaseUrl || !serviceRoleKey) return NextResponse.json({ error: 'Falta configurar Supabase en el servidor.' }, { status: 500 });
-  if (!mpAccessToken) return NextResponse.json({ error: 'Falta configurar Mercado Pago en el servidor.' }, { status: 500 });
-
+  const supabaseUrl = env.VITE_SUPABASE_URL;
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  const mpAccessToken = env.MP_ACCESS_TOKEN;
+  if (!supabaseUrl || !serviceRoleKey || !mpAccessToken) {
+    return NextResponse.json(
+      { error: "El pago no está disponible por el momento. Inténtalo más tarde." },
+      { status: 503 },
+    );
+  }
   let payload: CheckoutPayload;
   try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Solicitud inválida.' }, { status: 400 });
+    const body = await request.text();
+    if (body.length > 20_000)
+      return NextResponse.json({ error: "Solicitud demasiado grande." }, { status: 413 });
+    payload = parseCheckoutPayload(JSON.parse(body));
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof SyntaxError
+            ? "Solicitud inválida."
+            : error instanceof Error
+              ? error.message
+              : "Revisa los datos de envío.",
+      },
+      { status: 400 },
+    );
   }
-
-  if (!payload.items?.length) return NextResponse.json({ error: 'El carrito está vacío.' }, { status: 400 });
-  if (!payload.customerName || !payload.customerEmail || !payload.customerPhone || !payload.region || !payload.comuna || !payload.address) {
-    return NextResponse.json({ error: 'Completa todos los datos de envío.' }, { status: 400 });
-  }
-
-  const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
-
-  // Los precios y disponibilidad se validan siempre en el servidor; nunca se
-  // confía en lo que mande el cliente.
-  const productIds = payload.items.map((item) => item.productId);
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('id, name, price, active')
-    .in('id', productIds);
-  if (productsError) return NextResponse.json({ error: productsError.message }, { status: 500 });
-
-  const orderItems = payload.items.map((cartItem) => {
-    const product = products?.find((item) => item.id === cartItem.productId);
-    if (!product || product.active === false) throw new Error(`Producto no disponible: ${cartItem.productId}`);
-    return { productId: product.id, name: product.name as string, unitPrice: product.price as number, quantity: cartItem.quantity };
-  });
-  const subtotal = orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-
-  const { data: shippingRate } = await supabase.from('shipping_rates').select('cost').eq('region', payload.region).maybeSingle();
-  const shippingCost = shippingRate?.cost ?? 0;
-  const total = subtotal + shippingCost;
-
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert({
-      customer_name: payload.customerName,
-      customer_email: payload.customerEmail,
-      customer_phone: payload.customerPhone,
-      region: payload.region,
-      comuna: payload.comuna,
-      address: payload.address,
-      address_extra: payload.addressExtra || null,
-      items: orderItems,
-      subtotal,
-      shipping_cost: shippingCost,
-      total,
-      status: 'pending',
-    })
-    .select('id')
-    .single();
-  if (orderError || !order) return NextResponse.json({ error: orderError?.message ?? 'No se pudo crear el pedido.' }, { status: 500 });
-
   try {
-    const siteUrl = new URL(request.url).origin;
+    const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+    const { data: products, error: productsError } = await supabase
+      .from("products")
+      .select("id, name, price, active")
+      .in(
+        "id",
+        payload.items.map((item) => item.productId),
+      );
+    if (productsError)
+      return NextResponse.json(
+        { error: "No pudimos consultar la colección. Inténtalo de nuevo." },
+        { status: 503 },
+      );
+    const orderItems = [];
+    for (const item of payload.items) {
+      const product = products?.find((product) => product.id === item.productId);
+      if (
+        !product ||
+        product.active === false ||
+        !Number.isSafeInteger(product.price) ||
+        product.price < 0
+      ) {
+        return NextResponse.json(
+          { error: "Uno de los productos ya no está disponible. Actualiza tu bolsita." },
+          { status: 409 },
+        );
+      }
+      orderItems.push({
+        productId: product.id as string,
+        name: product.name as string,
+        unitPrice: product.price as number,
+        quantity: item.quantity,
+      });
+    }
+    const subtotal = orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const { data: shippingRate, error: shippingError } = await supabase
+      .from("shipping_rates")
+      .select("cost")
+      .eq("region", payload.region)
+      .maybeSingle();
+    if (shippingError)
+      return NextResponse.json(
+        { error: "No pudimos calcular el envío. Inténtalo de nuevo." },
+        { status: 503 },
+      );
+    const shippingCost = calculateShipping(subtotal, shippingRate?.cost);
+    if (shippingCost === null)
+      return NextResponse.json(
+        { error: "El envío a esa región no está disponible." },
+        { status: 422 },
+      );
+    const total = subtotal + shippingCost;
+    if (!Number.isSafeInteger(total) || total <= 0 || total > 2_147_483_647) {
+      return NextResponse.json({ error: "El importe del pedido no es válido." }, { status: 400 });
+    }
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        customer_name: payload.customerName,
+        customer_email: payload.customerEmail,
+        customer_phone: payload.customerPhone,
+        region: payload.region,
+        comuna: payload.comuna,
+        address: payload.address,
+        address_extra: payload.addressExtra || null,
+        items: orderItems,
+        subtotal,
+        shipping_cost: shippingCost,
+        total,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (orderError || !order)
+      return NextResponse.json(
+        { error: "No pudimos preparar tu pedido. Inténtalo de nuevo." },
+        { status: 503 },
+      );
     const { preferenceId, initPoint } = await createMercadoPagoPreference({
       accessToken: mpAccessToken,
       orderId: order.id,
-      items: orderItems.map((item) => ({ title: item.name, quantity: item.quantity, unit_price: item.unitPrice })),
+      items: orderItems.map((item) => ({
+        title: item.name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+      })),
       shippingCost,
       payerEmail: payload.customerEmail,
-      siteUrl,
+      siteUrl: new URL(request.url).origin,
     });
-    await supabase.from('orders').update({ mp_preference_id: preferenceId }).eq('id', order.id);
+    const { error: preferenceError } = await supabase
+      .from("orders")
+      .update({ mp_preference_id: preferenceId })
+      .eq("id", order.id);
+    if (preferenceError)
+      return NextResponse.json(
+        { error: "No pudimos preparar el pago. Inténtalo más tarde." },
+        { status: 503 },
+      );
     return NextResponse.json({ orderId: order.id, initPoint });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Error creando el pago.' }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { error: "No pudimos conectar con el servicio de pagos. Inténtalo más tarde." },
+      { status: 503 },
+    );
   }
 }
