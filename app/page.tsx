@@ -23,7 +23,9 @@ import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { defaultProducts, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
+import { CHILE_REGIONS, type ShippingRate } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const categories = ['Todo', 'Llaveros', 'Peluches'];
@@ -62,6 +64,43 @@ export default function Home() {
   }, [search]);
   const cartProducts = cart.map((id) => products.find((product) => product.id === id)).filter(Boolean) as Product[];
   const total = cartProducts.reduce((sum, product) => sum + product.price, 0);
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+  const [shipping, setShipping] = useState({ name: '', email: '', phone: '', region: '', comuna: '', address: '', addressExtra: '' });
+  const shippingCost = shippingRates.find((rate) => rate.region === shipping.region)?.cost ?? 0;
+  const grandTotal = total + (shipping.region ? shippingCost : 0);
+
+  const handleCheckout = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCheckoutBusy(true);
+    setCheckoutError('');
+    const counts = new Map<string, number>();
+    cart.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: [...counts.entries()].map(([productId, quantity]) => ({ productId, quantity })),
+          customerName: shipping.name,
+          customerEmail: shipping.email,
+          customerPhone: shipping.phone,
+          region: shipping.region,
+          comuna: shipping.comuna,
+          address: shipping.address,
+          addressExtra: shipping.addressExtra,
+        }),
+      });
+      const data = (await response.json()) as { initPoint?: string; error?: string };
+      if (!response.ok || !data.initPoint) { setCheckoutError(data.error ?? 'No se pudo iniciar el pago.'); setCheckoutBusy(false); return; }
+      window.location.href = data.initPoint;
+    } catch {
+      setCheckoutError('No se pudo conectar con el servidor de pagos.');
+      setCheckoutBusy(false);
+    }
+  };
 
   const addToCart = (id: string) => {
     setCart((current) => [...current, id]);
@@ -73,13 +112,15 @@ export default function Home() {
     if (!supabase) return;
     let active = true;
     const loadStore = async () => {
-      const [{ data: productRows }, { data: contentRow }] = await Promise.all([
+      const [{ data: productRows }, { data: contentRow }, { data: rateRows }] = await Promise.all([
         supabase.from('products').select('*').eq('active', true).order('sort_order'),
         supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
+        supabase.from('shipping_rates').select('region, cost').order('region'),
       ]);
       if (!active) return;
       if (productRows?.length) setProducts(productRows as Product[]);
       if (contentRow?.value) setContent({ ...defaultStoreContent, ...(contentRow.value as Partial<StoreContent>) });
+      if (rateRows?.length) setShippingRates(rateRows as ShippingRate[]);
     };
     void loadStore();
     void supabase.auth.getSession().then(({ data }) => setSessionEmail(data.session?.user.email ?? null));
@@ -277,7 +318,32 @@ export default function Home() {
 
       {notice && <div className="notice" role="status"><Check size={16} /> {notice}</div>}
 
-      {cartOpen && <div className="cart-overlay" onClick={() => setCartOpen(false)}><aside className="cart-panel" onClick={(event) => event.stopPropagation()}><div className="cart-heading"><div><p className="section-kicker">Tu selección</p><h2>Tu bolsita <span>({cart.length})</span></h2></div><button className="close-cart" onClick={() => setCartOpen(false)} aria-label="Cerrar bolsita"><X size={20} /></button></div>{cartProducts.length === 0 ? <div className="empty-cart"><span>♡</span><p>Tu bolsita está esperando<br />algo bonito.</p><Button className="primary-button" onClick={() => { setCartOpen(false); document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' }); }}>Explorar tienda</Button></div> : <><div className="cart-items">{cartProducts.map((product, index) => <div className="cart-item" key={`${product.id}-${index}`}><div className="cart-thumb" style={{ backgroundColor: product.color }}>{product.art}</div><div><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div><button aria-label={`Eliminar ${product.name}`} onClick={() => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Minus size={15} /></button></div>)}</div><div className="cart-total"><span>Total</span><strong>{formatPrice(total)}</strong></div><Button className="primary-button checkout-button">Continuar compra <ArrowRight size={17} /></Button></>}</aside></div>}
+      {cartOpen && <div className="cart-overlay" onClick={() => setCartOpen(false)}><aside className="cart-panel" onClick={(event) => event.stopPropagation()}><div className="cart-heading"><div><p className="section-kicker">Tu selección</p><h2>Tu bolsita <span>({cart.length})</span></h2></div><button className="close-cart" onClick={() => setCartOpen(false)} aria-label="Cerrar bolsita"><X size={20} /></button></div>{cartProducts.length === 0 ? <div className="empty-cart"><span>♡</span><p>Tu bolsita está esperando<br />algo bonito.</p><Button className="primary-button" onClick={() => { setCartOpen(false); document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' }); }}>Explorar tienda</Button></div> : <><div className="cart-items">{cartProducts.map((product, index) => <div className="cart-item" key={`${product.id}-${index}`}><div className="cart-thumb" style={{ backgroundColor: product.color }}>{product.art}</div><div><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div><button aria-label={`Eliminar ${product.name}`} onClick={() => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Minus size={15} /></button></div>)}</div><div className="cart-total"><span>Total</span><strong>{formatPrice(total)}</strong></div><Button className="primary-button checkout-button" onClick={() => { setCartOpen(false); setCheckoutError(''); setCheckoutOpen(true); }}>Continuar compra <ArrowRight size={17} /></Button></>}</aside></div>}
+
+      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+        <DialogContent className="checkout-dialog">
+          <DialogHeader><DialogTitle>Datos de envío</DialogTitle><DialogDescription>Necesitamos esto para calcular el envío y despachar tu pedido.</DialogDescription></DialogHeader>
+          <form className="checkout-form" onSubmit={handleCheckout}>
+            <label>Nombre completo<Input required value={shipping.name} onChange={(event) => setShipping({ ...shipping, name: event.target.value })} /></label>
+            <label>Correo electrónico<Input required type="email" value={shipping.email} onChange={(event) => setShipping({ ...shipping, email: event.target.value })} /></label>
+            <label>Teléfono<Input required value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /></label>
+            <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value })}>
+              <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
+              {CHILE_REGIONS.map((region) => <NativeSelectOption key={region} value={region}>{region}</NativeSelectOption>)}
+            </NativeSelect></label>
+            <label>Comuna<Input required value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /></label>
+            <label>Dirección<Input required value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /></label>
+            <label>Depto / referencia (opcional)<Input value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
+            <div className="checkout-summary">
+              <div><span>Productos</span><strong>{formatPrice(total)}</strong></div>
+              <div><span>Envío{shipping.region ? '' : ' (elige región)'}</span><strong>{shipping.region ? formatPrice(shippingCost) : '—'}</strong></div>
+              <div className="checkout-total"><span>Total</span><strong>{formatPrice(grandTotal)}</strong></div>
+            </div>
+            {checkoutError && <p className="account-message">{checkoutError}</p>}
+            <Button disabled={checkoutBusy} type="submit" className="primary-button account-submit">{checkoutBusy ? 'Redirigiendo a Mercado Pago…' : 'Pagar con Mercado Pago'} <ArrowRight size={16} /></Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

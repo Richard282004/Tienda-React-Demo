@@ -29,7 +29,30 @@
   .product-dialog { width: calc(100% - 32px) !important; max-height: calc(100dvh - 32px); overflow-y: auto; }
 }
 
+.orders-list { display: grid; gap: 16px; }
+.order-card { border: 1px solid #e2d4cf; border-radius: 18px; padding: 18px; background: #fffaf5; }
+.order-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #efe2dc; }
+.order-card-header strong { font-family: Georgia, serif; font-size: 16px; font-weight: 400; }
+.order-card-header span { display: block; margin-top: 2px; color: #957e86; font-size: 11px; }
+.order-status-badge { border-radius: 99px; padding: 5px 11px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.order-status-badge.status-pending { background: #f6e9c9; color: #93701f; }
+.order-status-badge.status-paid { background: #e4f0e2; color: #4f7a4a; }
+.order-status-badge.status-shipped { background: #dbe6f2; color: #3f628a; }
+.order-status-badge.status-delivered { background: #e2ddf2; color: #5b4a94; }
+.order-status-badge.status-cancelled { background: #f4dede; color: #9a4b4b; }
+.order-card-body { display: grid; gap: 10px; margin: 14px 0; font-size: 13px; }
+.order-card-body span { display: block; margin-bottom: 3px; color: #957e86; font-size: 11px; text-transform: uppercase; }
+.order-card-body p, .order-card-body ul { margin: 0; padding: 0; color: #4a363d; }
+.order-card-body ul { list-style: none; }
+.order-card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 14px; border-top: 1px solid #efe2dc; }
+.order-card-actions label { display: grid; gap: 6px; color: #69545c; font-size: 12px; font-weight: 700; }
+.shipping-rates-grid { display: grid; gap: 10px; }
+.shipping-rate-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #e2d4cf; border-radius: 14px; padding: 10px 16px; background: #fffaf5; }
+.shipping-rate-row span { font-size: 13px; }
+.shipping-rate-row input { width: 130px; }
+
 @media (max-width: 620px) {
+  .order-card-actions { grid-template-columns: 1fr; }
   .admin-center { padding: 20px 14px; }
   .admin-shell { padding: 26px 16px 50px; }
   .admin-header > div:last-child { width: 100%; justify-content: space-between; flex-wrap: wrap; }
