@@ -137,3 +137,89 @@ where not exists (select 1 from public.products);
 
 -- After registering the owner, replace the email and run this statement:
 -- update public.profiles set role = 'admin' where email = 'TU_CORREO@EJEMPLO.COM';
+
+-- ── Envíos y pedidos ──────────────────────────────────────────────────────
+
+create table if not exists public.shipping_rates (
+  region text primary key,
+  cost integer not null check (cost >= 0),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.shipping_rates enable row level security;
+revoke all on public.shipping_rates from anon, authenticated;
+grant select on public.shipping_rates to anon, authenticated;
+grant insert, update, delete on public.shipping_rates to authenticated;
+
+drop policy if exists "shipping_public_read" on public.shipping_rates;
+create policy "shipping_public_read" on public.shipping_rates
+for select to anon, authenticated using (true);
+drop policy if exists "shipping_admin_write" on public.shipping_rates;
+create policy "shipping_admin_write" on public.shipping_rates
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+insert into public.shipping_rates (region, cost) values
+  ('Arica y Parinacota', 6990), ('Tarapacá', 6990), ('Antofagasta', 6990),
+  ('Atacama', 5990), ('Coquimbo', 5990), ('Valparaíso', 3990),
+  ('Metropolitana de Santiago', 2990), ('Libertador General Bernardo O''Higgins', 3990),
+  ('Maule', 3990), ('Ñuble', 4990), ('Biobío', 4990), ('La Araucanía', 4990),
+  ('Los Ríos', 5990), ('Los Lagos', 5990), ('Aysén del General Carlos Ibáñez del Campo', 8990),
+  ('Magallanes y de la Antártica Chilena', 8990)
+on conflict (region) do nothing;
+
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  customer_name text not null,
+  customer_email text not null,
+  customer_phone text not null,
+  region text not null,
+  comuna text not null,
+  address text not null,
+  address_extra text,
+  items jsonb not null default '[]'::jsonb,
+  subtotal integer not null check (subtotal >= 0),
+  shipping_cost integer not null check (shipping_cost >= 0),
+  total integer not null check (total >= 0),
+  status text not null default 'pending' check (status in ('pending', 'paid', 'shipped', 'delivered', 'cancelled')),
+  tracking_number text,
+  mp_preference_id text,
+  mp_payment_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists orders_created_at_idx on public.orders (created_at desc);
+create index if not exists orders_mp_preference_idx on public.orders (mp_preference_id);
+
+alter table public.orders enable row level security;
+revoke all on public.orders from anon, authenticated;
+grant select on public.orders to authenticated;
+grant update on public.orders to authenticated;
+
+drop policy if exists "orders_read_own_or_admin" on public.orders;
+create policy "orders_read_own_or_admin" on public.orders
+for select to authenticated using ((select auth.uid()) = user_id or public.is_admin());
+drop policy if exists "orders_admin_update" on public.orders;
+create policy "orders_admin_update" on public.orders
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- Los pedidos se crean y confirman desde el servidor (Route Handler) usando la
+-- service role key, que ignora RLS — por eso no hay política de "insert" pública.
+
+-- Función pública de solo lectura para la página de confirmación: expone lo
+-- mínimo (sin correo, teléfono ni dirección) para cualquiera con el UUID del
+-- pedido, sin abrir la tabla completa a usuarios anónimos.
+create or replace function public.get_order_public(order_id uuid)
+returns table (id uuid, status text, region text, comuna text, items jsonb, subtotal integer, shipping_cost integer, total integer)
+language sql
+stable
+security definer set search_path = public
+as $$
+  select id, status, region, comuna, items, subtotal, shipping_cost, total
+  from public.orders
+  where id = order_id;
+$$;
+
+revoke all on function public.get_order_public(uuid) from public;
+grant execute on function public.get_order_public(uuid) to anon, authenticated;

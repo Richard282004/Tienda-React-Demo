@@ -10,6 +10,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
+import { orderStatusLabel, type Order, type OrderStatus, type ShippingRate } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import './admin.css';
 
@@ -20,10 +21,15 @@ const emptyProduct: ProductDraft = {
   name: '', description: '', type: 'Llaveros', price: 0, color: '#f3dedb', art: '🧶', image_url: null, tag: '', active: true, sort_order: 0,
 };
 
+const formatPrice = (price: number) =>
+  new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
+
 export default function AdminPage() {
   const [state, setState] = useState<AdminState>('loading');
   const [products, setProducts] = useState<Product[]>([]);
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -34,13 +40,30 @@ export default function AdminPage() {
 
   const loadAdminData = async () => {
     if (!supabase) return;
-    const [{ data: productRows, error: productError }, { data: contentRow, error: contentError }] = await Promise.all([
+    const [{ data: productRows, error: productError }, { data: contentRow, error: contentError }, { data: orderRows }, { data: rateRows }] = await Promise.all([
       supabase.from('products').select('*').order('sort_order'),
       supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
+      supabase.from('orders').select('*').order('created_at', { ascending: false }),
+      supabase.from('shipping_rates').select('region, cost').order('region'),
     ]);
     if (productError || contentError) { setMessage(productError?.message ?? contentError?.message ?? 'No se pudo cargar la información.'); return; }
     setProducts((productRows ?? []) as Product[]);
     if (contentRow?.value) setContent({ ...defaultStoreContent, ...(contentRow.value as Partial<StoreContent>) });
+    setOrders((orderRows ?? []) as Order[]);
+    if (rateRows?.length) setShippingRates(rateRows as ShippingRate[]);
+  };
+
+  const updateOrder = async (orderId: string, patch: Partial<Pick<Order, 'status' | 'tracking_number'>>) => {
+    if (!supabase) return;
+    setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...patch } : order)));
+    const { error } = await supabase.from('orders').update(patch).eq('id', orderId);
+    if (error) setMessage(error.message);
+  };
+
+  const saveShippingRate = async (region: string, cost: number) => {
+    if (!supabase) return;
+    const { error } = await supabase.from('shipping_rates').update({ cost, updated_at: new Date().toISOString() }).eq('region', region);
+    setMessage(error ? error.message : `Costo de envío actualizado para ${region}.`);
   };
 
   const resolveSession = async () => {
@@ -142,7 +165,45 @@ export default function AdminPage() {
     <header className="admin-header"><div><p className="admin-kicker">Lúmina · Panel privado</p><h1>Administración de la tienda</h1></div><div><a href="/">Ver tienda</a><Button variant="outline" onClick={logout}><LogOut size={16} /> Salir</Button></div></header>
     {message && <div className="admin-message success"><Check size={16} /> {message}</div>}
     <Tabs defaultValue="products" className="admin-tabs">
-      <TabsList className="admin-tabs-list"><TabsTrigger value="products">Productos</TabsTrigger><TabsTrigger value="content">Textos y contacto</TabsTrigger></TabsList>
+      <TabsList className="admin-tabs-list"><TabsTrigger value="products">Productos</TabsTrigger><TabsTrigger value="orders">Pedidos</TabsTrigger><TabsTrigger value="shipping">Envíos</TabsTrigger><TabsTrigger value="content">Textos y contacto</TabsTrigger></TabsList>
+      <TabsContent value="orders">
+        <div className="admin-section-heading"><div><h2>Pedidos</h2><p>{orders.length} pedidos recibidos</p></div></div>
+        {orders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Aún no hay pedidos</h3><p>Aquí aparecerán las compras pagadas con Mercado Pago.</p></div> : (
+          <div className="orders-list">
+            {orders.map((order) => (
+              <article className="order-card" key={order.id}>
+                <div className="order-card-header">
+                  <div><strong>#{order.id.slice(0, 8)}</strong><span>{new Date(order.created_at).toLocaleString('es-CL')}</span></div>
+                  <span className={`order-status-badge status-${order.status}`}>{orderStatusLabel[order.status]}</span>
+                </div>
+                <div className="order-card-body">
+                  <div><span>Cliente</span><p>{order.customer_name} · {order.customer_email} · {order.customer_phone}</p></div>
+                  <div><span>Dirección</span><p>{order.address}{order.address_extra ? `, ${order.address_extra}` : ''}, {order.comuna}, {order.region}</p></div>
+                  <div><span>Productos</span><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}>{item.quantity}× {item.name} — {formatPrice(item.unitPrice * item.quantity)}</li>)}</ul></div>
+                  <div><span>Total</span><p><strong>{formatPrice(order.total)}</strong> (envío {formatPrice(order.shipping_cost)})</p></div>
+                </div>
+                <div className="order-card-actions">
+                  <label>Estado<NativeSelect className="admin-select" value={order.status} onChange={(event) => void updateOrder(order.id, { status: event.target.value as OrderStatus })}>
+                    {(Object.keys(orderStatusLabel) as OrderStatus[]).map((status) => <NativeSelectOption key={status} value={status}>{orderStatusLabel[status]}</NativeSelectOption>)}
+                  </NativeSelect></label>
+                  <label>N° de seguimiento<Input value={order.tracking_number ?? ''} placeholder="Ej: 1234567890" onBlur={(event) => void updateOrder(order.id, { tracking_number: event.target.value || null })} onChange={(event) => setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, tracking_number: event.target.value } : item)))} /></label>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </TabsContent>
+      <TabsContent value="shipping">
+        <div className="admin-section-heading"><div><h2>Costos de envío</h2><p>Se aplican según la región que elige el cliente al pagar.</p></div></div>
+        <div className="shipping-rates-grid">
+          {shippingRates.map((rate) => (
+            <div className="shipping-rate-row" key={rate.region}>
+              <span>{rate.region}</span>
+              <Input type="number" min="0" defaultValue={rate.cost} onBlur={(event) => void saveShippingRate(rate.region, Number(event.target.value))} />
+            </div>
+          ))}
+        </div>
+      </TabsContent>
       <TabsContent value="products">
         <div className="admin-section-heading"><div><h2>Productos</h2><p>{products.length} productos en el catálogo</p></div><Button onClick={openNewProduct}><PackagePlus size={17} /> Nuevo producto</Button></div>
         <div className="admin-product-grid">{products.length ? products.map((product) => <article className="admin-product" key={product.id}><div className="admin-product-image" style={{ backgroundColor: product.color }}>{product.image_url ? <img src={product.image_url} alt={product.name} /> : product.art}</div><div className="admin-product-info"><span>{product.type} · {product.active ? 'Publicado' : 'Oculto'}</span><h3>{product.name}</h3><strong>${product.price.toLocaleString('es-CL')}</strong></div><div className="admin-product-actions"><Button size="icon-sm" variant="outline" onClick={() => openEditProduct(product)} aria-label={`Editar ${product.name}`}><Pencil /></Button><Button size="icon-sm" variant="destructive" onClick={() => deleteProduct(product)} aria-label={`Eliminar ${product.name}`}><Trash2 /></Button></div></article>) : <div className="admin-empty"><ImagePlus size={34} /><h3>Aún no hay productos</h3><p>Crea el primero para mostrarlo en la tienda.</p><Button onClick={openNewProduct}>Crear producto</Button></div>}</div>
