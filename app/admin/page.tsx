@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { orderStatusLabel, type Order, type OrderStatus, type ShippingRate } from '@/lib/orders';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import './admin.css';
 
 type AdminState = 'loading' | 'setup' | 'login' | 'denied' | 'ready';
@@ -57,7 +57,7 @@ export default function AdminPage() {
     if (!supabase) return;
     setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...patch } : order)));
     const { error } = await supabase.from('orders').update(patch).eq('id', orderId);
-    if (error) setMessage(error.message);
+    if (error) { setMessage(error.message); await loadAdminData(); }
   };
 
   const saveShippingRate = async (region: string, cost: number) => {
@@ -79,7 +79,7 @@ export default function AdminPage() {
   useEffect(() => {
     void resolveSession();
     if (!supabase) return;
-    const { data } = supabase.auth.onAuthStateChange(() => void resolveSession());
+    const { data } = supabase.auth.onAuthStateChange(() => { window.setTimeout(() => void resolveSession(), 0); });
     return () => data.subscription.unsubscribe();
   }, []);
 
