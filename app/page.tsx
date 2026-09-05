@@ -259,8 +259,17 @@ export default function Home() {
 
   const handleGoogleLogin = async () => {
     if (!supabase) { setAccountMessage('El acceso a cuentas no está disponible por el momento.'); return; }
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
-    if (error) setAccountMessage(error.message);
+    if (accountBusy) return;
+    setAccountBusy(true);
+    setAccountMessage('');
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/` } });
+      if (error) setAccountMessage('No pudimos abrir Google. Inténtalo de nuevo en unos momentos.');
+    } catch {
+      setAccountMessage('No pudimos conectar con Google. Revisa tu conexión e inténtalo de nuevo.');
+    } finally {
+      setAccountBusy(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -367,7 +376,7 @@ export default function Home() {
               <Button disabled={accountBusy || !isSupabaseConfigured} type="submit" className="primary-button account-submit">{accountBusy ? 'Procesando...' : accountMode === 'login' ? 'Iniciar sesión' : 'Registrarme'} <ArrowRight size={16} /></Button>
             </form>
             <div className="login-divider"><span /> o <span /></div>
-            <Button variant="outline" className="google-button" disabled={!isSupabaseConfigured} onClick={handleGoogleLogin}><strong>G</strong> Continuar con Google</Button>
+            <Button variant="outline" className="google-button" disabled={!isSupabaseConfigured || accountBusy} onClick={handleGoogleLogin}><strong>G</strong> Continuar con Google</Button>
             {!isSupabaseConfigured && <p className="account-message">El acceso a cuentas no está disponible por el momento.</p>}
             <p className="account-switch">{accountMode === 'login' ? '¿Aún no tienes cuenta?' : '¿Ya tienes una cuenta?'} <button onClick={() => { setAccountMode(accountMode === 'login' ? 'register' : 'login'); setAccountMessage(''); }}>{accountMode === 'login' ? 'Regístrate' : 'Inicia sesión'}</button></p>
           </>}
