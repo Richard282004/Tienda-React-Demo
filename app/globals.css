@@ -237,7 +237,7 @@ h2 { font-size: clamp(34px, 3.6vw, 50px); line-height: 1.13; }
 .account-form input, .checkout-form input, .checkout-form select { min-height: 46px; font-size: 16px; }
 .account-message { color: #873452; }
 .checkout-summary > div { font-size: 14px; }
-.cart-panel { position: fixed !important; inset: 0 0 0 auto !important; transform: none !important; translate: none !important; width: min(460px, 100%) !important; max-width: none !important; height: 100dvh; max-height: 100dvh; border-radius: 22px 0 0 22px !important; padding: 32px 24px !important; display: flex !important; gap: 0 !important; }
+.cart-panel { position: fixed !important; top: 0 !important; right: 0 !important; bottom: 0 !important; left: auto !important; margin: 0 !important; inset: 0 0 0 auto !important; transform: none !important; translate: 0 0 !important; width: min(460px, 100%) !important; max-width: none !important; height: 100dvh; max-height: 100dvh; border-radius: 22px 0 0 22px !important; padding: 32px 24px !important; display: flex !important; gap: 0 !important; }
 .cart-heading { padding-right: 25px; }
 .cart-heading [data-slot='dialog-title'] { font-family: Georgia, serif; font-size: 34px; font-weight: 400; }
 .cart-items { min-height: 0; }
