@@ -1,7 +1,7 @@
 import { sites } from '@openai/sites-vite-plugin';
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import hostingConfig from './.openai/hosting.json';
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
@@ -34,7 +34,11 @@ const localBindingConfig = {
     : [],
 };
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ command, mode }) => {
+  const publicConfig = { ...loadEnv(mode, process.cwd(), 'VITE_SUPABASE_'), ...process.env };
+  if (command === 'build' && (!publicConfig.VITE_SUPABASE_URL || !publicConfig.VITE_SUPABASE_PUBLISHABLE_KEY)) {
+    throw new Error('Falta la configuración pública de Supabase al compilar. Configura VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY para no publicar la tienda con el acceso deshabilitado.');
+  }
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
   process.env.WRANGLER_WRITE_LOGS ??= 'false';
