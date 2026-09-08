@@ -320,7 +320,7 @@ create table if not exists public.discount_codes (
 
 alter table public.discount_codes enable row level security;
 revoke all on public.discount_codes from anon, authenticated;
-grant insert, update, delete on public.discount_codes to authenticated;
+grant select, insert, update, delete on public.discount_codes to authenticated;
 
 drop policy if exists "discount_codes_admin_all" on public.discount_codes;
 create policy "discount_codes_admin_all" on public.discount_codes

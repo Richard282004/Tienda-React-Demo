@@ -122,9 +122,13 @@ export async function POST(request: Request) {
     }
 
     const total = subtotal - discountAmount + shippingCost;
-    if (!Number.isSafeInteger(total) || total <= 0 || total > 2_147_483_647) {
+    if (!Number.isSafeInteger(total) || total < 0 || total > 2_147_483_647) {
       return NextResponse.json({ error: "El importe del pedido no es válido." }, { status: 400 });
     }
+    // Un descuento del 100% (más envío gratis) puede dejar el total en $0. En
+    // ese caso no tiene sentido pasar por Mercado Pago: el pedido se marca
+    // pagado directamente.
+    const isFreeOrder = total === 0;
 
     const { error: reserveError } = await supabase.rpc("reserve_order_stock", {
       items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
@@ -152,7 +156,7 @@ export async function POST(request: Request) {
         discount_code: discountCode,
         discount_amount: discountAmount,
         total,
-        status: "pending",
+        status: isFreeOrder ? "paid" : "pending",
       })
       .select("id")
       .single();
@@ -171,6 +175,18 @@ export async function POST(request: Request) {
       } catch {
         /* No crítico: si falla, el uso simplemente no queda contabilizado. */
       }
+    }
+
+    if (isFreeOrder) {
+      const resendApiKey = env.RESEND_API_KEY;
+      if (resendApiKey) {
+        try {
+          await sendOrderConfirmationEmail({ apiKey: resendApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total });
+        } catch {
+          /* El correo es un complemento: si falla, el pedido sigue su curso normal. */
+        }
+      }
+      return NextResponse.json({ orderId: order.id, initPoint: `${new URL(request.url).origin}/pedido/confirmacion?order=${order.id}` });
     }
 
     try {
