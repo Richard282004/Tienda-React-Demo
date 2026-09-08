@@ -550,7 +550,7 @@ export default function Home() {
       {notice && <div className="notice" role="status"><Check size={16} /> {notice}</div>}
 
       <Dialog open={cartOpen} onOpenChange={setCartOpen}>
-        <DialogContent className="cart-panel">
+        <DialogContent className="cart-panel" style={{ transform: 'none', translate: 'none' }}>
           <DialogHeader className="cart-heading"><p className="section-kicker">Tu selección</p><DialogTitle>Tu bolsita ({cartProducts.length})</DialogTitle><DialogDescription>Tus próximos compañeros, hechos a mano.</DialogDescription></DialogHeader>
           {cartProducts.length === 0 ? <div className="empty-cart"><span aria-hidden="true">♡</span><p>Tu bolsita está esperando<br />algo bonito.</p><Button className="primary-button" onClick={() => { setCartOpen(false); document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' }); }}>Explorar tienda</Button></div> : <>
             <div className="cart-items">{cartProducts.map((product, index) => <div className="cart-item" key={`${product.id}-${index}`}><div className="cart-thumb" style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></div><div><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div><button aria-label={`Eliminar una unidad de ${product.name}`} onClick={() => setCart((current) => { const at = current.indexOf(product.id); return current.filter((_, i) => i !== at); })}><Minus size={15} /></button></div>)}</div>
