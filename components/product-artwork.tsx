@@ -13,6 +13,10 @@ export function ProductArtwork({ product, className }: { product: Product; class
         alt={product.name}
         loading="lazy"
         decoding="async"
+        style={{
+          objectPosition: `${product.image_position_x ?? 50}% ${product.image_position_y ?? 50}%`,
+          transform: `scale(${product.image_zoom ?? 1})`,
+        }}
         onError={() => setFailedUrl(product.image_url ?? null)}
       />
     );

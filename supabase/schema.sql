@@ -18,6 +18,9 @@ create table if not exists public.products (
   color text not null default '#f3dedb',
   art text not null default '🧶',
   image_url text,
+  image_position_x integer not null default 50 check (image_position_x between 0 and 100),
+  image_position_y integer not null default 50 check (image_position_y between 0 and 100),
+  image_zoom numeric not null default 1 check (image_zoom between 1 and 3),
   tag text,
   active boolean not null default true,
   sort_order integer not null default 0,
@@ -32,6 +35,9 @@ create table if not exists public.site_content (
 );
 
 alter table public.products add column if not exists description text;
+alter table public.products add column if not exists image_position_x integer not null default 50 check (image_position_x between 0 and 100);
+alter table public.products add column if not exists image_position_y integer not null default 50 check (image_position_y between 0 and 100);
+alter table public.products add column if not exists image_zoom numeric not null default 1 check (image_zoom between 1 and 3);
 
 create or replace function public.handle_new_user()
 returns trigger

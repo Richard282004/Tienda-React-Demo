@@ -7,6 +7,9 @@ export type Product = {
   color: string;
   art: string;
   image_url?: string | null;
+  image_position_x?: number;
+  image_position_y?: number;
+  image_zoom?: number;
   tag?: string | null;
   active?: boolean;
   sort_order?: number;
