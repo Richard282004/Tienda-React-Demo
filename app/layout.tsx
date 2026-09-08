@@ -20,6 +20,7 @@ export const metadata: Metadata = {
     images: [{ url: '/lumina-hero.png', width: 1200, height: 630, alt: 'Llaveros y peluches Lúmina' }],
   },
   twitter: { card: 'summary_large_image', title: 'Lúmina — Amiguitos tejidos a mano', description: 'Llaveros y peluches de crochet hechos a mano.', images: ['/lumina-hero.png'] },
+  icons: { icon: '/favicon.svg' },
 };
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };
 
