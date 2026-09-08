@@ -29,6 +29,7 @@ const formatPrice = (price: number) =>
 
 export default function AdminPage() {
   const [state, setState] = useState<AdminState>('loading');
+  const [activeTab, setActiveTab] = useState('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -356,12 +357,12 @@ export default function AdminPage() {
     <header className="admin-header"><div><p className="admin-kicker">{content.brandName} · Panel privado</p><h1>Administración de la tienda</h1></div><div><a href="/" target="_blank" rel="noopener noreferrer">Ver tienda ↗</a><Button variant="outline" onClick={logout}><LogOut size={16} /> Salir</Button></div></header>
     {message && <div className="admin-message success"><Check size={16} /> {message}</div>}
     <div className="stat-cards">
-      <div className="stat-card"><div className="stat-icon revenue"><DollarSign size={18} /></div><div><span>Ventas este mes</span><strong>{formatPrice(revenueThisMonth)}</strong></div></div>
-      <div className="stat-card"><div className="stat-icon orders"><Clock size={18} /></div><div><span>Por despachar</span><strong>{pendingShipmentCount}</strong></div></div>
-      <div className="stat-card"><div className="stat-icon stock"><AlertTriangle size={18} /></div><div><span>Stock bajo</span><strong>{lowStockCount}</strong></div></div>
-      <div className="stat-card"><div className="stat-icon products"><Package size={18} /></div><div><span>Productos activos</span><strong>{products.filter((product) => product.active !== false).length}</strong></div></div>
+      <button type="button" className="stat-card" onClick={() => setActiveTab('orders')}><div className="stat-icon revenue"><DollarSign size={18} /></div><div><span>Ventas este mes</span><strong>{formatPrice(revenueThisMonth)}</strong></div></button>
+      <button type="button" className="stat-card" onClick={() => setActiveTab('orders')}><div className="stat-icon orders"><Clock size={18} /></div><div><span>Por despachar</span><strong>{pendingShipmentCount}</strong></div></button>
+      <button type="button" className="stat-card" onClick={() => setActiveTab('products')}><div className="stat-icon stock"><AlertTriangle size={18} /></div><div><span>Stock bajo</span><strong>{lowStockCount}</strong></div></button>
+      <button type="button" className="stat-card" onClick={() => setActiveTab('products')}><div className="stat-icon products"><Package size={18} /></div><div><span>Productos activos</span><strong>{products.filter((product) => product.active !== false).length}</strong></div></button>
     </div>
-    <Tabs defaultValue="products" className="admin-tabs" orientation="vertical">
+    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as string)} className="admin-tabs" orientation="vertical">
       <TabsList className="admin-tabs-list">
         <TabsTrigger value="products"><Package size={17} /> Productos</TabsTrigger>
         <TabsTrigger value="orders"><Truck size={17} /> Pedidos</TabsTrigger>
