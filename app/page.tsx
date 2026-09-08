@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   ArrowLeft,
@@ -12,7 +12,6 @@ import {
   Mail,
   MessageCircle,
   Menu,
-  Minus,
   Pause,
   Play,
   Phone,
@@ -21,22 +20,19 @@ import {
   ShoppingBag,
   Sparkles,
   Star,
-  Trash2,
   Truck,
   UserRound,
   X,
 } from 'lucide-react';
 
 import { ProductArtwork } from '@/components/product-artwork';
-import { calculateShipping } from '@/lib/checkout-validation';
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { defaultProducts, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
-import { CHILE_REGIONS, COMUNAS_BY_REGION, type Faq, type ProductImage, type Review, type ShippingRate, type ShowcaseItem } from '@/lib/orders';
+import { type Faq, type ProductImage, type Review, type ShowcaseItem } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { t, type Lang } from '@/lib/i18n';
 
@@ -51,11 +47,9 @@ export default function Home() {
   const [storeError, setStoreError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
-  const checkoutLock = useRef(false);
   const [category, setCategory] = useState('Todo');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [cart, setCart] = useState<string[]>([]);
-  const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -108,23 +102,9 @@ export default function Home() {
     const term = search.trim().toLowerCase();
     return term ? products.filter((product) => `${product.name} ${product.type}`.toLowerCase().includes(term)) : products.slice(0, 4);
   }, [search, products]);
-  const cartProducts = cart.map((id) => products.find((product) => product.id === id)).filter(Boolean) as Product[];
-  const groupedCart = useMemo(() => {
-    const counts = new Map<string, number>();
-    cart.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
-    return [...counts.entries()]
-      .map(([id, quantity]) => ({ product: products.find((product) => product.id === id), quantity }))
-      .filter((group): group is { product: Product; quantity: number } => !!group.product);
-  }, [cart, products]);
-  const total = cartProducts.reduce((sum, product) => sum + product.price, 0);
-  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [checkoutBusy, setCheckoutBusy] = useState(false);
-  const [checkoutError, setCheckoutError] = useState('');
-  const [shipping, setShipping] = useState({ name: '', email: '', phone: '', region: '', comuna: '', address: '', addressExtra: '' });
   const [productImages, setProductImages] = useState<Record<string, ProductImage[]>>({});
   const [reviews, setReviews] = useState<Record<string, Review[]>>({});
   const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
@@ -134,69 +114,6 @@ export default function Home() {
   const [reviewComment, setReviewComment] = useState('');
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewMessage, setReviewMessage] = useState('');
-  const [discountInput, setDiscountInput] = useState('');
-  const [discountChecking, setDiscountChecking] = useState(false);
-  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number } | null>(null);
-  const shippingCost = calculateShipping(total, shippingRates.find((rate) => rate.region === shipping.region)?.cost);
-  const shippingComplete = Boolean(
-    shipping.name.trim() &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shipping.email.trim()) &&
-    shipping.phone.trim() &&
-    shipping.region &&
-    shipping.comuna.trim() &&
-    shipping.address.trim(),
-  );
-  const discountAmount = appliedDiscount ? Math.min(total, appliedDiscount.amount) : 0;
-  const grandTotal = total - discountAmount + (shippingCost ?? 0);
-
-  const applyDiscountCode = async () => {
-    if (!supabase || !discountInput.trim()) return;
-    setDiscountChecking(true);
-    setCheckoutError('');
-    const { data } = await supabase.rpc('preview_discount_code', { p_code: discountInput.trim(), p_subtotal: total });
-    const row = Array.isArray(data) ? data[0] : null;
-    setDiscountChecking(false);
-    if (!row?.valid) { setAppliedDiscount(null); setCheckoutError(row?.message ?? 'Código no válido.'); return; }
-    setAppliedDiscount({ code: discountInput.trim().toUpperCase(), amount: row.discount_amount });
-  };
-
-  const handleCheckout = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (checkoutLock.current) return;
-    if (!cartProducts.length) return;
-    if (!shippingComplete) { setCheckoutError('Completa todos tus datos de envío antes de pagar.'); return; }
-    if (shippingCost === null) { setCheckoutError('Selecciona una región con envío disponible.'); return; }
-    checkoutLock.current = true;
-    setCheckoutBusy(true);
-    setCheckoutError('');
-    const counts = new Map<string, number>();
-    cart.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
-    try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: [...counts.entries()].map(([productId, quantity]) => ({ productId, quantity })),
-          customerName: shipping.name,
-          customerEmail: shipping.email,
-          customerPhone: shipping.phone,
-          region: shipping.region,
-          comuna: shipping.comuna,
-          address: shipping.address,
-          addressExtra: shipping.addressExtra,
-          discountCode: appliedDiscount?.code,
-        }),
-      });
-      const data = (await response.json()) as { initPoint?: string; error?: string };
-      if (!response.ok || !data.initPoint) { setCheckoutError(data.error ?? 'No se pudo iniciar el pago.'); return; }
-      window.location.href = data.initPoint;
-    } catch {
-      setCheckoutError('No se pudo conectar con el servidor de pagos.');
-    } finally {
-      checkoutLock.current = false;
-      setCheckoutBusy(false);
-    }
-  };
 
   const addToCart = (id: string) => {
     const product = products.find((item) => item.id === id);
@@ -206,17 +123,6 @@ export default function Home() {
     setCart((current) => [...current, id]);
     setNotice('Agregado a tu bolsita');
     window.setTimeout(() => setNotice(''), 2200);
-  };
-
-  const incrementCartItem = (id: string) => {
-    const product = products.find((item) => item.id === id);
-    const inCart = cart.filter((item) => item === id).length;
-    if (product?.stock != null && inCart >= product.stock) return;
-    setCart((current) => [...current, id]);
-  };
-
-  const decrementCartItem = (id: string) => {
-    setCart((current) => { const at = current.indexOf(id); if (at === -1) return current; return current.filter((_, i) => i !== at); });
   };
 
   useEffect(() => {
@@ -254,10 +160,9 @@ export default function Home() {
     };
     const loadStore = async () => {
       try {
-        const [catalog, settings, rates, gallery, reviewRows, showcaseRows, faqRows] = await Promise.all([
+        const [catalog, settings, gallery, reviewRows, showcaseRows, faqRows] = await Promise.all([
           client.from('products').select('*').eq('active', true).order('sort_order'),
           client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
-          client.from('shipping_rates').select('region, cost').order('region'),
           client.from('product_images').select('*').order('sort_order'),
           client.from('reviews').select('*').order('created_at', { ascending: false }),
           client.from('showcase_items').select('*').eq('active', true).order('sort_order'),
@@ -269,7 +174,6 @@ export default function Home() {
         const available = new Set((catalog.data ?? []).map((product) => product.id));
         setCart((current) => current.filter((id) => available.has(id)));
         if (settings.data?.value) setContent({ ...defaultStoreContent, ...(settings.data.value as Partial<StoreContent>) });
-        setShippingRates((rates.data ?? []) as ShippingRate[]);
         const imagesByProduct: Record<string, ProductImage[]> = {};
         for (const image of (gallery.data ?? []) as ProductImage[]) (imagesByProduct[image.product_id] ??= []).push(image);
         setProductImages(imagesByProduct);
@@ -467,7 +371,7 @@ export default function Home() {
           <button aria-label={lang === 'es' ? 'Switch to English' : 'Cambiar a español'} className="lang-toggle" onClick={toggleLang}>{lang === 'es' ? 'EN' : 'ES'}</button>
           <Button aria-label="Buscar productos" variant="ghost" size="icon" className={`icon-button ${searchOpen ? 'active' : ''}`} onClick={() => setSearchOpen((open) => !open)}><Search size={19} /></Button>
           <Button aria-label="Mi cuenta" variant="ghost" size="icon" className="icon-button account-icon" onClick={() => openAccount('login')}><UserRound size={19} /></Button>
-          <Button aria-label={`Abrir bolsita, ${cart.length} productos`} variant="ghost" size="icon" className="bag-button" onClick={() => setCartOpen(true)}><ShoppingBag size={19} />{cart.length > 0 && <span key={cart.length} className="bag-badge">{cart.length}</span>}</Button>
+          <Button aria-label={`Abrir bolsita, ${cart.length} productos`} variant="ghost" size="icon" className="bag-button" onClick={() => { window.location.href = '/carrito'; }}><ShoppingBag size={19} />{cart.length > 0 && <span key={cart.length} className="bag-badge">{cart.length}</span>}</Button>
           <Button aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"} aria-expanded={menuOpen} aria-controls="main-navigation" variant="ghost" size="icon" className="menu-button" onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={21} /> : <Menu size={21} />}</Button>
         </div>
       </header>
@@ -571,7 +475,7 @@ export default function Home() {
 
       <footer id="contacto" className="site-footer page-width"><div className="footer-brand"><span className="brand-mark">✦</span><span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span></div><div className="footer-contact"><p>{lang === 'en' && content.footerCta_en ? content.footerCta_en : content.footerCta}</p><a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a><a href={`mailto:${content.email}`}><Mail size={14} /> {content.email}</a></div><div className="footer-links"><a href="#inicio">{tr('navHome')}</a><a href="#tienda">{tr('navShop')}</a><a href="#nosotros">{tr('navAbout')}</a><a href="/terminos">Términos y condiciones</a><a href="/privacidad">Privacidad</a></div></footer>
 
-      {cart.length > 0 && scrolledPastHeader && <button type="button" className="cart-fab" onClick={() => setCartOpen(true)} aria-label={`Abrir bolsita, ${cart.length} productos`}><ShoppingBag size={22} /><span key={cart.length} className="cart-fab-badge">{cart.length}</span></button>}
+      {cart.length > 0 && scrolledPastHeader && <button type="button" className="cart-fab" onClick={() => { window.location.href = '/carrito'; }} aria-label={`Abrir bolsita, ${cart.length} productos`}><ShoppingBag size={22} /><span key={cart.length} className="cart-fab-badge">{cart.length}</span></button>}
       {content.whatsapp && <a className="whatsapp-fab" href={`https://wa.me/${content.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" aria-label="Escríbenos por WhatsApp"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.18 3.03 14.69 2 12.04 2Zm0 18.12h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.19 8.19 0 0 1-1.26-4.33c0-4.53 3.69-8.22 8.23-8.22 2.2 0 4.26.86 5.82 2.41a8.16 8.16 0 0 1 2.41 5.82c0 4.53-3.69 8.2-8.2 8.2Zm4.51-6.15c-.25-.12-1.46-.72-1.68-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.16-.29.18-.53.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.83-.2-.48-.4-.42-.56-.42-.14 0-.31-.02-.47-.02s-.43.06-.66.31c-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.16 1.75 2.67 4.24 3.74.59.25 1.05.4 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.46-.6 1.66-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28Z" /></svg></a>}
 
       <Dialog open={!!galleryProduct} onOpenChange={(open) => !open && setGalleryProduct(null)}>
@@ -633,51 +537,6 @@ export default function Home() {
 
       {notice && <div className="notice" role="status"><Check size={16} /> {notice}</div>}
 
-      <Dialog open={cartOpen} onOpenChange={setCartOpen}>
-        <DialogContent className="cart-panel" style={{ transform: 'none', translate: 'none' }}>
-          <DialogHeader className="cart-heading"><p className="section-kicker">{tr('yourBag')}</p><DialogTitle>{tr('yourBag')} ({cartProducts.length})</DialogTitle><DialogDescription>Tus próximos compañeros, hechos a mano.</DialogDescription>{cartProducts.length > 0 && <button type="button" className="clear-cart" onClick={() => setCart([])}><Trash2 size={13} /> {tr('clearCart')}</button>}</DialogHeader>
-          {cartProducts.length === 0 ? <div className="empty-cart"><span aria-hidden="true">♡</span><p>Tu bolsita está esperando<br />algo bonito.</p><Button className="primary-button" onClick={() => { setCartOpen(false); document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' }); }}>Explorar tienda</Button></div> : <>
-            <div className="cart-items">{groupedCart.map(({ product, quantity }) => <div className="cart-item" key={product.id}><div className="cart-thumb" style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></div><div><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div><div className="cart-qty"><button aria-label={`Quitar una unidad de ${product.name}`} onClick={() => decrementCartItem(product.id)}><Minus size={14} /></button><span>{quantity}</span><button aria-label={`Agregar una unidad de ${product.name}`} disabled={product.stock != null && quantity >= product.stock} onClick={() => incrementCartItem(product.id)}><Plus size={14} /></button></div></div>)}</div>
-            <div className="cart-total"><span>{tr('subtotal')}</span><strong>{formatPrice(total)}</strong></div><p className="cart-shipping-note">El envío se calcula al elegir tu región.</p><Button className="primary-button checkout-button" disabled={storeLoading || !!storeError} onClick={() => { setCartOpen(false); setCheckoutError(''); setCheckoutOpen(true); }}>{tr('checkout')} <ArrowRight size={17} /></Button>
-          </>}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
-        <DialogContent className="checkout-dialog">
-          <DialogHeader><DialogTitle>Datos de envío</DialogTitle><DialogDescription>Necesitamos esto para calcular el envío y despachar tu pedido.</DialogDescription></DialogHeader>
-          <form className="checkout-form" onSubmit={handleCheckout}>
-            <label>Nombre completo<Input required autoComplete="name" maxLength={120} value={shipping.name} onChange={(event) => setShipping({ ...shipping, name: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
-            <label>Correo electrónico<Input required autoComplete="email" type="email" maxLength={254} value={shipping.email} onChange={(event) => setShipping({ ...shipping, email: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
-            <label>Teléfono<Input required type="tel" autoComplete="tel" maxLength={40} value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /><small className="field-required">Campo obligatorio</small></label>
-            <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value, comuna: '' })}>
-              <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
-              {CHILE_REGIONS.map((region) => <NativeSelectOption key={region} value={region}>{region}</NativeSelectOption>)}
-            </NativeSelect><small className="field-required">Campo obligatorio</small></label>
-            <label>Comuna{shipping.region && COMUNAS_BY_REGION[shipping.region] ? <NativeSelect required className="admin-select" value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })}>
-              <NativeSelectOption value="">Selecciona tu comuna</NativeSelectOption>
-              {COMUNAS_BY_REGION[shipping.region].map((comuna) => <NativeSelectOption key={comuna} value={comuna}>{comuna}</NativeSelectOption>)}
-            </NativeSelect> : <Input required maxLength={120} value={shipping.comuna} placeholder="Elige primero tu región" disabled={!shipping.region} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} />}<small className="field-required">Campo obligatorio</small></label>
-            <label>Dirección<Input required autoComplete="address-line1" maxLength={250} value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /><small className="field-required">Campo obligatorio</small></label>
-            <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
-            <label className="discount-field">Código de descuento (opcional)
-              <div className="discount-input-row">
-                <Input value={discountInput} onChange={(event) => { setDiscountInput(event.target.value); setAppliedDiscount(null); }} placeholder="EJ: BIENVENIDA10" />
-                <Button type="button" variant="outline" disabled={discountChecking || !discountInput.trim()} onClick={applyDiscountCode}>{discountChecking ? '...' : 'Aplicar'}</Button>
-              </div>
-              {appliedDiscount && <small className="discount-applied">✓ Código {appliedDiscount.code} aplicado: -{formatPrice(appliedDiscount.amount)}</small>}
-            </label>
-            <div className="checkout-summary">
-              <div><span>Productos</span><strong>{formatPrice(total)}</strong></div>
-              {discountAmount > 0 && <div><span>Descuento</span><strong>-{formatPrice(discountAmount)}</strong></div>}
-              <div><span>Envío{shipping.region ? '' : ' (elige región)'}</span><strong>{shipping.region ? (shippingCost === null ? 'No disponible' : shippingCost === 0 ? 'Gratis' : formatPrice(shippingCost)) : '—'}</strong></div>
-              <div className="checkout-total"><span>Total</span><strong>{shippingCost === null ? "Por calcular" : formatPrice(grandTotal)}</strong></div>
-            </div>
-            {checkoutError && <p className="account-message">{checkoutError}</p>}
-            <Button disabled={checkoutBusy || !shippingComplete || shippingCost === null || cartProducts.length === 0} type="submit" className="primary-button account-submit">{checkoutBusy ? 'Redirigiendo a Mercado Pago…' : 'Pagar con Mercado Pago'} <ArrowRight size={16} /></Button>
-          </form>
-        </DialogContent>
-      </Dialog>
     </main>
   );
 }

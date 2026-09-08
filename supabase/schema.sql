@@ -514,3 +514,38 @@ for update to authenticated using (public.is_admin()) with check (public.is_admi
 drop policy if exists "faqs_admin_delete" on public.faqs;
 create policy "faqs_admin_delete" on public.faqs
 for delete to authenticated using (public.is_admin());
+
+-- ── Perfil: dirección de envío guardada ─────────────────────────────────────
+-- Permite precargar los datos de envío en el checkout para clientas con
+-- cuenta. Se editan solo mediante la función de abajo (nunca con un UPDATE
+-- directo a la tabla), así una clienta nunca puede tocar su propio `role`.
+
+alter table public.profiles add column if not exists phone text;
+alter table public.profiles add column if not exists region text;
+alter table public.profiles add column if not exists comuna text;
+alter table public.profiles add column if not exists address text;
+alter table public.profiles add column if not exists address_extra text;
+
+create or replace function public.update_own_profile(
+  p_full_name text,
+  p_phone text,
+  p_region text,
+  p_comuna text,
+  p_address text,
+  p_address_extra text
+)
+returns void
+language sql
+security definer set search_path = public
+as $$
+  update public.profiles
+  set full_name = p_full_name,
+      phone = p_phone,
+      region = p_region,
+      comuna = p_comuna,
+      address = p_address,
+      address_extra = p_address_extra
+  where id = (select auth.uid());
+$$;
+revoke all on function public.update_own_profile(text, text, text, text, text, text) from public;
+grant execute on function public.update_own_profile(text, text, text, text, text, text) to authenticated;

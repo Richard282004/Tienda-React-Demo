@@ -97,7 +97,18 @@ export type Review = {
   created_at: string;
 };
 
-export type Profile = { id: string; email: string | null; full_name: string | null; role: 'customer' | 'admin'; created_at: string };
+export type Profile = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role: 'customer' | 'admin';
+  created_at: string;
+  phone?: string | null;
+  region?: string | null;
+  comuna?: string | null;
+  address?: string | null;
+  address_extra?: string | null;
+};
 
 export type ShowcaseItem = { id: string; title: string; subtitle: string | null; image_url: string; active: boolean; sort_order: number };
 
