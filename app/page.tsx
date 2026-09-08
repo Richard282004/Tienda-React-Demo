@@ -104,6 +104,13 @@ export default function Home() {
     return term ? products.filter((product) => `${product.name} ${product.type}`.toLowerCase().includes(term)) : products.slice(0, 4);
   }, [search, products]);
   const cartProducts = cart.map((id) => products.find((product) => product.id === id)).filter(Boolean) as Product[];
+  const groupedCart = useMemo(() => {
+    const counts = new Map<string, number>();
+    cart.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
+    return [...counts.entries()]
+      .map(([id, quantity]) => ({ product: products.find((product) => product.id === id), quantity }))
+      .filter((group): group is { product: Product; quantity: number } => !!group.product);
+  }, [cart, products]);
   const total = cartProducts.reduce((sum, product) => sum + product.price, 0);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
@@ -184,6 +191,17 @@ export default function Home() {
     setCart((current) => [...current, id]);
     setNotice('Agregado a tu bolsita');
     window.setTimeout(() => setNotice(''), 2200);
+  };
+
+  const incrementCartItem = (id: string) => {
+    const product = products.find((item) => item.id === id);
+    const inCart = cart.filter((item) => item === id).length;
+    if (product?.stock != null && inCart >= product.stock) return;
+    setCart((current) => [...current, id]);
+  };
+
+  const decrementCartItem = (id: string) => {
+    setCart((current) => { const at = current.indexOf(id); if (at === -1) return current; return current.filter((_, i) => i !== at); });
   };
 
   useEffect(() => {
@@ -604,7 +622,7 @@ export default function Home() {
         <DialogContent className="cart-panel" style={{ transform: 'none', translate: 'none' }}>
           <DialogHeader className="cart-heading"><p className="section-kicker">{tr('yourBag')}</p><DialogTitle>{tr('yourBag')} ({cartProducts.length})</DialogTitle><DialogDescription>Tus próximos compañeros, hechos a mano.</DialogDescription>{cartProducts.length > 0 && <button type="button" className="clear-cart" onClick={() => setCart([])}><Trash2 size={13} /> {tr('clearCart')}</button>}</DialogHeader>
           {cartProducts.length === 0 ? <div className="empty-cart"><span aria-hidden="true">♡</span><p>Tu bolsita está esperando<br />algo bonito.</p><Button className="primary-button" onClick={() => { setCartOpen(false); document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' }); }}>Explorar tienda</Button></div> : <>
-            <div className="cart-items">{cartProducts.map((product, index) => <div className="cart-item" key={`${product.id}-${index}`}><div className="cart-thumb" style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></div><div><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div><button aria-label={`Eliminar una unidad de ${product.name}`} onClick={() => setCart((current) => { const at = current.indexOf(product.id); return current.filter((_, i) => i !== at); })}><Minus size={15} /></button></div>)}</div>
+            <div className="cart-items">{groupedCart.map(({ product, quantity }) => <div className="cart-item" key={product.id}><div className="cart-thumb" style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></div><div><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div><div className="cart-qty"><button aria-label={`Quitar una unidad de ${product.name}`} onClick={() => decrementCartItem(product.id)}><Minus size={14} /></button><span>{quantity}</span><button aria-label={`Agregar una unidad de ${product.name}`} disabled={product.stock != null && quantity >= product.stock} onClick={() => incrementCartItem(product.id)}><Plus size={14} /></button></div></div>)}</div>
             <div className="cart-total"><span>{tr('subtotal')}</span><strong>{formatPrice(total)}</strong></div><p className="cart-shipping-note">El envío se calcula al elegir tu región.</p><Button className="primary-button checkout-button" disabled={storeLoading || !!storeError} onClick={() => { setCartOpen(false); setCheckoutError(''); setCheckoutOpen(true); }}>{tr('checkout')} <ArrowRight size={17} /></Button>
           </>}
         </DialogContent>
