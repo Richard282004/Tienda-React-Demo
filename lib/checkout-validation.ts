@@ -7,6 +7,7 @@ export type CheckoutPayload = {
   comuna: string;
   address: string;
   addressExtra?: string;
+  discountCode?: string;
 };
 
 export function parseCheckoutPayload(value: unknown): CheckoutPayload {
@@ -54,6 +55,7 @@ export function parseCheckoutPayload(value: unknown): CheckoutPayload {
     comuna: field("comuna", 120),
     address: field("address", 250),
     addressExtra: field("addressExtra", 250, true),
+    discountCode: field("discountCode", 40, true).toUpperCase(),
   };
 }
 

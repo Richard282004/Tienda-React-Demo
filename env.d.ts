@@ -5,5 +5,6 @@ declare namespace Cloudflare {
     VITE_SUPABASE_URL?: string;
     SUPABASE_SERVICE_ROLE_KEY?: string;
     MP_ACCESS_TOKEN?: string;
+    RESEND_API_KEY?: string;
   }
 }

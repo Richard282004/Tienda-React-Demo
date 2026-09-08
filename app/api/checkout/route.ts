@@ -5,6 +5,7 @@ import {
   parseCheckoutPayload,
   type CheckoutPayload,
 } from "@/lib/checkout-validation";
+import { sendOrderConfirmationEmail } from "@/lib/email";
 import { createMercadoPagoPreference } from "@/lib/mercadopago";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
     const { data: products, error: productsError } = await supabase
       .from("products")
-      .select("id, name, price, active")
+      .select("id, name, price, active, stock")
       .in(
         "id",
         payload.items.map((item) => item.productId),
@@ -62,6 +63,12 @@ export async function POST(request: Request) {
       ) {
         return NextResponse.json(
           { error: "Uno de los productos ya no está disponible. Actualiza tu bolsita." },
+          { status: 409 },
+        );
+      }
+      if (product.stock !== null && product.stock < item.quantity) {
+        return NextResponse.json(
+          { error: `Solo quedan ${product.stock} unidades de "${product.name}". Ajusta tu bolsita.` },
           { status: 409 },
         );
       }
@@ -89,10 +96,46 @@ export async function POST(request: Request) {
         { error: "El envío a esa región no está disponible." },
         { status: 422 },
       );
-    const total = subtotal + shippingCost;
+
+    let discountAmount = 0;
+    let discountCode: string | null = null;
+    if (payload.discountCode) {
+      const { data: discount } = await supabase
+        .from("discount_codes")
+        .select("code, type, value, active, max_uses, used_count, expires_at")
+        .eq("code", payload.discountCode)
+        .maybeSingle();
+      const now = new Date();
+      const usable =
+        discount &&
+        discount.active &&
+        (discount.expires_at === null || new Date(discount.expires_at) > now) &&
+        (discount.max_uses === null || discount.used_count < discount.max_uses);
+      if (!usable) {
+        return NextResponse.json({ error: "Ese código de descuento no es válido." }, { status: 400 });
+      }
+      discountAmount = Math.min(
+        subtotal,
+        discount!.type === "percent" ? Math.round((subtotal * discount!.value) / 100) : discount!.value,
+      );
+      discountCode = discount!.code;
+    }
+
+    const total = subtotal - discountAmount + shippingCost;
     if (!Number.isSafeInteger(total) || total <= 0 || total > 2_147_483_647) {
       return NextResponse.json({ error: "El importe del pedido no es válido." }, { status: 400 });
     }
+
+    const { error: reserveError } = await supabase.rpc("reserve_order_stock", {
+      items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+    });
+    if (reserveError) {
+      return NextResponse.json(
+        { error: "Uno de los productos ya no tiene stock suficiente. Actualiza tu bolsita." },
+        { status: 409 },
+      );
+    }
+
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
@@ -106,38 +149,64 @@ export async function POST(request: Request) {
         items: orderItems,
         subtotal,
         shipping_cost: shippingCost,
+        discount_code: discountCode,
+        discount_amount: discountAmount,
         total,
         status: "pending",
       })
       .select("id")
       .single();
-    if (orderError || !order)
+    if (orderError || !order) {
+      await supabase.rpc("restore_order_stock", {
+        items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+      });
       return NextResponse.json(
         { error: "No pudimos preparar tu pedido. Inténtalo de nuevo." },
         { status: 503 },
       );
-    const { preferenceId, initPoint } = await createMercadoPagoPreference({
-      accessToken: mpAccessToken,
-      orderId: order.id,
-      items: orderItems.map((item) => ({
-        title: item.name,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-      })),
-      shippingCost,
-      payerEmail: payload.customerEmail,
-      siteUrl: new URL(request.url).origin,
-    });
-    const { error: preferenceError } = await supabase
-      .from("orders")
-      .update({ mp_preference_id: preferenceId })
-      .eq("id", order.id);
-    if (preferenceError)
+    }
+    if (discountCode) {
+      try {
+        await supabase.rpc("increment_discount_use", { discount_code: discountCode });
+      } catch {
+        /* No crítico: si falla, el uso simplemente no queda contabilizado. */
+      }
+    }
+
+    try {
+      const { preferenceId, initPoint } = await createMercadoPagoPreference({
+        accessToken: mpAccessToken,
+        orderId: order.id,
+        items: orderItems.map((item) => ({
+          title: item.name,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+        })),
+        shippingCost,
+        discountAmount,
+        payerEmail: payload.customerEmail,
+        siteUrl: new URL(request.url).origin,
+      });
+      await supabase.from("orders").update({ mp_preference_id: preferenceId }).eq("id", order.id);
+      const resendApiKey = env.RESEND_API_KEY;
+      if (resendApiKey) {
+        try {
+          await sendOrderConfirmationEmail({ apiKey: resendApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total });
+        } catch {
+          /* El correo es un complemento: si falla, el pedido sigue su curso normal. */
+        }
+      }
+      return NextResponse.json({ orderId: order.id, initPoint });
+    } catch (mpError) {
+      await supabase.rpc("restore_order_stock", {
+        items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+      });
+      await supabase.from("orders").update({ status: "cancelled" }).eq("id", order.id);
       return NextResponse.json(
-        { error: "No pudimos preparar el pago. Inténtalo más tarde." },
+        { error: mpError instanceof Error ? mpError.message : "No pudimos preparar el pago. Inténtalo más tarde." },
         { status: 503 },
       );
-    return NextResponse.json({ orderId: order.id, initPoint });
+    }
   } catch {
     return NextResponse.json(
       { error: "No pudimos conectar con el servicio de pagos. Inténtalo más tarde." },

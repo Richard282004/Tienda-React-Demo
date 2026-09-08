@@ -22,7 +22,36 @@
 .image-adjust-preview img { width: 100%; height: 100%; object-fit: cover; transition: transform .1s, object-position .1s; }
 .image-adjust-controls { display: grid; gap: 10px; align-content: center; }
 .image-adjust-controls label { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 10px; color: #69545c; font-size: 12px; font-weight: 700; }
-.image-adjust-controls input[type='range'] { width: 100%; }.admin-product-info span { color: #957e86; font-size: 10px; text-transform: uppercase; }.admin-product-info h3 { margin: 5px 0 7px; font-family: Georgia, serif; font-size: 17px; font-weight: 400; }.admin-product-info strong { font-size: 13px; }.admin-product-actions { display: grid; gap: 7px; }.admin-empty { grid-column: 1/-1; display: grid; min-height: 300px; place-items: center; align-content: center; gap: 10px; border: 1px dashed #d9c7c0; border-radius: 20px; color: #8e777f; text-align: center; }.admin-empty h3, .admin-empty p { margin: 0; }.admin-empty h3 { color: #351f2c; font-family: Georgia, serif; font-size: 24px; font-weight: 400; }.admin-empty p { font-size: 13px; }
+.image-adjust-controls input[type='range'] { width: 100%; }
+.gallery-manager { margin-top: 6px; }
+.gallery-manager-label { display: block; margin-bottom: 8px; color: #69545c; font-size: 12px; font-weight: 700; }
+.gallery-manager-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
+.gallery-manager-item { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 10px; }
+.gallery-manager-item img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-manager-item button { position: absolute; top: 4px; right: 4px; display: grid; width: 22px; height: 22px; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.85); color: #9a4b4b; }
+.gallery-manager-add { display: grid; aspect-ratio: 1; place-items: center; gap: 4px; border: 1px dashed #ccb9b2; border-radius: 10px; color: #9a737f; font-size: 11px; cursor: pointer; position: relative; }
+.gallery-manager-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.discount-form { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; align-items: end; margin-bottom: 22px; padding: 18px; border: 1px solid #e1d2cc; border-radius: 16px; background: #fffaf5; }
+.discount-form label { display: grid; gap: 6px; color: #69545c; font-size: 12px; font-weight: 700; }
+.discount-submit { grid-column: span 1; height: 42px; }
+.discounts-list { display: grid; gap: 10px; }
+.discount-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #e2d4cf; border-radius: 14px; padding: 14px 16px; background: #fffaf5; }
+.discount-row strong { font-family: Georgia, serif; font-size: 16px; font-weight: 400; }
+.discount-row span { display: block; margin-top: 2px; color: #8b747c; font-size: 12px; }
+.discount-row-actions { display: flex; align-items: center; gap: 10px; }
+.discount-toggle { border: 1px solid #d9c7c0; border-radius: 99px; padding: 6px 13px; background: transparent; color: #8b747c; font-size: 11px; font-weight: 700; }
+.discount-toggle.active { background: #e4f0e2; border-color: #bcd8b7; color: #4f7a4a; }
+.admin-reviews-list { display: grid; gap: 12px; }
+.admin-review-row { display: flex; align-items: start; justify-content: space-between; gap: 14px; border: 1px solid #e2d4cf; border-radius: 14px; padding: 14px 16px; background: #fffaf5; }
+.admin-review-row.hidden-review { opacity: .55; }
+.admin-review-row .review-stars { display: flex; gap: 2px; margin: 4px 0; color: #e8b84b; }
+.admin-review-row p { margin: 0 0 4px; font-size: 13px; color: #4a363d; }
+.admin-review-row span { color: #957e86; font-size: 11px; }
+.admin-users-list { display: grid; gap: 10px; }
+.admin-user-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #e2d4cf; border-radius: 14px; padding: 14px 16px; background: #fffaf5; }
+.admin-user-row span { display: block; margin-top: 2px; color: #8b747c; font-size: 12px; }
+@media (max-width: 900px) { .discount-form { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 620px) { .discount-form { grid-template-columns: 1fr; } }.admin-product-info span { color: #957e86; font-size: 10px; text-transform: uppercase; }.admin-product-info h3 { margin: 5px 0 7px; font-family: Georgia, serif; font-size: 17px; font-weight: 400; }.admin-product-info strong { font-size: 13px; }.admin-product-actions { display: grid; gap: 7px; }.admin-empty { grid-column: 1/-1; display: grid; min-height: 300px; place-items: center; align-content: center; gap: 10px; border: 1px dashed #d9c7c0; border-radius: 20px; color: #8e777f; text-align: center; }.admin-empty h3, .admin-empty p { margin: 0; }.admin-empty h3 { color: #351f2c; font-family: Georgia, serif; font-size: 24px; font-weight: 400; }.admin-empty p { font-size: 13px; }
 .content-editor section { margin-top: 16px; border: 1px solid #e1d2cc; border-radius: 20px; padding: 24px; background: #fffaf5; }.content-editor section h3 { margin: 0 0 18px; font-family: Georgia, serif; font-size: 21px; font-weight: 400; }.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; }.form-grid .full { grid-column: 1/-1; }.content-editor textarea { min-height: 90px; }
 .product-dialog { max-width: 650px !important; border-radius: 22px !important; padding: 28px !important; background: #fffaf5 !important; color: #351f2c !important; }.product-dialog [data-slot='dialog-title'] { font-family: Georgia, serif; font-size: 29px; font-weight: 400; }.product-form { margin-top: 14px; }.admin-select { width: 100%; }.admin-select select { height: 36px; background: white; }.upload-field > div { position: relative; display: grid; min-height: 82px; place-items: center; border: 1px dashed #ccb9b2; border-radius: 13px; padding: 14px; color: #9a737f; }.upload-field input { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; opacity: 0; }.upload-field small { margin-top: 5px; color: #8c777e; font-weight: 400; }.save-product { width: 100%; margin-top: 20px; }
 @media (max-width: 900px) { .admin-product-grid { grid-template-columns: repeat(2, 1fr); } }

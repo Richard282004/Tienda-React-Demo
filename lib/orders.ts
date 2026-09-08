@@ -42,6 +42,8 @@ export type Order = {
   items: OrderItem[];
   subtotal: number;
   shipping_cost: number;
+  discount_code: string | null;
+  discount_amount: number;
   total: number;
   status: OrderStatus;
   tracking_number: string | null;
@@ -52,3 +54,28 @@ export type Order = {
 };
 
 export type ShippingRate = { region: string; cost: number };
+
+export type DiscountCode = {
+  code: string;
+  type: 'percent' | 'fixed';
+  value: number;
+  active: boolean;
+  max_uses: number | null;
+  used_count: number;
+  expires_at: string | null;
+};
+
+export type ProductImage = { id: string; product_id: string; image_url: string; sort_order: number };
+
+export type Review = {
+  id: string;
+  product_id: string;
+  user_id: string | null;
+  customer_name: string;
+  rating: number;
+  comment: string | null;
+  approved: boolean;
+  created_at: string;
+};
+
+export type Profile = { id: string; email: string | null; full_name: string | null; role: 'customer' | 'admin'; created_at: string };

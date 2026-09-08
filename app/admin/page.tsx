@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, ImagePlus, LogOut, PackagePlus, Pencil, Save, ShieldCheck, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Check, ImagePlus, LogOut, PackagePlus, Pencil, Save, ShieldCheck, Star, Tag, Trash2, Upload, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,7 +10,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
-import { orderStatusLabel, type Order, type OrderStatus, type ShippingRate } from '@/lib/orders';
+import { orderStatusLabel, type DiscountCode, type Order, type OrderStatus, type Profile, type ProductImage, type Review, type ShippingRate } from '@/lib/orders';
 import { supabase } from '@/lib/supabase';
 import './admin.css';
 
@@ -19,8 +19,10 @@ type ProductDraft = Omit<Product, 'id'> & { id?: string };
 
 const emptyProduct: ProductDraft = {
   name: '', description: '', type: 'Llaveros', price: 0, color: '#f3dedb', art: '🧶', image_url: null,
-  image_position_x: 50, image_position_y: 50, image_zoom: 1, tag: '', active: true, sort_order: 0,
+  image_position_x: 50, image_position_y: 50, image_zoom: 1, tag: '', active: true, sort_order: 0, stock: null,
 };
+
+const emptyDiscount = { code: '', type: 'percent' as 'percent' | 'fixed', value: 10, active: true, max_uses: '' as number | '', expires_at: '' };
 
 const formatPrice = (price: number) =>
   new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
@@ -39,27 +41,105 @@ export default function AdminPage() {
   const [draft, setDraft] = useState<ProductDraft>(emptyProduct);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [gallery, setGallery] = useState<ProductImage[]>([]);
+  const [galleryBusy, setGalleryBusy] = useState(false);
+  const [discounts, setDiscounts] = useState<DiscountCode[]>([]);
+  const [discountDraft, setDiscountDraft] = useState(emptyDiscount);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const loadAdminData = async () => {
     if (!supabase) return;
-    const [{ data: productRows, error: productError }, { data: contentRow, error: contentError }, { data: orderRows }, { data: rateRows }] = await Promise.all([
+    const [{ data: productRows, error: productError }, { data: contentRow, error: contentError }, { data: orderRows }, { data: rateRows }, { data: discountRows }, { data: reviewRows }, { data: profileRows }] = await Promise.all([
       supabase.from('products').select('*').order('sort_order'),
       supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('shipping_rates').select('region, cost').order('region'),
+      supabase.from('discount_codes').select('*').order('created_at', { ascending: false }),
+      supabase.from('reviews').select('*').order('created_at', { ascending: false }),
+      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
     ]);
     if (productError || contentError) { setMessage(productError?.message ?? contentError?.message ?? 'No se pudo cargar la información.'); return; }
     setProducts((productRows ?? []) as Product[]);
     if (contentRow?.value) setContent({ ...defaultStoreContent, ...(contentRow.value as Partial<StoreContent>) });
     setOrders((orderRows ?? []) as Order[]);
     if (rateRows?.length) setShippingRates(rateRows as ShippingRate[]);
+    setDiscounts((discountRows ?? []) as DiscountCode[]);
+    setReviews((reviewRows ?? []) as Review[]);
+    setProfiles((profileRows ?? []) as Profile[]);
+  };
+
+  const saveDiscount = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) return;
+    setBusy(true); setMessage('');
+    const { error } = await supabase.from('discount_codes').upsert({
+      code: discountDraft.code.trim().toUpperCase(),
+      type: discountDraft.type,
+      value: Number(discountDraft.value),
+      active: discountDraft.active,
+      max_uses: discountDraft.max_uses === '' ? null : Number(discountDraft.max_uses),
+      expires_at: discountDraft.expires_at || null,
+    });
+    setBusy(false);
+    if (error) { setMessage(error.message); return; }
+    setMessage('Código de descuento guardado.');
+    setDiscountDraft(emptyDiscount);
+    await loadAdminData();
+  };
+
+  const deleteDiscount = async (code: string) => {
+    if (!supabase || !window.confirm(`¿Eliminar el código ${code}?`)) return;
+    const { error } = await supabase.from('discount_codes').delete().eq('code', code);
+    if (error) setMessage(error.message); else await loadAdminData();
+  };
+
+  const toggleDiscountActive = async (code: string, active: boolean) => {
+    if (!supabase) return;
+    await supabase.from('discount_codes').update({ active }).eq('code', code);
+    await loadAdminData();
+  };
+
+  const toggleReviewApproved = async (id: string, approved: boolean) => {
+    if (!supabase) return;
+    setReviews((current) => current.map((review) => (review.id === id ? { ...review, approved } : review)));
+    await supabase.from('reviews').update({ approved }).eq('id', id);
+  };
+
+  const deleteReview = async (id: string) => {
+    if (!supabase || !window.confirm('¿Eliminar esta reseña?')) return;
+    await supabase.from('reviews').delete().eq('id', id);
+    setReviews((current) => current.filter((review) => review.id !== id));
+  };
+
+  const toggleAdminRole = async (profile: Profile) => {
+    if (!supabase) return;
+    if (profile.id === currentUserId && profile.role === 'admin') { setMessage('No puedes quitarte tu propio acceso de administradora.'); return; }
+    const nextRole = profile.role === 'admin' ? 'customer' : 'admin';
+    if (!window.confirm(`¿${nextRole === 'admin' ? 'Dar' : 'Quitar'} acceso de administradora a ${profile.email ?? profile.id}?`)) return;
+    const { error } = await supabase.from('profiles').update({ role: nextRole }).eq('id', profile.id);
+    if (error) { setMessage(error.message); return; }
+    setProfiles((current) => current.map((item) => (item.id === profile.id ? { ...item, role: nextRole } : item)));
   };
 
   const updateOrder = async (orderId: string, patch: Partial<Pick<Order, 'status' | 'tracking_number'>>) => {
     if (!supabase) return;
     setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...patch } : order)));
     const { error } = await supabase.from('orders').update(patch).eq('id', orderId);
-    if (error) { setMessage(error.message); await loadAdminData(); }
+    if (error) { setMessage(error.message); await loadAdminData(); return; }
+    if (patch.status) {
+      const order = orders.find((item) => item.id === orderId);
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (token) {
+        void fetch('/api/orders/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ orderId, status: patch.status, trackingNumber: patch.tracking_number ?? order?.tracking_number ?? null }),
+        }).catch(() => {});
+      }
+    }
   };
 
   const saveShippingRate = async (region: string, cost: number) => {
@@ -74,6 +154,7 @@ export default function AdminPage() {
     if (!data.session) { setState('login'); return; }
     const { data: profile, error } = await supabase.from('profiles').select('role').eq('id', data.session.user.id).maybeSingle();
     if (error || profile?.role !== 'admin') { setState('denied'); return; }
+    setCurrentUserId(data.session.user.id);
     setState('ready');
     await loadAdminData();
   };
@@ -114,19 +195,46 @@ export default function AdminPage() {
     setDraft({ ...emptyProduct, sort_order: products.length + 1 });
     setImageFile(null);
     setImagePreview(null);
+    setGallery([]);
     setProductOpen(true);
   };
 
-  const openEditProduct = (product: Product) => {
+  const openEditProduct = async (product: Product) => {
     setDraft({ ...product, image_position_x: product.image_position_x ?? 50, image_position_y: product.image_position_y ?? 50, image_zoom: product.image_zoom ?? 1 });
     setImageFile(null);
     setImagePreview(null);
+    setGallery([]);
     setProductOpen(true);
+    if (!supabase) return;
+    const { data } = await supabase.from('product_images').select('*').eq('product_id', product.id).order('sort_order');
+    setGallery((data ?? []) as ProductImage[]);
   };
 
   const handleImageFile = (file: File | null) => {
     setImageFile(file);
     setImagePreview((current) => { if (current) URL.revokeObjectURL(current); return file ? URL.createObjectURL(file) : null; });
+  };
+
+  const addGalleryPhotos = async (files: FileList | null) => {
+    if (!supabase || !files?.length || !draft.id) return;
+    setGalleryBusy(true);
+    for (const file of Array.from(files)) {
+      const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
+      const path = `${crypto.randomUUID()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage.from('products').upload(path, file, { cacheControl: '3600' });
+      if (uploadError) { setMessage(uploadError.message); continue; }
+      const imageUrl = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
+      await supabase.from('product_images').insert({ product_id: draft.id, image_url: imageUrl, sort_order: gallery.length });
+    }
+    const { data } = await supabase.from('product_images').select('*').eq('product_id', draft.id).order('sort_order');
+    setGallery((data ?? []) as ProductImage[]);
+    setGalleryBusy(false);
+  };
+
+  const deleteGalleryPhoto = async (id: string) => {
+    if (!supabase) return;
+    await supabase.from('product_images').delete().eq('id', id);
+    setGallery((current) => current.filter((image) => image.id !== id));
   };
 
   const saveProduct = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -141,7 +249,7 @@ export default function AdminPage() {
       if (uploadError) { setBusy(false); setMessage(uploadError.message); return; }
       imageUrl = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
     }
-    const payload = { name: draft.name, description: draft.description || null, type: draft.type, price: Number(draft.price), color: draft.color, art: draft.art, image_url: imageUrl, image_position_x: Math.round(draft.image_position_x ?? 50), image_position_y: Math.round(draft.image_position_y ?? 50), image_zoom: draft.image_zoom ?? 1, tag: draft.tag || null, active: draft.active ?? true, sort_order: Number(draft.sort_order ?? 0), updated_at: new Date().toISOString() };
+    const payload = { name: draft.name, description: draft.description || null, type: draft.type, price: Number(draft.price), color: draft.color, art: draft.art, image_url: imageUrl, image_position_x: Math.round(draft.image_position_x ?? 50), image_position_y: Math.round(draft.image_position_y ?? 50), image_zoom: draft.image_zoom ?? 1, tag: draft.tag || null, active: draft.active ?? true, sort_order: Number(draft.sort_order ?? 0), stock: draft.stock === null || draft.stock === undefined || Number.isNaN(Number(draft.stock)) ? null : Number(draft.stock), updated_at: new Date().toISOString() };
     const result = draft.id
       ? await supabase.from('products').update(payload).eq('id', draft.id)
       : await supabase.from('products').insert(payload);
@@ -179,7 +287,7 @@ export default function AdminPage() {
     <header className="admin-header"><div><p className="admin-kicker">Lúmina · Panel privado</p><h1>Administración de la tienda</h1></div><div><a href="/">Ver tienda</a><Button variant="outline" onClick={logout}><LogOut size={16} /> Salir</Button></div></header>
     {message && <div className="admin-message success"><Check size={16} /> {message}</div>}
     <Tabs defaultValue="products" className="admin-tabs">
-      <TabsList className="admin-tabs-list"><TabsTrigger value="products">Productos</TabsTrigger><TabsTrigger value="orders">Pedidos</TabsTrigger><TabsTrigger value="shipping">Envíos</TabsTrigger><TabsTrigger value="content">Textos y contacto</TabsTrigger></TabsList>
+      <TabsList className="admin-tabs-list"><TabsTrigger value="products">Productos</TabsTrigger><TabsTrigger value="orders">Pedidos</TabsTrigger><TabsTrigger value="shipping">Envíos</TabsTrigger><TabsTrigger value="discounts">Descuentos</TabsTrigger><TabsTrigger value="reviews">Reseñas</TabsTrigger><TabsTrigger value="users">Usuarios</TabsTrigger><TabsTrigger value="content">Textos y contacto</TabsTrigger></TabsList>
       <TabsContent value="orders">
         <div className="admin-section-heading"><div><h2>Pedidos</h2><p>{orders.length} pedidos recibidos</p></div></div>
         {orders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Aún no hay pedidos</h3><p>Aquí aparecerán las compras pagadas con Mercado Pago.</p></div> : (
@@ -222,18 +330,75 @@ export default function AdminPage() {
         <div className="admin-section-heading"><div><h2>Productos</h2><p>{products.length} productos en el catálogo</p></div><Button onClick={openNewProduct}><PackagePlus size={17} /> Nuevo producto</Button></div>
         <div className="admin-product-grid">{products.length ? products.map((product) => <article className="admin-product" key={product.id}><div className="admin-product-image" style={{ backgroundColor: product.color }}>{product.image_url ? <img src={product.image_url} alt={product.name} style={{ objectPosition: `${product.image_position_x ?? 50}% ${product.image_position_y ?? 50}%`, transform: `scale(${product.image_zoom ?? 1})` }} /> : product.art}</div><div className="admin-product-info"><span>{product.type} · {product.active ? 'Publicado' : 'Oculto'}</span><h3>{product.name}</h3><strong>${product.price.toLocaleString('es-CL')}</strong></div><div className="admin-product-actions"><Button size="icon-sm" variant="outline" onClick={() => openEditProduct(product)} aria-label={`Editar ${product.name}`}><Pencil /></Button><Button size="icon-sm" variant="destructive" onClick={() => deleteProduct(product)} aria-label={`Eliminar ${product.name}`}><Trash2 /></Button></div></article>) : <div className="admin-empty"><ImagePlus size={34} /><h3>Aún no hay productos</h3><p>Crea el primero para mostrarlo en la tienda.</p><Button onClick={openNewProduct}>Crear producto</Button></div>}</div>
       </TabsContent>
+      <TabsContent value="discounts">
+        <div className="admin-section-heading"><div><h2>Códigos de descuento</h2><p>{discounts.length} códigos creados</p></div></div>
+        <form className="discount-form" onSubmit={saveDiscount}>
+          <label>Código<Input required value={discountDraft.code} placeholder="BIENVENIDA10" onChange={(event) => setDiscountDraft({ ...discountDraft, code: event.target.value })} /></label>
+          <label>Tipo<NativeSelect className="admin-select" value={discountDraft.type} onChange={(event) => setDiscountDraft({ ...discountDraft, type: event.target.value as 'percent' | 'fixed' })}><NativeSelectOption value="percent">% Porcentaje</NativeSelectOption><NativeSelectOption value="fixed">$ Monto fijo</NativeSelectOption></NativeSelect></label>
+          <label>Valor<Input required min="1" type="number" value={discountDraft.value} onChange={(event) => setDiscountDraft({ ...discountDraft, value: Number(event.target.value) })} /></label>
+          <label>Usos máximos (vacío = ilimitado)<Input min="1" type="number" value={discountDraft.max_uses} placeholder="Ilimitado" onChange={(event) => setDiscountDraft({ ...discountDraft, max_uses: event.target.value === '' ? '' : Number(event.target.value) })} /></label>
+          <label>Expira (opcional)<Input type="date" value={discountDraft.expires_at} onChange={(event) => setDiscountDraft({ ...discountDraft, expires_at: event.target.value })} /></label>
+          <Button disabled={busy} type="submit" className="discount-submit"><Tag size={16} /> Crear / actualizar código</Button>
+        </form>
+        <div className="discounts-list">
+          {discounts.length === 0 ? <div className="admin-empty"><Tag size={34} /><h3>Aún no hay códigos</h3><p>Crea uno arriba para ofrecer descuentos.</p></div> : discounts.map((discount) => (
+            <div className="discount-row" key={discount.code}>
+              <div><strong>{discount.code}</strong><span>{discount.type === 'percent' ? `${discount.value}% de descuento` : `${formatPrice(discount.value)} de descuento`} · usado {discount.used_count}{discount.max_uses ? `/${discount.max_uses}` : ''} veces{discount.expires_at ? ` · expira ${new Date(discount.expires_at).toLocaleDateString('es-CL')}` : ''}</span></div>
+              <div className="discount-row-actions">
+                <button className={`discount-toggle ${discount.active ? 'active' : ''}`} onClick={() => toggleDiscountActive(discount.code, !discount.active)}>{discount.active ? 'Activo' : 'Inactivo'}</button>
+                <Button size="icon-sm" variant="destructive" onClick={() => deleteDiscount(discount.code)} aria-label={`Eliminar ${discount.code}`}><Trash2 /></Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </TabsContent>
+      <TabsContent value="reviews">
+        <div className="admin-section-heading"><div><h2>Reseñas</h2><p>{reviews.length} reseñas recibidas</p></div></div>
+        {reviews.length === 0 ? <div className="admin-empty"><Star size={34} /><h3>Aún no hay reseñas</h3><p>Aparecerán aquí cuando tus clientes opinen.</p></div> : (
+          <div className="admin-reviews-list">
+            {reviews.map((review) => {
+              const product = products.find((item) => item.id === review.product_id);
+              return <div className={`admin-review-row ${review.approved ? '' : 'hidden-review'}`} key={review.id}>
+                <div><strong>{product?.name ?? 'Producto eliminado'}</strong><div className="review-stars">{Array.from({ length: 5 }, (_, index) => <Star key={index} size={13} fill={index < review.rating ? 'currentColor' : 'none'} />)}</div><p>{review.comment}</p><span>{review.customer_name} · {new Date(review.created_at).toLocaleDateString('es-CL')}</span></div>
+                <div className="discount-row-actions">
+                  <button className={`discount-toggle ${review.approved ? 'active' : ''}`} onClick={() => toggleReviewApproved(review.id, !review.approved)}>{review.approved ? 'Visible' : 'Oculta'}</button>
+                  <Button size="icon-sm" variant="destructive" onClick={() => deleteReview(review.id)} aria-label="Eliminar reseña"><Trash2 /></Button>
+                </div>
+              </div>;
+            })}
+          </div>
+        )}
+      </TabsContent>
+      <TabsContent value="users">
+        <div className="admin-section-heading"><div><h2>Usuarios</h2><p>{profiles.length} cuentas registradas</p></div></div>
+        <div className="admin-users-list">
+          {profiles.map((profile) => (
+            <div className="admin-user-row" key={profile.id}>
+              <div><strong>{profile.full_name || profile.email || profile.id}</strong><span>{profile.email}</span></div>
+              <button className={`discount-toggle ${profile.role === 'admin' ? 'active' : ''}`} onClick={() => toggleAdminRole(profile)}>{profile.role === 'admin' ? <><Users size={13} /> Administradora</> : 'Clienta'}</button>
+            </div>
+          ))}
+        </div>
+      </TabsContent>
       <TabsContent value="content">
-        <form className="content-editor" onSubmit={saveContent}><div className="admin-section-heading"><div><h2>Textos y contacto</h2><p>Cambia el contenido principal sin tocar código.</p></div><Button disabled={busy} type="submit"><Save size={17} /> Guardar cambios</Button></div><section><h3>Portada</h3><div className="form-grid"><label>Texto superior<Input value={content.heroEyebrow} onChange={(event) => setContent({ ...content, heroEyebrow: event.target.value })} /></label><label>Título<Input value={content.heroTitle} onChange={(event) => setContent({ ...content, heroTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.heroHighlight} onChange={(event) => setContent({ ...content, heroHighlight: event.target.value })} /></label><label className="full">Descripción<Textarea value={content.heroDescription} onChange={(event) => setContent({ ...content, heroDescription: event.target.value })} /></label></div></section><section><h3>Sobre nosotros</h3><div className="form-grid"><label>Título<Input value={content.aboutTitle} onChange={(event) => setContent({ ...content, aboutTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.aboutHighlight} onChange={(event) => setContent({ ...content, aboutHighlight: event.target.value })} /></label><label className="full">Historia<Textarea value={content.aboutText} onChange={(event) => setContent({ ...content, aboutText: event.target.value })} /></label></div></section><section><h3>Contacto y envíos</h3><div className="form-grid"><label>Teléfono<Input value={content.phone} onChange={(event) => setContent({ ...content, phone: event.target.value })} /></label><label>Correo<Input type="email" value={content.email} onChange={(event) => setContent({ ...content, email: event.target.value })} /></label><label className="full">Mensaje superior<Input value={content.shippingMessage} onChange={(event) => setContent({ ...content, shippingMessage: event.target.value })} /></label></div></section></form>
+        <form className="content-editor" onSubmit={saveContent}><div className="admin-section-heading"><div><h2>Textos y contacto</h2><p>Cambia el contenido principal sin tocar código.</p></div><Button disabled={busy} type="submit"><Save size={17} /> Guardar cambios</Button></div><section><h3>Portada</h3><div className="form-grid"><label>Texto superior<Input value={content.heroEyebrow} onChange={(event) => setContent({ ...content, heroEyebrow: event.target.value })} /></label><label>Título<Input value={content.heroTitle} onChange={(event) => setContent({ ...content, heroTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.heroHighlight} onChange={(event) => setContent({ ...content, heroHighlight: event.target.value })} /></label><label className="full">Descripción<Textarea value={content.heroDescription} onChange={(event) => setContent({ ...content, heroDescription: event.target.value })} /></label></div></section><section><h3>Sobre nosotros</h3><div className="form-grid"><label>Título<Input value={content.aboutTitle} onChange={(event) => setContent({ ...content, aboutTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.aboutHighlight} onChange={(event) => setContent({ ...content, aboutHighlight: event.target.value })} /></label><label className="full">Historia<Textarea value={content.aboutText} onChange={(event) => setContent({ ...content, aboutText: event.target.value })} /></label></div></section><section><h3>Contacto y envíos</h3><div className="form-grid"><label>Teléfono<Input value={content.phone} onChange={(event) => setContent({ ...content, phone: event.target.value })} /></label><label>Correo<Input type="email" value={content.email} onChange={(event) => setContent({ ...content, email: event.target.value })} /></label><label>WhatsApp (con código de país, sin espacios)<Input value={content.whatsapp ?? ''} placeholder="56912345678" onChange={(event) => setContent({ ...content, whatsapp: event.target.value })} /></label><label className="full">Mensaje superior<Input value={content.shippingMessage} onChange={(event) => setContent({ ...content, shippingMessage: event.target.value })} /></label></div></section></form>
       </TabsContent>
     </Tabs>
 
-    <Dialog open={productOpen} onOpenChange={setProductOpen}><DialogContent className="product-dialog"><DialogHeader><DialogTitle>{draft.id ? 'Editar producto' : 'Nuevo producto'}</DialogTitle><DialogDescription>Los cambios publicados aparecerán en la tienda.</DialogDescription></DialogHeader><form className="product-form" onSubmit={saveProduct}><div className="form-grid"><label>Nombre<Input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label className="full">Descripción<Textarea value={draft.description ?? ''} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Describe el producto: material, tamaño, detalles..." /></label><label>Categoría<NativeSelect className="admin-select" value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value as Product['type'] })}><NativeSelectOption value="Llaveros">Llaveros</NativeSelectOption><NativeSelectOption value="Peluches">Peluches</NativeSelectOption></NativeSelect></label><label>Precio en CLP<Input required min="0" type="number" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label><label>Orden<Input min="0" type="number" value={draft.sort_order} onChange={(event) => setDraft({ ...draft, sort_order: Number(event.target.value) })} /></label><label>Color<Input type="color" value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })} /></label><label>Emoji<Input value={draft.art} onChange={(event) => setDraft({ ...draft, art: event.target.value })} /></label><label>Etiqueta<Input value={draft.tag ?? ''} placeholder="Nuevo, Más vendido…" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} /></label><label>Visibilidad<NativeSelect className="admin-select" value={draft.active ? 'active' : 'hidden'} onChange={(event) => setDraft({ ...draft, active: event.target.value === 'active' })}><NativeSelectOption value="active">Publicado</NativeSelectOption><NativeSelectOption value="hidden">Oculto</NativeSelectOption></NativeSelect></label><label className="full upload-field"><span>Fotografía</span><div><Upload size={18} /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => handleImageFile(event.target.files?.[0] ?? null)} /><small>{imageFile?.name ?? (draft.image_url ? 'Se conservará la foto actual' : 'PNG, JPG o WebP · máximo 5 MB')}</small></div></label>
+    <Dialog open={productOpen} onOpenChange={setProductOpen}><DialogContent className="product-dialog"><DialogHeader><DialogTitle>{draft.id ? 'Editar producto' : 'Nuevo producto'}</DialogTitle><DialogDescription>Los cambios publicados aparecerán en la tienda.</DialogDescription></DialogHeader><form className="product-form" onSubmit={saveProduct}><div className="form-grid"><label>Nombre<Input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label className="full">Descripción<Textarea value={draft.description ?? ''} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Describe el producto: material, tamaño, detalles..." /></label><label>Categoría<NativeSelect className="admin-select" value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value as Product['type'] })}><NativeSelectOption value="Llaveros">Llaveros</NativeSelectOption><NativeSelectOption value="Peluches">Peluches</NativeSelectOption></NativeSelect></label><label>Precio en CLP<Input required min="0" type="number" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label><label>Orden<Input min="0" type="number" value={draft.sort_order} onChange={(event) => setDraft({ ...draft, sort_order: Number(event.target.value) })} /></label><label>Stock (vacío = sin límite)<Input min="0" type="number" value={draft.stock ?? ''} placeholder="Sin límite" onChange={(event) => setDraft({ ...draft, stock: event.target.value === '' ? null : Number(event.target.value) })} /></label><label>Color<Input type="color" value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })} /></label><label>Emoji<Input value={draft.art} onChange={(event) => setDraft({ ...draft, art: event.target.value })} /></label><label>Etiqueta<Input value={draft.tag ?? ''} placeholder="Nuevo, Más vendido…" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} /></label><label>Visibilidad<NativeSelect className="admin-select" value={draft.active ? 'active' : 'hidden'} onChange={(event) => setDraft({ ...draft, active: event.target.value === 'active' })}><NativeSelectOption value="active">Publicado</NativeSelectOption><NativeSelectOption value="hidden">Oculto</NativeSelectOption></NativeSelect></label><label className="full upload-field"><span>Fotografía</span><div><Upload size={18} /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => handleImageFile(event.target.files?.[0] ?? null)} /><small>{imageFile?.name ?? (draft.image_url ? 'Se conservará la foto actual' : 'PNG, JPG o WebP · máximo 5 MB')}</small></div></label>
 {(imagePreview ?? draft.image_url) && <div className="full image-adjust">
   <div className="image-adjust-preview"><img src={imagePreview ?? draft.image_url ?? ''} alt="Vista previa" style={{ objectPosition: `${draft.image_position_x ?? 50}% ${draft.image_position_y ?? 50}%`, transform: `scale(${draft.image_zoom ?? 1})` }} /></div>
   <div className="image-adjust-controls">
     <label>Horizontal<input type="range" min={0} max={100} value={draft.image_position_x ?? 50} onChange={(event) => setDraft({ ...draft, image_position_x: Number(event.target.value) })} /></label>
     <label>Vertical<input type="range" min={0} max={100} value={draft.image_position_y ?? 50} onChange={(event) => setDraft({ ...draft, image_position_y: Number(event.target.value) })} /></label>
     <label>Acercar<input type="range" min={1} max={3} step={0.05} value={draft.image_zoom ?? 1} onChange={(event) => setDraft({ ...draft, image_zoom: Number(event.target.value) })} /></label>
+  </div>
+</div>}
+{draft.id && <div className="full gallery-manager">
+  <span className="gallery-manager-label">Fotos adicionales (galería)</span>
+  <div className="gallery-manager-grid">
+    {gallery.map((image) => <div className="gallery-manager-item" key={image.id}><img src={image.image_url} alt="" /><button type="button" onClick={() => deleteGalleryPhoto(image.id)} aria-label="Eliminar foto"><Trash2 size={14} /></button></div>)}
+    <label className="gallery-manager-add">{galleryBusy ? '...' : <><Upload size={16} /> Agregar</>}<input type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={galleryBusy} onChange={(event) => void addGalleryPhotos(event.target.files)} /></label>
   </div>
 </div>}
 </div>{message && <p className="admin-message">{message}</p>}<Button disabled={busy} type="submit" className="save-product"><Save size={17} /> {busy ? 'Guardando…' : 'Guardar producto'}</Button></form></DialogContent></Dialog>

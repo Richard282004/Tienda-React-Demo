@@ -13,6 +13,7 @@ export type Product = {
   tag?: string | null;
   active?: boolean;
   sort_order?: number;
+  stock?: number | null;
 };
 
 export type StoreContent = {
@@ -22,6 +23,7 @@ export type StoreContent = {
   heroDescription: string;
   phone: string;
   email: string;
+  whatsapp?: string;
   shippingMessage: string;
   aboutTitle: string;
   aboutHighlight: string;
@@ -44,6 +46,7 @@ export const defaultStoreContent: StoreContent = {
   heroDescription: 'Llaveros y peluches tejidos a mano, puntada por puntada, para acompañarte todos los días.',
   phone: '+56 9 1234 5678',
   email: 'hola@lumina.cl',
+  whatsapp: '+56912345678',
   shippingMessage: 'Envío gratis sobre $45.000 · cada pieza se hace a mano',
   aboutTitle: 'Hecho lento,',
   aboutHighlight: 'hecho bonito.',

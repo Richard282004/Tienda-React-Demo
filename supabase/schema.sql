@@ -24,6 +24,7 @@ create table if not exists public.products (
   tag text,
   active boolean not null default true,
   sort_order integer not null default 0,
+  stock integer check (stock is null or stock >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -126,7 +127,7 @@ create policy "product_images_admin_delete" on storage.objects
 for delete to authenticated using (bucket_id = 'products' and public.is_admin());
 
 insert into public.site_content (key, value)
-values ('store', '{"heroEyebrow":"Pequeñas cosas, grandes sonrisas","heroTitle":"Un poquito de","heroHighlight":"ternura para llevar.","heroDescription":"Llaveros y peluches tejidos a mano, puntada por puntada, para acompañarte todos los días.","phone":"+56 9 1234 5678","email":"hola@lumina.cl","shippingMessage":"Envío gratis sobre $45.000 · cada pieza se hace a mano","aboutTitle":"Hecho lento,","aboutHighlight":"hecho bonito.","aboutText":"Cada pieza nace en un pequeño taller, entre ovillos de colores, café calentito y muchas ganas de crear algo especial."}'::jsonb)
+values ('store', '{"heroEyebrow":"Pequeñas cosas, grandes sonrisas","heroTitle":"Un poquito de","heroHighlight":"ternura para llevar.","heroDescription":"Llaveros y peluches tejidos a mano, puntada por puntada, para acompañarte todos los días.","phone":"+56 9 1234 5678","email":"hola@lumina.cl","whatsapp":"56912345678","shippingMessage":"Envío gratis sobre $45.000 · cada pieza se hace a mano","aboutTitle":"Hecho lento,","aboutHighlight":"hecho bonito.","aboutText":"Cada pieza nace en un pequeño taller, entre ovillos de colores, café calentito y muchas ganas de crear algo especial."}'::jsonb)
 on conflict (key) do nothing;
 
 insert into public.products (name, description, type, price, color, art, tag, sort_order)
@@ -186,6 +187,8 @@ create table if not exists public.orders (
   items jsonb not null default '[]'::jsonb,
   subtotal integer not null check (subtotal >= 0),
   shipping_cost integer not null check (shipping_cost >= 0),
+  discount_code text,
+  discount_amount integer not null default 0 check (discount_amount >= 0),
   total integer not null check (total >= 0),
   status text not null default 'pending' check (status in ('pending', 'paid', 'shipped', 'delivered', 'cancelled')),
   tracking_number text,
@@ -229,3 +232,172 @@ $$;
 
 revoke all on function public.get_order_public(uuid) from public;
 grant execute on function public.get_order_public(uuid) to anon, authenticated;
+
+-- Migraciones para bases ya creadas antes de este bloque:
+alter table public.products add column if not exists stock integer;
+alter table public.orders add column if not exists discount_code text;
+alter table public.orders add column if not exists discount_amount integer not null default 0 check (discount_amount >= 0);
+
+-- ── Stock: reserva atómica al crear el pedido, devolución si se cancela ────
+
+create or replace function public.reserve_order_stock(items jsonb)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  item jsonb;
+  affected integer;
+begin
+  for item in select * from jsonb_array_elements(items) loop
+    if (select stock from public.products where id = (item->>'productId')::uuid) is null then
+      continue; -- stock null = sin control de stock para este producto
+    end if;
+    update public.products
+    set stock = stock - (item->>'quantity')::integer
+    where id = (item->>'productId')::uuid and stock >= (item->>'quantity')::integer;
+    get diagnostics affected = row_count;
+    if affected = 0 then
+      raise exception 'insufficient_stock:%', item->>'productId';
+    end if;
+  end loop;
+end;
+$$;
+revoke all on function public.reserve_order_stock(jsonb) from public;
+
+create or replace function public.restore_order_stock(items jsonb)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  item jsonb;
+begin
+  for item in select * from jsonb_array_elements(items) loop
+    update public.products
+    set stock = stock + (item->>'quantity')::integer
+    where id = (item->>'productId')::uuid and stock is not null;
+  end loop;
+end;
+$$;
+revoke all on function public.restore_order_stock(jsonb) from public;
+
+-- ── Galería de fotos adicionales por producto ──────────────────────────────
+
+create table if not exists public.product_images (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  image_url text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists product_images_product_idx on public.product_images (product_id, sort_order);
+
+alter table public.product_images enable row level security;
+revoke all on public.product_images from anon, authenticated;
+grant select on public.product_images to anon, authenticated;
+grant insert, update, delete on public.product_images to authenticated;
+
+drop policy if exists "product_images_public_read" on public.product_images;
+create policy "product_images_public_read" on public.product_images
+for select to anon, authenticated using (true);
+drop policy if exists "product_images_admin_write" on public.product_images;
+create policy "product_images_admin_write" on public.product_images
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- ── Códigos de descuento ────────────────────────────────────────────────────
+
+create table if not exists public.discount_codes (
+  code text primary key,
+  type text not null check (type in ('percent', 'fixed')),
+  value integer not null check (value > 0),
+  active boolean not null default true,
+  max_uses integer check (max_uses is null or max_uses > 0),
+  used_count integer not null default 0,
+  expires_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table public.discount_codes enable row level security;
+revoke all on public.discount_codes from anon, authenticated;
+grant insert, update, delete on public.discount_codes to authenticated;
+
+drop policy if exists "discount_codes_admin_all" on public.discount_codes;
+create policy "discount_codes_admin_all" on public.discount_codes
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+-- Sin política de "select" pública: el código se valida siempre desde el
+-- servidor (service role) en /api/checkout, nunca se expone la lista completa.
+
+create or replace function public.increment_discount_use(discount_code text)
+returns void
+language sql
+security definer set search_path = public
+as $$
+  update public.discount_codes set used_count = used_count + 1 where code = discount_code;
+$$;
+revoke all on function public.increment_discount_use(text) from public;
+
+-- Vista previa pública de un código de descuento (para mostrar el monto antes
+-- de pagar). La validación real y definitiva vuelve a ocurrir en el servidor
+-- dentro de /api/checkout con la service role key.
+create or replace function public.preview_discount_code(p_code text, p_subtotal integer)
+returns table (valid boolean, discount_amount integer, message text)
+language plpgsql
+stable
+security definer set search_path = public
+as $$
+declare
+  d public.discount_codes%rowtype;
+begin
+  select * into d from public.discount_codes where code = upper(p_code);
+  if not found or not d.active or (d.expires_at is not null and d.expires_at <= now()) or (d.max_uses is not null and d.used_count >= d.max_uses) then
+    return query select false, 0, 'Código no válido o expirado.';
+    return;
+  end if;
+  return query select true,
+    least(p_subtotal, case when d.type = 'percent' then round(p_subtotal * d.value / 100.0)::integer else d.value end),
+    'Descuento aplicado.';
+end;
+$$;
+revoke all on function public.preview_discount_code(text, integer) from public;
+grant execute on function public.preview_discount_code(text, integer) to anon, authenticated;
+
+-- ── Reseñas de productos ───────────────────────────────────────────────────
+
+create table if not exists public.reviews (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete set null,
+  customer_name text not null,
+  rating integer not null check (rating between 1 and 5),
+  comment text,
+  approved boolean not null default true,
+  created_at timestamptz not null default now()
+);
+create index if not exists reviews_product_idx on public.reviews (product_id, created_at desc);
+
+alter table public.reviews enable row level security;
+revoke all on public.reviews from anon, authenticated;
+grant select on public.reviews to anon, authenticated;
+grant insert, delete on public.reviews to authenticated;
+grant update on public.reviews to authenticated;
+
+drop policy if exists "reviews_public_read" on public.reviews;
+create policy "reviews_public_read" on public.reviews
+for select to anon, authenticated using (approved or public.is_admin());
+drop policy if exists "reviews_own_insert" on public.reviews;
+create policy "reviews_own_insert" on public.reviews
+for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "reviews_admin_update" on public.reviews;
+create policy "reviews_admin_update" on public.reviews
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "reviews_own_or_admin_delete" on public.reviews;
+create policy "reviews_own_or_admin_delete" on public.reviews
+for delete to authenticated using ((select auth.uid()) = user_id or public.is_admin());
+
+-- ── Permitir a la administradora ascender a otras cuentas a admin ──────────
+
+grant update on public.profiles to authenticated;
+drop policy if exists "profiles_admin_update" on public.profiles;
+create policy "profiles_admin_update" on public.profiles
+for update to authenticated using (public.is_admin()) with check (true);

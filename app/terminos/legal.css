@@ -1,0 +1,10 @@
+.legal-shell { min-height: 100vh; padding: 48px 20px 80px; background: #f6efeb; color: #351f2c; }
+.legal-card { width: min(720px, 100%); margin: 0 auto; padding: 42px; border: 1px solid #e5d6d0; border-radius: 22px; background: #fffaf5; box-shadow: 0 24px 65px rgba(53,31,44,.08); }
+.legal-back { display: inline-flex; margin-bottom: 22px; color: #b75874; font-size: 13px; font-weight: 700; }
+.legal-card h1 { margin: 0 0 6px; font-family: Georgia, serif; font-size: 34px; font-weight: 400; }
+.legal-updated { margin: 0 0 28px; color: #8b747c; font-size: 12px; }
+.legal-card h2 { margin: 28px 0 10px; font-family: Georgia, serif; font-size: 19px; font-weight: 400; color: #70344f; }
+.legal-card p, .legal-card li { color: #4a363d; font-size: 14.5px; line-height: 1.75; }
+.legal-card ul { margin: 8px 0; padding-left: 22px; }
+.legal-card a { color: #b75874; font-weight: 700; }
+@media (max-width: 620px) { .legal-card { padding: 28px 20px; } }

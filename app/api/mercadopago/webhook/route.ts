@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 
+import { sendOrderStatusEmail } from "@/lib/email";
 import { fetchMercadoPagoPayment } from "@/lib/mercadopago";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -33,6 +34,11 @@ export async function POST(request: Request) {
     const payment = await fetchMercadoPagoPayment(mpAccessToken, paymentId);
     const orderStatus = paymentStatusToOrderStatus[payment.status] ?? "pending";
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+    const { data: existingOrder } = await supabase
+      .from("orders")
+      .select("status, items, customer_email")
+      .eq("id", payment.external_reference)
+      .maybeSingle();
     const { error } = await supabase
       .from("orders")
       .update({
@@ -42,6 +48,19 @@ export async function POST(request: Request) {
       })
       .eq("id", payment.external_reference);
     if (error) return NextResponse.json({ ok: false }, { status: 503 });
+    // Si el pago se cae (rechazado/cancelado/reembolsado), la reserva de stock
+    // hecha al crear el pedido se devuelve al inventario.
+    if (orderStatus === "cancelled" && existingOrder && existingOrder.status !== "cancelled") {
+      await supabase.rpc("restore_order_stock", { items: existingOrder.items });
+    }
+    const resendApiKey = env.RESEND_API_KEY as string | undefined;
+    if (resendApiKey && existingOrder && existingOrder.status !== orderStatus) {
+      try {
+        await sendOrderStatusEmail({ apiKey: resendApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus });
+      } catch {
+        /* El correo es un complemento: si falla, el estado del pedido ya quedó guardado. */
+      }
+    }
     return NextResponse.json({ ok: true });
   } catch {
     // Un error transitorio debe permitir que el proveedor reintente.

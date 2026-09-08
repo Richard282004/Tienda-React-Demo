@@ -8,14 +8,16 @@ export async function createMercadoPagoPreference(opts: {
   orderId: string;
   items: PreferenceItem[];
   shippingCost: number;
+  discountAmount?: number;
   payerEmail: string;
   siteUrl: string;
 }) {
-  const { accessToken, orderId, items, shippingCost, payerEmail, siteUrl } = opts;
+  const { accessToken, orderId, items, shippingCost, discountAmount = 0, payerEmail, siteUrl } = opts;
   const body = {
     items: [
       ...items.map((item) => ({ title: item.title, quantity: item.quantity, unit_price: item.unit_price, currency_id: 'CLP' })),
       ...(shippingCost > 0 ? [{ title: 'Envío', quantity: 1, unit_price: shippingCost, currency_id: 'CLP' }] : []),
+      ...(discountAmount > 0 ? [{ title: 'Descuento', quantity: 1, unit_price: -discountAmount, currency_id: 'CLP' }] : []),
     ],
     payer: { email: payerEmail },
     external_reference: orderId,
