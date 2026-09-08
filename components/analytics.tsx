@@ -1,15 +1,31 @@
 'use client';
 
 import { useEffect } from 'react';
+import { CONSENT_EVENT, CONSENT_KEY, CookieConsent } from '@/components/cookie-consent';
 import { supabase } from '@/lib/supabase';
 
+function hasConsent(): boolean {
+  try {
+    return localStorage.getItem(CONSENT_KEY) === 'accepted';
+  } catch {
+    return false;
+  }
+}
+
 // Carga Google Analytics y/o Meta Pixel solo si la administradora configuró
-// los IDs en Admin → Textos y contacto → Analítica. Sin IDs, no se inyecta
-// ningún script de terceros.
+// los IDs en Admin → Textos y contacto → Analítica, Y la visitante aceptó el
+// aviso de cookies (components/cookie-consent.tsx). Sin IDs o sin
+// consentimiento, no se inyecta ningún script de terceros.
 export function Analytics() {
   useEffect(() => {
     if (!supabase) return;
     let cancelled = false;
+    let ids: { gaId?: string; metaPixelId?: string } = {};
+    const tryLoad = () => {
+      if (!hasConsent()) return;
+      if (ids.gaId) loadGoogleAnalytics(ids.gaId);
+      if (ids.metaPixelId) loadMetaPixel(ids.metaPixelId);
+    };
     void supabase
       .from('site_content')
       .select('value')
@@ -17,14 +33,15 @@ export function Analytics() {
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
-        const value = data?.value as { gaId?: string; metaPixelId?: string } | undefined;
-        if (value?.gaId) loadGoogleAnalytics(value.gaId);
-        if (value?.metaPixelId) loadMetaPixel(value.metaPixelId);
+        ids = (data?.value as { gaId?: string; metaPixelId?: string } | undefined) ?? {};
+        tryLoad();
       });
-    return () => { cancelled = true; };
+    const onConsentChange = () => tryLoad();
+    window.addEventListener(CONSENT_EVENT, onConsentChange);
+    return () => { cancelled = true; window.removeEventListener(CONSENT_EVENT, onConsentChange); };
   }, []);
 
-  return null;
+  return <CookieConsent />;
 }
 
 function loadGoogleAnalytics(id: string) {

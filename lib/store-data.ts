@@ -42,6 +42,10 @@ export type StoreContent = {
   footerCta: string;
   gaId?: string;
   metaPixelId?: string;
+  legalName?: string;
+  legalRetention?: string;
+  termsContent?: string;
+  privacyContent?: string;
   heroEyebrow_en?: string;
   heroTitle_en?: string;
   heroHighlight_en?: string;
@@ -89,4 +93,66 @@ export const defaultStoreContent: StoreContent = {
   storyQuote: 'Lo imperfecto es parte de lo encantador.',
   storyQuoteAuthor: '— filosofía Lúmina',
   footerCta: '¿Tienes una idea especial?',
+  legalName: '',
+  legalRetention: 'Mientras mantengas tu cuenta activa. Si la cierras, conservamos los datos de tus pedidos hasta por 6 años desde la compra por obligaciones tributarias y contables, y luego los eliminamos.',
+  termsContent: `## 1. Quiénes somos
+{{legalName}} es quien opera {{brandName}}, una tienda de llaveros y peluches de crochet hechos a mano. Al comprar en este sitio aceptas estas condiciones.
+
+## 2. Productos y precios
+Cada producto se muestra con nombre, descripción, fotografía referencial, precio en pesos chilenos (CLP) y disponibilidad. Al ser piezas artesanales hechas a mano, pueden existir pequeñas variaciones de color o forma respecto a la fotografía. Los precios incluyen IVA cuando corresponda.
+
+## 3. Proceso de compra y pago
+El pago se procesa a través de Mercado Pago. El pedido queda confirmado solo cuando el pago es aprobado. Si el pago es rechazado o queda pendiente, el pedido no se despacha hasta confirmar el pago.
+
+## 4. Envíos
+Despachamos a todo Chile. El costo de envío se calcula según la región indicada al pagar y se muestra antes de confirmar la compra. Los plazos de entrega son estimados y pueden variar según la empresa de transporte y la comuna de destino.
+
+## 5. Derecho a retracto
+De acuerdo con la Ley N° 19.496 sobre Protección de los Derechos de los Consumidores, tienes derecho a retractarte de tu compra dentro de 10 días corridos desde que recibes el producto, siempre que este se encuentre en las mismas condiciones en que fue entregado, sin uso y con su embalaje original. Para ejercer este derecho, contáctanos por los medios indicados abajo.
+
+Los costos de despacho de la devolución corren por cuenta del cliente, salvo que el producto presente una falla o error atribuible a la tienda.
+
+## 6. Cambios y devoluciones por fallas
+Si tu producto llega con una falla de fabricación o distinto a lo comprado, contáctanos dentro de 7 días de recibido con fotos del producto. Evaluamos cada caso para reposición, cambio o devolución del dinero, conforme a la Ley del Consumidor.
+
+## 7. Cuentas de usuario
+Puedes comprar creando una cuenta con correo y contraseña, o mediante tu cuenta de Google. Eres responsable de mantener la confidencialidad de tu contraseña.
+
+## 8. Contacto
+Ante dudas, reclamos o para ejercer tus derechos como consumidor, escríbenos a {{email}} o al {{phone}}.`,
+  privacyContent: `## 1. Quiénes tratan tus datos
+{{legalName}} opera {{brandName}}. Puedes contactarnos en {{email}} o al {{phone}} para cualquier consulta sobre esta política.
+
+## 2. Qué datos recopilamos
+Cuando creas una cuenta, compras o inicias sesión con Google, recopilamos: nombre, correo electrónico, teléfono, dirección de despacho (región, comuna, dirección) y el historial de tus pedidos. Si inicias sesión con Google, recibimos tu nombre y correo asociados a esa cuenta.
+
+## 3. Para qué usamos tus datos
+- Procesar y despachar tus pedidos.
+- Enviarte correos sobre el estado de tu compra (confirmación, envío, entrega).
+- Darte acceso a tu cuenta y tu historial de pedidos.
+- Responder tus consultas de contacto.
+
+No vendemos tus datos personales a terceros.
+
+## 4. Con quién compartimos datos
+Para operar la tienda usamos proveedores de servicios que procesan datos en nuestro nombre:
+- Supabase: almacenamiento de tu cuenta, pedidos y fotografías de productos.
+- Mercado Pago: procesamiento del pago (nunca vemos ni almacenamos los datos de tu tarjeta).
+- Google: si eliges iniciar sesión con tu cuenta de Google.
+- Resend: envío de los correos transaccionales de tu pedido.
+- Cloudflare: alojamiento del sitio web.
+
+Si activamos herramientas de análisis o publicidad (Google Analytics y/o Meta Pixel), te lo pedimos primero mediante el aviso de cookies del sitio; solo se activan si aceptas, y puedes cambiar tu decisión cuando quieras.
+
+## 5. Cuánto tiempo conservamos tus datos
+{{retention}}
+
+## 6. Tus derechos
+Puedes solicitar acceder, corregir o eliminar tus datos personales, o el cierre de tu cuenta, escribiéndonos a {{email}}. Responderemos dentro de un plazo razonable.
+
+## 7. Cookies y almacenamiento local
+Usamos almacenamiento local del navegador para recordar tu carrito de compras y favoritos mientras navegas; esto no requiere tu consentimiento porque no se usa para rastrearte ni con fines publicitarios. Si en algún momento activamos Google Analytics o Meta Pixel, te lo pediremos antes mediante un aviso de cookies, y esas herramientas sí usan cookies o identificadores para medir visitas o mostrar publicidad.
+
+## 8. Seguridad
+Tu contraseña se guarda cifrada por Supabase; nunca tenemos acceso a ella en texto plano. Las conexiones al sitio y a los servicios de pago usan cifrado HTTPS.`,
 };
