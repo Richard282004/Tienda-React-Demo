@@ -21,6 +21,7 @@ import {
   ShoppingBag,
   Sparkles,
   Star,
+  Trash2,
   Truck,
   UserRound,
   X,
@@ -71,6 +72,12 @@ export default function Home() {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [carouselPaused, setCarouselPaused] = useState(false);
   const [carouselHovering, setCarouselHovering] = useState(false);
+  const [scrolledPastHeader, setScrolledPastHeader] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolledPastHeader(window.scrollY > 420);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const [lang, setLang] = useState<Lang>('es');
   useEffect(() => {
     try {
@@ -531,6 +538,7 @@ export default function Home() {
 
       <footer id="contacto" className="site-footer page-width"><div className="footer-brand"><span className="brand-mark">✦</span><span>{content.brandName}<small>{content.brandTagline}</small></span></div><div className="footer-contact"><p>{lang === 'en' && content.footerCta_en ? content.footerCta_en : content.footerCta}</p><a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a><a href={`mailto:${content.email}`}><Mail size={14} /> {content.email}</a></div><div className="footer-links"><a href="#inicio">{tr('navHome')}</a><a href="#tienda">{tr('navShop')}</a><a href="#nosotros">{tr('navAbout')}</a><a href="/terminos">Términos y condiciones</a><a href="/privacidad">Privacidad</a></div></footer>
 
+      {cart.length > 0 && scrolledPastHeader && <button type="button" className="cart-fab" onClick={() => setCartOpen(true)} aria-label={`Abrir bolsita, ${cart.length} productos`}><ShoppingBag size={22} /><span key={cart.length} className="cart-fab-badge">{cart.length}</span></button>}
       {content.whatsapp && <a className="whatsapp-fab" href={`https://wa.me/${content.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" aria-label="Escríbenos por WhatsApp"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.18 3.03 14.69 2 12.04 2Zm0 18.12h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.19 8.19 0 0 1-1.26-4.33c0-4.53 3.69-8.22 8.23-8.22 2.2 0 4.26.86 5.82 2.41a8.16 8.16 0 0 1 2.41 5.82c0 4.53-3.69 8.2-8.2 8.2Zm4.51-6.15c-.25-.12-1.46-.72-1.68-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.16-.29.18-.53.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.83-.2-.48-.4-.42-.56-.42-.14 0-.31-.02-.47-.02s-.43.06-.66.31c-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.16 1.75 2.67 4.24 3.74.59.25 1.05.4 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.46-.6 1.66-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28Z" /></svg></a>}
 
       <Dialog open={!!galleryProduct} onOpenChange={(open) => !open && setGalleryProduct(null)}>
@@ -594,7 +602,7 @@ export default function Home() {
 
       <Dialog open={cartOpen} onOpenChange={setCartOpen}>
         <DialogContent className="cart-panel" style={{ transform: 'none', translate: 'none' }}>
-          <DialogHeader className="cart-heading"><p className="section-kicker">{tr('yourBag')}</p><DialogTitle>{tr('yourBag')} ({cartProducts.length})</DialogTitle><DialogDescription>Tus próximos compañeros, hechos a mano.</DialogDescription>{cartProducts.length > 0 && <button type="button" className="clear-cart" onClick={() => setCart([])}>{tr('clearCart')}</button>}</DialogHeader>
+          <DialogHeader className="cart-heading"><p className="section-kicker">{tr('yourBag')}</p><DialogTitle>{tr('yourBag')} ({cartProducts.length})</DialogTitle><DialogDescription>Tus próximos compañeros, hechos a mano.</DialogDescription>{cartProducts.length > 0 && <button type="button" className="clear-cart" onClick={() => setCart([])}><Trash2 size={13} /> {tr('clearCart')}</button>}</DialogHeader>
           {cartProducts.length === 0 ? <div className="empty-cart"><span aria-hidden="true">♡</span><p>Tu bolsita está esperando<br />algo bonito.</p><Button className="primary-button" onClick={() => { setCartOpen(false); document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' }); }}>Explorar tienda</Button></div> : <>
             <div className="cart-items">{cartProducts.map((product, index) => <div className="cart-item" key={`${product.id}-${index}`}><div className="cart-thumb" style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></div><div><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div><button aria-label={`Eliminar una unidad de ${product.name}`} onClick={() => setCart((current) => { const at = current.indexOf(product.id); return current.filter((_, i) => i !== at); })}><Minus size={15} /></button></div>)}</div>
             <div className="cart-total"><span>{tr('subtotal')}</span><strong>{formatPrice(total)}</strong></div><p className="cart-shipping-note">El envío se calcula al elegir tu región.</p><Button className="primary-button checkout-button" disabled={storeLoading || !!storeError} onClick={() => { setCartOpen(false); setCheckoutError(''); setCheckoutOpen(true); }}>{tr('checkout')} <ArrowRight size={17} /></Button>
