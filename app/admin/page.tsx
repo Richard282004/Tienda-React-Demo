@@ -354,7 +354,7 @@ export default function AdminPage() {
   if (state === 'denied') return <main className="admin-center"><section className="setup-card"><div className="admin-badge danger">Acceso restringido</div><h1>Esta cuenta no es administradora</h1><p>La sesión es válida, pero no tiene permiso para modificar la tienda.</p><div className="denied-actions"><Button variant="outline" onClick={logout}>Cerrar sesión</Button><a href="/">Volver a la tienda</a></div></section></main>;
 
   return <main className="admin-shell">
-    <header className="admin-header"><div><p className="admin-kicker">{content.brandName} · Panel privado</p><h1>Administración de la tienda</h1></div><div><a href="/" target="_blank" rel="noopener noreferrer">Ver tienda ↗</a><Button variant="outline" onClick={logout}><LogOut size={16} /> Salir</Button></div></header>
+    <header className="admin-header"><div><p className="admin-kicker">{content.brandName} · Panel privado</p><h1>Administración de la tienda</h1></div><div><a href="/">Ver tienda ↗</a><Button variant="outline" onClick={logout}><LogOut size={16} /> Salir</Button></div></header>
     {message && <div className="admin-message success"><Check size={16} /> {message}</div>}
     <div className="stat-cards">
       <button type="button" className="stat-card" onClick={() => setActiveTab('orders')}><div className="stat-icon revenue"><DollarSign size={18} /></div><div><span>Ventas este mes</span><strong>{formatPrice(revenueThisMonth)}</strong></div></button>
