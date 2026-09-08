@@ -1,0 +1,28 @@
+.account-page-shell { min-height: 100vh; padding: 28px 20px 90px; background: var(--cream); color: var(--ink); }
+.account-page-loading { text-align: center; color: var(--muted); padding: 60px 0; }
+.account-page-back { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 18px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.account-page-guest { max-width: 380px; margin: 60px auto; text-align: center; display: grid; gap: 14px; }
+.account-page-guest h1 { margin: 0; font-family: Georgia, serif; font-size: 26px; font-weight: 400; }
+.account-page-guest p { margin: 0; color: var(--muted); font-size: 14px; }
+.account-page-guest .account-page-back { justify-content: center; margin-top: 8px; }
+.account-page-grid { display: grid; grid-template-columns: 260px 1fr; gap: 28px; width: min(980px, 100%); margin: 0 auto; align-items: start; }
+.account-page-nav { display: grid; gap: 4px; border: 1px solid #e5d6d0; border-radius: 18px; padding: 10px; background: #fffaf5; }
+.account-page-nav-title { margin: 6px 8px 10px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.account-page-nav button { display: flex; align-items: center; justify-content: space-between; width: 100%; border-radius: 10px; padding: 12px 12px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.account-page-nav button:hover { background: #f7f1ee; }
+.account-page-nav button.active { background: #f3e9e4; color: var(--rose); }
+.account-page-nav button svg { color: var(--muted); }
+.account-page-signout { margin-top: 8px; padding-top: 12px; border-top: 1px solid #eadfd8; color: var(--muted) !important; justify-content: flex-start !important; gap: 8px; }
+.account-page-content { border: 1px solid #e5d6d0; border-radius: 20px; padding: 30px; background: #fffaf5; }
+.account-page-content h1 { margin: 0 0 6px; font-family: Georgia, serif; font-size: 28px; font-weight: 400; }
+.account-page-subtitle { margin: 0 0 24px; color: var(--muted); font-size: 13px; }
+.account-page-form { display: grid; gap: 14px; max-width: 420px; }
+.account-page-form h2 { margin: 10px 0 2px; font-family: Georgia, serif; font-size: 17px; font-weight: 400; color: var(--plum); }
+.account-page-form label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.account-page-form input, .account-page-form select { min-height: 44px; font-size: 15px; border-color: #decfc9; background: white; }
+.account-page-form .primary-button { margin-top: 6px; width: fit-content; }
+.admin-select { width: 100%; }
+@media (max-width: 760px) {
+  .account-page-grid { grid-template-columns: 1fr; }
+  .account-page-content { padding: 22px; }
+}

@@ -517,7 +517,7 @@ export default function Home() {
       <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
         <DialogContent className="account-dialog">
           <DialogHeader><div className="account-mark">✦</div><DialogTitle>{sessionEmail ? 'Tu cuenta Lúmina' : accountMode === 'login' ? 'Bienvenida de vuelta' : 'Crea tu cuenta'}</DialogTitle><DialogDescription>{sessionEmail ? `Sesión iniciada como ${sessionEmail}` : accountMode === 'login' ? 'Ingresa a tu cuenta para continuar en la tienda.' : 'Crea tu cuenta con tu correo electrónico.'}</DialogDescription></DialogHeader>
-          {sessionEmail ? <div className="signed-account">{isAdmin && <a href="/admin">Ir al panel de administración</a>}<Button variant="outline" onClick={handleSignOut}>Cerrar sesión</Button></div> : <>
+          {sessionEmail ? <div className="signed-account"><a href="/mi-cuenta">Resumen de tu cuenta</a>{isAdmin && <a href="/admin">Ir al panel de administración</a>}<Button variant="outline" onClick={handleSignOut}>Cerrar sesión</Button></div> : <>
             <form className="account-form" onSubmit={handleAccountSubmit}>
               {accountMode === 'register' && <label>Nombre<Input required value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Tu nombre" autoComplete="name" /><small className="field-required">Campo obligatorio</small></label>}
               <label>Correo electrónico<div className="input-with-icon"><Mail size={17} /><Input required type="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} placeholder="tu@correo.com" autoComplete="email" /></div><small className="field-required">Campo obligatorio</small></label>
