@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, ImagePlus, LogOut, PackagePlus, Pencil, Save, ShieldCheck, Star, Tag, Trash2, Upload, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, Clock, DollarSign, ImagePlus, LogOut, Package, PackagePlus, Pencil, Save, ShieldCheck, Star, Tag, Trash2, Upload, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -337,6 +337,13 @@ export default function AdminPage() {
     setMessage(error ? error.message : 'Textos y datos de contacto actualizados.');
   };
 
+  const now = new Date();
+  const revenueThisMonth = orders
+    .filter((order) => ['paid', 'shipped', 'delivered'].includes(order.status) && new Date(order.created_at).getMonth() === now.getMonth() && new Date(order.created_at).getFullYear() === now.getFullYear())
+    .reduce((sum, order) => sum + order.total, 0);
+  const pendingShipmentCount = orders.filter((order) => order.status === 'paid').length;
+  const lowStockCount = products.filter((product) => product.stock != null && product.stock <= 5).length;
+
   if (state === 'loading') return <main className="admin-center"><div className="admin-loader">Preparando tu panel…</div></main>;
 
   if (state === 'setup') return <main className="admin-center"><section className="setup-card"><div className="admin-badge"><ShieldCheck /> Configuración pendiente</div><h1>Conecta Supabase para activar el panel</h1><p>La administración ya está construida. Para encenderla, crea el proyecto en Supabase, ejecuta el archivo de configuración SQL y agrega la URL y la clave pública del proyecto.</p><ol><li>Ejecuta <strong>supabase/schema.sql</strong> en el editor SQL.</li><li>Copia la URL del proyecto y la clave publicable.</li><li>Registra tu cuenta y márcala como administradora.</li></ol><a href="/"><ArrowLeft size={16} /> Volver a la tienda</a></section></main>;
@@ -348,7 +355,13 @@ export default function AdminPage() {
   return <main className="admin-shell">
     <header className="admin-header"><div><p className="admin-kicker">{content.brandName} · Panel privado</p><h1>Administración de la tienda</h1></div><div><a href="/" target="_blank" rel="noopener noreferrer">Ver tienda ↗</a><Button variant="outline" onClick={logout}><LogOut size={16} /> Salir</Button></div></header>
     {message && <div className="admin-message success"><Check size={16} /> {message}</div>}
-    <Tabs defaultValue="products" className="admin-tabs">
+    <div className="stat-cards">
+      <div className="stat-card"><div className="stat-icon revenue"><DollarSign size={18} /></div><div><span>Ventas este mes</span><strong>{formatPrice(revenueThisMonth)}</strong></div></div>
+      <div className="stat-card"><div className="stat-icon orders"><Clock size={18} /></div><div><span>Por despachar</span><strong>{pendingShipmentCount}</strong></div></div>
+      <div className="stat-card"><div className="stat-icon stock"><AlertTriangle size={18} /></div><div><span>Stock bajo</span><strong>{lowStockCount}</strong></div></div>
+      <div className="stat-card"><div className="stat-icon products"><Package size={18} /></div><div><span>Productos activos</span><strong>{products.filter((product) => product.active !== false).length}</strong></div></div>
+    </div>
+    <Tabs defaultValue="products" className="admin-tabs" orientation="vertical">
       <TabsList className="admin-tabs-list"><TabsTrigger value="products">Productos</TabsTrigger><TabsTrigger value="orders">Pedidos</TabsTrigger><TabsTrigger value="shipping">Envíos</TabsTrigger><TabsTrigger value="discounts">Descuentos</TabsTrigger><TabsTrigger value="reviews">Reseñas</TabsTrigger><TabsTrigger value="users">Usuarios</TabsTrigger><TabsTrigger value="showcase">Vitrina</TabsTrigger><TabsTrigger value="faq">FAQ</TabsTrigger><TabsTrigger value="content">Textos y contacto</TabsTrigger></TabsList>
       <TabsContent value="orders">
         <div className="admin-section-heading"><div><h2>Pedidos</h2><p>{orders.length} pedidos recibidos</p></div></div>
