@@ -17,10 +17,19 @@ export type Product = {
 };
 
 export type StoreContent = {
+  brandName: string;
+  brandTagline: string;
   heroEyebrow: string;
   heroTitle: string;
   heroHighlight: string;
   heroDescription: string;
+  heroCtaPrimary: string;
+  heroCtaSecondary: string;
+  heroNote1: string;
+  heroNote2: string;
+  categoryText1: string;
+  categoryText2: string;
+  categoryText3: string;
   phone: string;
   email: string;
   whatsapp?: string;
@@ -28,6 +37,9 @@ export type StoreContent = {
   aboutTitle: string;
   aboutHighlight: string;
   aboutText: string;
+  storyQuote: string;
+  storyQuoteAuthor: string;
+  footerCta: string;
 };
 
 export const defaultProducts: Product[] = [
@@ -40,10 +52,19 @@ export const defaultProducts: Product[] = [
 ];
 
 export const defaultStoreContent: StoreContent = {
+  brandName: 'LÚMINA',
+  brandTagline: 'hecho a mano',
   heroEyebrow: 'Pequeñas cosas, grandes sonrisas',
   heroTitle: 'Un poquito de',
   heroHighlight: 'ternura para llevar.',
   heroDescription: 'Llaveros y peluches tejidos a mano, puntada por puntada, para acompañarte todos los días.',
+  heroCtaPrimary: 'Ver la colección',
+  heroCtaSecondary: 'Conoce Lúmina',
+  heroNote1: 'Hecho a mano',
+  heroNote2: 'Materiales suaves',
+  categoryText1: 'Regalos con cariño',
+  categoryText2: 'Diseños únicos',
+  categoryText3: 'Hecho en Chile',
   phone: '+56 9 1234 5678',
   email: 'hola@lumina.cl',
   whatsapp: '+56912345678',
@@ -51,4 +72,7 @@ export const defaultStoreContent: StoreContent = {
   aboutTitle: 'Hecho lento,',
   aboutHighlight: 'hecho bonito.',
   aboutText: 'Cada pieza nace en un pequeño taller, entre ovillos de colores, café calentito y muchas ganas de crear algo especial.',
+  storyQuote: 'Lo imperfecto es parte de lo encantador.',
+  storyQuoteAuthor: '— filosofía Lúmina',
+  footerCta: '¿Tienes una idea especial?',
 };
