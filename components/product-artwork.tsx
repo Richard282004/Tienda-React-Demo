@@ -15,6 +15,10 @@ export function ProductArtwork({ product, className }: { product: Product; class
         decoding="async"
         style={{
           objectPosition: `${product.image_position_x ?? 50}% ${product.image_position_y ?? 50}%`,
+          // El origen del zoom debe coincidir con el punto elegido en los
+          // sliders; si no, "acercar" siempre agranda hacia el centro del
+          // recuadro en vez de hacia el producto.
+          transformOrigin: `${product.image_position_x ?? 50}% ${product.image_position_y ?? 50}%`,
           transform: `scale(${product.image_zoom ?? 1})`,
         }}
         onError={() => setFailedUrl(product.image_url ?? null)}
