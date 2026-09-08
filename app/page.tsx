@@ -35,7 +35,7 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { defaultProducts, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
-import { CHILE_REGIONS, type ProductImage, type Review, type ShippingRate } from '@/lib/orders';
+import { CHILE_REGIONS, COMUNAS_BY_REGION, type ProductImage, type Review, type ShippingRate } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 const categories = ['Todo', 'Llaveros', 'Peluches'];
@@ -403,7 +403,7 @@ export default function Home() {
         <div className="header-actions">
           <Button aria-label="Buscar productos" variant="ghost" size="icon" className={`icon-button ${searchOpen ? 'active' : ''}`} onClick={() => setSearchOpen((open) => !open)}><Search size={19} /></Button>
           <Button aria-label="Mi cuenta" variant="ghost" size="icon" className="icon-button account-icon" onClick={() => openAccount('login')}><UserRound size={19} /></Button>
-          <Button aria-label={`Abrir bolsita, ${cart.length} productos`} variant="ghost" size="icon" className="bag-button" onClick={() => setCartOpen(true)}><ShoppingBag size={19} /><span>{cart.length}</span></Button>
+          <Button aria-label={`Abrir bolsita, ${cart.length} productos`} variant="ghost" size="icon" className="bag-button" onClick={() => setCartOpen(true)}><ShoppingBag size={19} />{cart.length > 0 && <span key={cart.length} className="bag-badge">{cart.length}</span>}</Button>
           <Button aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"} aria-expanded={menuOpen} aria-controls="main-navigation" variant="ghost" size="icon" className="menu-button" onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={21} /> : <Menu size={21} />}</Button>
         </div>
       </header>
@@ -551,7 +551,7 @@ export default function Home() {
 
       <Dialog open={cartOpen} onOpenChange={setCartOpen}>
         <DialogContent className="cart-panel" style={{ transform: 'none', translate: 'none' }}>
-          <DialogHeader className="cart-heading"><p className="section-kicker">Tu selección</p><DialogTitle>Tu bolsita ({cartProducts.length})</DialogTitle><DialogDescription>Tus próximos compañeros, hechos a mano.</DialogDescription></DialogHeader>
+          <DialogHeader className="cart-heading"><p className="section-kicker">Tu selección</p><DialogTitle>Tu bolsita ({cartProducts.length})</DialogTitle><DialogDescription>Tus próximos compañeros, hechos a mano.</DialogDescription>{cartProducts.length > 0 && <button type="button" className="clear-cart" onClick={() => setCart([])}>Vaciar carrito</button>}</DialogHeader>
           {cartProducts.length === 0 ? <div className="empty-cart"><span aria-hidden="true">♡</span><p>Tu bolsita está esperando<br />algo bonito.</p><Button className="primary-button" onClick={() => { setCartOpen(false); document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' }); }}>Explorar tienda</Button></div> : <>
             <div className="cart-items">{cartProducts.map((product, index) => <div className="cart-item" key={`${product.id}-${index}`}><div className="cart-thumb" style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></div><div><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div><button aria-label={`Eliminar una unidad de ${product.name}`} onClick={() => setCart((current) => { const at = current.indexOf(product.id); return current.filter((_, i) => i !== at); })}><Minus size={15} /></button></div>)}</div>
             <div className="cart-total"><span>Subtotal</span><strong>{formatPrice(total)}</strong></div><p className="cart-shipping-note">El envío se calcula al elegir tu región.</p><Button className="primary-button checkout-button" disabled={storeLoading || !!storeError} onClick={() => { setCartOpen(false); setCheckoutError(''); setCheckoutOpen(true); }}>Continuar compra <ArrowRight size={17} /></Button>
@@ -566,11 +566,14 @@ export default function Home() {
             <label>Nombre completo<Input required autoComplete="name" maxLength={120} value={shipping.name} onChange={(event) => setShipping({ ...shipping, name: event.target.value })} /></label>
             <label>Correo electrónico<Input required autoComplete="email" type="email" maxLength={254} value={shipping.email} onChange={(event) => setShipping({ ...shipping, email: event.target.value })} /></label>
             <label>Teléfono<Input required type="tel" autoComplete="tel" maxLength={40} value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /></label>
-            <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value })}>
+            <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value, comuna: '' })}>
               <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
               {CHILE_REGIONS.map((region) => <NativeSelectOption key={region} value={region}>{region}</NativeSelectOption>)}
             </NativeSelect></label>
-            <label>Comuna<Input required maxLength={120} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /></label>
+            <label>Comuna{shipping.region && COMUNAS_BY_REGION[shipping.region] ? <NativeSelect required className="admin-select" value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })}>
+              <NativeSelectOption value="">Selecciona tu comuna</NativeSelectOption>
+              {COMUNAS_BY_REGION[shipping.region].map((comuna) => <NativeSelectOption key={comuna} value={comuna}>{comuna}</NativeSelectOption>)}
+            </NativeSelect> : <Input required maxLength={120} value={shipping.comuna} placeholder="Elige primero tu región" disabled={!shipping.region} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} />}</label>
             <label>Dirección<Input required autoComplete="address-line1" maxLength={250} value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /></label>
             <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
             <label className="discount-field">Código de descuento (opcional)
