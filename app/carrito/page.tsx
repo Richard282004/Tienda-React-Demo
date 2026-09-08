@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { ProductArtwork } from '@/components/product-artwork';
 import { calculateShipping } from '@/lib/checkout-validation';
-import { CHILE_REGIONS, COMUNAS_BY_REGION, type ShippingRate } from '@/lib/orders';
+import { CHILE_REGIONS, COMUNAS_BY_REGION, type Address, type ShippingRate } from '@/lib/orders';
 import { type Product } from '@/lib/store-data';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import './carrito.css';
@@ -25,7 +25,8 @@ export default function CarritoPage() {
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [shipping, setShipping] = useState<Shipping>(emptyShipping);
-  const [hasSavedAddress, setHasSavedAddress] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
   const [discountInput, setDiscountInput] = useState('');
   const [discountChecking, setDiscountChecking] = useState(false);
   const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number } | null>(null);
@@ -60,18 +61,16 @@ export default function CarritoPage() {
       const user = userData.user;
       if (user) {
         setSessionEmail(user.email ?? null);
-        const { data: profile } = await client.from('profiles').select('full_name, phone, region, comuna, address, address_extra').eq('id', user.id).maybeSingle();
-        if (profile && (profile.address || profile.region)) {
-          setHasSavedAddress(true);
-          setShipping({
-            name: profile.full_name ?? '',
-            email: user.email ?? '',
-            phone: profile.phone ?? '',
-            region: profile.region ?? '',
-            comuna: profile.comuna ?? '',
-            address: profile.address ?? '',
-            addressExtra: profile.address_extra ?? '',
-          });
+        const [{ data: profile }, { data: addressRows }] = await Promise.all([
+          client.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+          client.from('addresses').select('*').eq('user_id', user.id).order('created_at'),
+        ]);
+        const list = (addressRows ?? []) as Address[];
+        setSavedAddresses(list);
+        const last = list[list.length - 1];
+        if (last) {
+          setSelectedAddressId(last.id);
+          setShipping({ name: last.full_name, email: user.email ?? '', phone: last.phone, region: last.region, comuna: last.comuna, address: last.address, addressExtra: last.address_extra ?? '' });
         } else {
           setShipping((current) => ({ ...current, name: profile?.full_name ?? '', email: user.email ?? '' }));
         }
@@ -151,13 +150,14 @@ export default function CarritoPage() {
       });
       const data = (await response.json()) as { initPoint?: string; error?: string };
       if (!response.ok || !data.initPoint) { setCheckoutError(data.error ?? 'No se pudo iniciar el pago.'); return; }
-      if (supabase) {
+      if (supabase && !savedAddresses.length) {
+        // Primera compra con cuenta: guarda esta dirección para la próxima vez.
         const { data: userData } = await supabase.auth.getUser();
         if (userData.user) {
           try {
-            await supabase.rpc('update_own_profile', {
-              p_full_name: shipping.name, p_phone: shipping.phone, p_region: shipping.region,
-              p_comuna: shipping.comuna, p_address: shipping.address, p_address_extra: shipping.addressExtra,
+            await supabase.from('addresses').insert({
+              user_id: userData.user.id, full_name: shipping.name, phone: shipping.phone,
+              region: shipping.region, comuna: shipping.comuna, address: shipping.address, address_extra: shipping.addressExtra || null,
             });
           } catch { /* Guardar la dirección es un complemento; el pedido ya se creó igual. */ }
         }
@@ -223,7 +223,16 @@ export default function CarritoPage() {
             </label>
 
             <form className="checkout-form cart-page-form" onSubmit={handleCheckout}>
-              <h3 className="cart-page-form-heading">Datos de envío{sessionEmail && hasSavedAddress ? ' (guardados en tu cuenta)' : ''}</h3>
+              <h3 className="cart-page-form-heading">Datos de envío{sessionEmail && savedAddresses.length ? ' (guardados en tu cuenta)' : ''}</h3>
+              {savedAddresses.length > 1 && (
+                <label>Elegir dirección guardada<NativeSelect className="admin-select" value={selectedAddressId} onChange={(event) => {
+                  const chosen = savedAddresses.find((item) => item.id === event.target.value);
+                  setSelectedAddressId(event.target.value);
+                  if (chosen) setShipping((current) => ({ ...current, name: chosen.full_name, phone: chosen.phone, region: chosen.region, comuna: chosen.comuna, address: chosen.address, addressExtra: chosen.address_extra ?? '' }));
+                }}>
+                  {savedAddresses.map((item, index) => <NativeSelectOption key={item.id} value={item.id}>Dirección {index + 1} — {item.address}</NativeSelectOption>)}
+                </NativeSelect></label>
+              )}
               <label>Nombre completo<Input required autoComplete="name" maxLength={120} value={shipping.name} onChange={(event) => setShipping({ ...shipping, name: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
               <label>Correo electrónico<Input required autoComplete="email" type="email" maxLength={254} value={shipping.email} onChange={(event) => setShipping({ ...shipping, email: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
               <label>Teléfono<Input required type="tel" autoComplete="tel" maxLength={40} value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /><small className="field-required">Campo obligatorio</small></label>

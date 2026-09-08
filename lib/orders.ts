@@ -110,6 +110,18 @@ export type Profile = {
   address_extra?: string | null;
 };
 
+export type Address = {
+  id: string;
+  user_id: string;
+  full_name: string;
+  phone: string;
+  region: string;
+  comuna: string;
+  address: string;
+  address_extra: string | null;
+  created_at: string;
+};
+
 export type ShowcaseItem = { id: string; title: string; subtitle: string | null; image_url: string; active: boolean; sort_order: number };
 
 export type Faq = { id: string; question: string; answer: string; active: boolean; sort_order: number };

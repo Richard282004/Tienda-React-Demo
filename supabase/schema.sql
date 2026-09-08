@@ -549,3 +549,38 @@ as $$
 $$;
 revoke all on function public.update_own_profile(text, text, text, text, text, text) from public;
 grant execute on function public.update_own_profile(text, text, text, text, text, text) to authenticated;
+
+-- ── Direcciones guardadas (varias por clienta) ──────────────────────────────
+
+create table if not exists public.addresses (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  full_name text not null,
+  phone text not null,
+  region text not null,
+  comuna text not null,
+  address text not null,
+  address_extra text,
+  created_at timestamptz not null default now()
+);
+create index if not exists addresses_user_id_idx on public.addresses (user_id, created_at);
+
+alter table public.addresses enable row level security;
+revoke all on public.addresses from anon, authenticated;
+grant select, insert, update, delete on public.addresses to authenticated;
+
+drop policy if exists "addresses_own" on public.addresses;
+create policy "addresses_own" on public.addresses
+for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+
+-- Guardar solo el nombre desde "Mi cuenta" (las direcciones ahora viven en
+-- public.addresses, con RLS propia: no necesitan pasar por una función).
+create or replace function public.update_own_name(p_full_name text)
+returns void
+language sql
+security definer set search_path = public
+as $$
+  update public.profiles set full_name = p_full_name where id = (select auth.uid());
+$$;
+revoke all on function public.update_own_name(text) from public;
+grant execute on function public.update_own_name(text) to authenticated;

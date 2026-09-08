@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ChevronRight, LogOut } from 'lucide-react';
+import { ArrowLeft, ChevronRight, LogOut, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { CHILE_REGIONS, COMUNAS_BY_REGION, orderStatusLabel, type Order } from '@/lib/orders';
+import { CHILE_REGIONS, COMUNAS_BY_REGION, orderStatusLabel, type Address, type Order } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import './mi-cuenta.css';
 
@@ -14,25 +14,21 @@ type Tab = 'datos' | 'direcciones' | 'pedidos';
 const formatPrice = (price: number) =>
   new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
 
-type Profile = {
-  full_name: string | null;
-  phone: string | null;
-  region: string | null;
-  comuna: string | null;
-  address: string | null;
-  address_extra: string | null;
-};
+const emptyAddressForm = { full_name: '', phone: '', region: '', comuna: '', address: '', address_extra: '' };
 
 export default function MiCuentaPage() {
   const [tab, setTab] = useState<Tab>('datos');
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [address, setAddress] = useState({ phone: '', region: '', comuna: '', address: '', addressExtra: '' });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoaded, setOrdersLoaded] = useState(false);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addressForm, setAddressForm] = useState<typeof emptyAddressForm | null>(null);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -40,42 +36,68 @@ export default function MiCuentaPage() {
       const { data: userData } = await supabase.auth.getUser();
       const user = userData.user;
       if (!user) { setLoading(false); return; }
+      setUserId(user.id);
       setEmail(user.email ?? null);
-      const [{ data: profile }, { data: orderRows }] = await Promise.all([
-        supabase.from('profiles').select('full_name, phone, region, comuna, address, address_extra').eq('id', user.id).maybeSingle<Profile>(),
+      const [{ data: profile }, { data: orderRows }, { data: addressRows }] = await Promise.all([
+        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle<{ full_name: string | null }>(),
         supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('addresses').select('*').eq('user_id', user.id).order('created_at'),
       ]);
       setName(profile?.full_name ?? '');
-      setAddress({
-        phone: profile?.phone ?? '',
-        region: profile?.region ?? '',
-        comuna: profile?.comuna ?? '',
-        address: profile?.address ?? '',
-        addressExtra: profile?.address_extra ?? '',
-      });
       setOrders((orderRows ?? []) as Order[]);
       setOrdersLoaded(true);
+      setAddresses((addressRows ?? []) as Address[]);
       setLoading(false);
     };
     void load();
   }, []);
 
-  const saveProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+  const saveName = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase) return;
     setBusy(true);
     setMessage('');
-    const { error } = await supabase.rpc('update_own_profile', {
-      p_full_name: name,
-      p_phone: address.phone,
-      p_region: address.region,
-      p_comuna: address.comuna,
-      p_address: address.address,
-      p_address_extra: address.addressExtra,
-    });
+    const { error } = await supabase.rpc('update_own_name', { p_full_name: name });
     setBusy(false);
     setMessage(error ? 'No pudimos guardar los cambios.' : 'Cambios guardados.');
     window.setTimeout(() => setMessage(''), 2500);
+  };
+
+  const openNewAddress = () => { setEditingAddressId('new'); setAddressForm(emptyAddressForm); };
+  const openEditAddress = (item: Address) => {
+    setEditingAddressId(item.id);
+    setAddressForm({ full_name: item.full_name, phone: item.phone, region: item.region, comuna: item.comuna, address: item.address, address_extra: item.address_extra ?? '' });
+  };
+  const closeAddressForm = () => { setEditingAddressId(null); setAddressForm(null); };
+
+  const saveAddress = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !addressForm || !userId) return;
+    setBusy(true);
+    setMessage('');
+    const payload = {
+      user_id: userId,
+      full_name: addressForm.full_name,
+      phone: addressForm.phone,
+      region: addressForm.region,
+      comuna: addressForm.comuna,
+      address: addressForm.address,
+      address_extra: addressForm.address_extra || null,
+    };
+    const { error } = editingAddressId && editingAddressId !== 'new'
+      ? await supabase.from('addresses').update(payload).eq('id', editingAddressId)
+      : await supabase.from('addresses').insert(payload);
+    setBusy(false);
+    if (error) { setMessage('No pudimos guardar la dirección.'); return; }
+    const { data: addressRows } = await supabase.from('addresses').select('*').eq('user_id', userId).order('created_at');
+    setAddresses((addressRows ?? []) as Address[]);
+    closeAddressForm();
+  };
+
+  const deleteAddress = async (id: string) => {
+    if (!supabase) return;
+    await supabase.from('addresses').delete().eq('id', id);
+    setAddresses((current) => current.filter((item) => item.id !== id));
   };
 
   const signOut = async () => {
@@ -104,7 +126,7 @@ export default function MiCuentaPage() {
         <nav className="account-page-nav">
           <p className="account-page-nav-title">Resumen de tu cuenta</p>
           <button type="button" className={tab === 'datos' ? 'active' : ''} onClick={() => setTab('datos')}>Datos personales<ChevronRight size={16} /></button>
-          <button type="button" className={tab === 'direcciones' ? 'active' : ''} onClick={() => setTab('direcciones')}>Direcciones<ChevronRight size={16} /></button>
+          <button type="button" className={tab === 'direcciones' ? 'active' : ''} onClick={() => { setTab('direcciones'); closeAddressForm(); }}>Direcciones<ChevronRight size={16} /></button>
           <button type="button" className={tab === 'pedidos' ? 'active' : ''} onClick={() => setTab('pedidos')}>Mis pedidos<ChevronRight size={16} /></button>
           <button type="button" className="account-page-signout" onClick={signOut}><LogOut size={15} /> Cerrar sesión</button>
         </nav>
@@ -114,7 +136,7 @@ export default function MiCuentaPage() {
             <>
               <h1>Mis datos</h1>
               <p className="account-page-subtitle">Modifica tu nombre a continuación para que tu cuenta esté actualizada.</p>
-              <form onSubmit={saveProfile} className="account-page-form">
+              <form onSubmit={saveName} className="account-page-form">
                 <h2>Detalles</h2>
                 <label>Nombre completo<Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Tu nombre" /></label>
                 <h2>Datos de acceso</h2>
@@ -126,22 +148,53 @@ export default function MiCuentaPage() {
           ) : tab === 'direcciones' ? (
             <>
               <h1>Direcciones</h1>
-              <p className="account-page-subtitle">Esta dirección se precarga automáticamente cuando vas a pagar en el carrito.</p>
-              <form onSubmit={saveProfile} className="account-page-form">
-                <label>Teléfono<Input type="tel" value={address.phone} onChange={(event) => setAddress({ ...address, phone: event.target.value })} placeholder="+56 9 ..." /></label>
-                <label>Región<NativeSelect className="admin-select" value={address.region} onChange={(event) => setAddress({ ...address, region: event.target.value, comuna: '' })}>
-                  <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
-                  {CHILE_REGIONS.map((region) => <NativeSelectOption key={region} value={region}>{region}</NativeSelectOption>)}
-                </NativeSelect></label>
-                <label>Comuna{address.region && COMUNAS_BY_REGION[address.region] ? <NativeSelect className="admin-select" value={address.comuna} onChange={(event) => setAddress({ ...address, comuna: event.target.value })}>
-                  <NativeSelectOption value="">Selecciona tu comuna</NativeSelectOption>
-                  {COMUNAS_BY_REGION[address.region].map((comuna) => <NativeSelectOption key={comuna} value={comuna}>{comuna}</NativeSelectOption>)}
-                </NativeSelect> : <Input value={address.comuna} placeholder="Elige primero tu región" disabled={!address.region} onChange={(event) => setAddress({ ...address, comuna: event.target.value })} />}</label>
-                <label>Dirección<Input value={address.address} onChange={(event) => setAddress({ ...address, address: event.target.value })} placeholder="Calle, número" /></label>
-                <label>Depto / referencia (opcional)<Input value={address.addressExtra} onChange={(event) => setAddress({ ...address, addressExtra: event.target.value })} /></label>
-                {message && <p className="account-message">{message}</p>}
-                <Button disabled={busy || !isSupabaseConfigured} type="submit" className="primary-button">{busy ? 'Guardando…' : 'Guardar dirección'}</Button>
-              </form>
+              <p className="account-page-subtitle">Se ofrecen para elegir al pagar en el carrito.</p>
+              {addressForm ? (
+                <form onSubmit={saveAddress} className="account-page-form">
+                  <label>Nombre de quien recibe<Input required value={addressForm.full_name} onChange={(event) => setAddressForm({ ...addressForm, full_name: event.target.value })} /></label>
+                  <label>Teléfono<Input required type="tel" value={addressForm.phone} onChange={(event) => setAddressForm({ ...addressForm, phone: event.target.value })} placeholder="+56 9 ..." /></label>
+                  <label>Región<NativeSelect required className="admin-select" value={addressForm.region} onChange={(event) => setAddressForm({ ...addressForm, region: event.target.value, comuna: '' })}>
+                    <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
+                    {CHILE_REGIONS.map((region) => <NativeSelectOption key={region} value={region}>{region}</NativeSelectOption>)}
+                  </NativeSelect></label>
+                  <label>Comuna{addressForm.region && COMUNAS_BY_REGION[addressForm.region] ? <NativeSelect required className="admin-select" value={addressForm.comuna} onChange={(event) => setAddressForm({ ...addressForm, comuna: event.target.value })}>
+                    <NativeSelectOption value="">Selecciona tu comuna</NativeSelectOption>
+                    {COMUNAS_BY_REGION[addressForm.region].map((comuna) => <NativeSelectOption key={comuna} value={comuna}>{comuna}</NativeSelectOption>)}
+                  </NativeSelect> : <Input required value={addressForm.comuna} placeholder="Elige primero tu región" disabled={!addressForm.region} onChange={(event) => setAddressForm({ ...addressForm, comuna: event.target.value })} />}</label>
+                  <label>Dirección<Input required value={addressForm.address} onChange={(event) => setAddressForm({ ...addressForm, address: event.target.value })} placeholder="Calle, número" /></label>
+                  <label>Depto / referencia (opcional)<Input value={addressForm.address_extra} onChange={(event) => setAddressForm({ ...addressForm, address_extra: event.target.value })} /></label>
+                  {message && <p className="account-message">{message}</p>}
+                  <div className="account-page-address-actions">
+                    <Button type="button" variant="outline" onClick={closeAddressForm}>Cancelar</Button>
+                    <Button disabled={busy || !isSupabaseConfigured} type="submit" className="primary-button">{busy ? 'Guardando…' : 'Guardar dirección'}</Button>
+                  </div>
+                </form>
+              ) : addresses.length === 0 ? (
+                <button type="button" className="account-page-address-empty" onClick={openNewAddress}>
+                  <Plus size={28} />
+                  <span>Agregar dirección</span>
+                </button>
+              ) : (
+                <div className="account-page-address-grid">
+                  {addresses.map((item, index) => (
+                    <div className="account-page-address-card" key={item.id}>
+                      <strong>Dirección {index + 1}</strong>
+                      <p>{item.full_name}</p>
+                      <p>{item.phone}</p>
+                      <p>{item.address}{item.address_extra ? `, ${item.address_extra}` : ''}</p>
+                      <p>{item.comuna}, {item.region}</p>
+                      <div className="account-page-address-card-actions">
+                        <button type="button" onClick={() => openEditAddress(item)}><Pencil size={14} /> Editar</button>
+                        <button type="button" onClick={() => deleteAddress(item.id)}><Trash2 size={14} /> Eliminar</button>
+                      </div>
+                    </div>
+                  ))}
+                  <button type="button" className="account-page-address-add" onClick={openNewAddress}>
+                    <Plus size={24} />
+                    <span>Nueva dirección</span>
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <>
