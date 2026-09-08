@@ -43,7 +43,11 @@ export function parseCheckoutPayload(value: unknown): CheckoutPayload {
       throw new Error("Revisa los datos de envío.");
     return raw.trim();
   };
-  const customerEmail = field("customerEmail", 254);
+  // Se normaliza a minúsculas: "Nombre@Gmail.com" y "nombre@gmail.com" llegan
+  // al mismo correo, pero Resend (en modo de prueba) y otros proveedores
+  // comparan la dirección tal cual, así que una mayúscula de más puede hacer
+  // que el correo de confirmación no llegue.
+  const customerEmail = field("customerEmail", 254).toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail))
     throw new Error("Ingresa un correo válido.");
   return {
