@@ -184,9 +184,21 @@ export default function Home() {
     setAccountOpen(true);
   };
 
+  const passwordRules = [
+    { test: (value: string) => value.length >= 8, label: 'mínimo 8 caracteres' },
+    { test: (value: string) => /[A-Z]/.test(value), label: 'una mayúscula' },
+    { test: (value: string) => /[0-9]/.test(value), label: 'un número' },
+    { test: (value: string) => /[^A-Za-z0-9]/.test(value), label: 'un símbolo (@, #, !...)' },
+  ];
+  const passwordIssues = passwordRules.filter((rule) => !rule.test(accountPassword)).map((rule) => rule.label);
+
   const handleAccountSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase) { setAccountMessage('Falta conectar el proyecto de Supabase.'); return; }
+    if (accountMode === 'register' && passwordIssues.length) {
+      setAccountMessage(`La contraseña necesita: ${passwordIssues.join(', ')}.`);
+      return;
+    }
     setAccountBusy(true);
     setAccountMessage('');
     const result = accountMode === 'login'
@@ -304,7 +316,9 @@ export default function Home() {
             <form className="account-form" onSubmit={handleAccountSubmit}>
               {accountMode === 'register' && <label>Nombre<Input required value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Tu nombre" autoComplete="name" /></label>}
               <label>Correo electrónico<div className="input-with-icon"><Mail size={17} /><Input required type="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} placeholder="tu@correo.com" autoComplete="email" /></div></label>
-              <label>Contraseña<div className="input-with-icon"><LockKeyhole size={17} /><Input required minLength={6} type="password" value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} placeholder="••••••••" autoComplete={accountMode === 'login' ? 'current-password' : 'new-password'} /></div></label>
+              <label>Contraseña<div className="input-with-icon"><LockKeyhole size={17} /><Input required minLength={8} type="password" value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} placeholder="••••••••" autoComplete={accountMode === 'login' ? 'current-password' : 'new-password'} /></div>
+                {accountMode === 'register' && <small className="password-hint">{accountPassword ? (passwordIssues.length ? `Falta: ${passwordIssues.join(', ')}.` : '✓ Contraseña segura') : 'Mínimo 8 caracteres, una mayúscula, un número y un símbolo (@, #, !...).'}</small>}
+              </label>
               {accountMessage && <p className="account-message">{accountMessage}</p>}
               <Button disabled={accountBusy || !isSupabaseConfigured} type="submit" className="primary-button account-submit">{accountBusy ? 'Procesando...' : accountMode === 'login' ? 'Iniciar sesión' : 'Registrarme'} <ArrowRight size={16} /></Button>
             </form>
