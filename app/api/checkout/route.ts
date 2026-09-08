@@ -60,6 +60,11 @@ export async function POST(request: Request) {
     } catch {
       /* No crítico: si falla, el checkout sigue con el stock disponible actual. */
     }
+    const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
+    const storeSettings = (settings?.value ?? {}) as { brandName?: string; currency?: string; locale?: string };
+    const brandName = storeSettings.brandName || "Tu tienda";
+    const currency = storeSettings.currency || "CLP";
+    const locale = storeSettings.locale || "es-CL";
     const { data: products, error: productsError } = await supabase
       .from("products")
       .select("id, name, price, active, stock")
@@ -202,7 +207,7 @@ export async function POST(request: Request) {
       const resendApiKey = env.RESEND_API_KEY;
       if (resendApiKey) {
         try {
-          await sendOrderConfirmationEmail({ apiKey: resendApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total });
+          await sendOrderConfirmationEmail({ apiKey: resendApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, fromEmail: env.RESEND_FROM_EMAIL });
         } catch {
           /* El correo es un complemento: si falla, el pedido sigue su curso normal. */
         }
@@ -223,12 +228,13 @@ export async function POST(request: Request) {
         discountAmount,
         payerEmail: payload.customerEmail,
         siteUrl: new URL(request.url).origin,
+        currency,
       });
       await supabase.from("orders").update({ mp_preference_id: preferenceId }).eq("id", order.id);
       const resendApiKey = env.RESEND_API_KEY;
       if (resendApiKey) {
         try {
-          await sendOrderConfirmationEmail({ apiKey: resendApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total });
+          await sendOrderConfirmationEmail({ apiKey: resendApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, fromEmail: env.RESEND_FROM_EMAIL });
         } catch {
           /* El correo es un complemento: si falla, el pedido sigue su curso normal. */
         }

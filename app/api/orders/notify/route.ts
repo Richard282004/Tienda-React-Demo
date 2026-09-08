@@ -33,7 +33,9 @@ export async function POST(request: Request) {
   if (!order) return NextResponse.json({ error: "Pedido no encontrado." }, { status: 404 });
 
   try {
-    await sendOrderStatusEmail({ apiKey: resendApiKey, to: order.customer_email, orderId: body.orderId, status: body.status, trackingNumber: body.trackingNumber });
+    const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
+    const brandName = (settings?.value as { brandName?: string } | undefined)?.brandName || "Tu tienda";
+    await sendOrderStatusEmail({ apiKey: resendApiKey, to: order.customer_email, orderId: body.orderId, status: body.status, trackingNumber: body.trackingNumber, brandName, fromEmail: env.RESEND_FROM_EMAIL as string | undefined });
   } catch {
     /* El correo es un complemento; el cambio de estado ya se guardó antes de llamar aquí. */
   }

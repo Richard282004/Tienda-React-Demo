@@ -13,7 +13,7 @@ create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   description text,
-  type text not null check (type in ('Llaveros', 'Peluches')),
+  type text not null,
   price integer not null check (price >= 0),
   color text not null default '#f3dedb',
   art text not null default '🧶',
@@ -252,6 +252,9 @@ grant execute on function public.get_order_public(uuid) to anon, authenticated;
 
 -- Migraciones para bases ya creadas antes de este bloque:
 alter table public.products add column if not exists stock integer;
+-- Las categorías ahora las define cada tienda desde Admin → Categorías, no un
+-- enum fijo en el código: se quita el check para permitir cualquier texto.
+alter table public.products drop constraint if exists products_type_check;
 alter table public.orders add column if not exists discount_code text;
 alter table public.orders add column if not exists discount_amount integer not null default 0 check (discount_amount >= 0);
 

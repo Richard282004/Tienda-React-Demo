@@ -56,7 +56,9 @@ export async function POST(request: Request) {
     const resendApiKey = env.RESEND_API_KEY as string | undefined;
     if (resendApiKey && existingOrder && existingOrder.status !== orderStatus) {
       try {
-        await sendOrderStatusEmail({ apiKey: resendApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus });
+        const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
+        const brandName = (settings?.value as { brandName?: string } | undefined)?.brandName || "Tu tienda";
+        await sendOrderStatusEmail({ apiKey: resendApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, brandName, fromEmail: env.RESEND_FROM_EMAIL as string | undefined });
       } catch {
         /* El correo es un complemento: si falla, el estado del pedido ya quedó guardado. */
       }

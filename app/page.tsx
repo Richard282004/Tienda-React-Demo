@@ -35,14 +35,13 @@ import { defaultProducts, defaultStoreContent, type Product, type StoreContent }
 import { type Faq, type ProductImage, type Review, type ShowcaseItem } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { t, type Lang } from '@/lib/i18n';
-
-const categories = ['Todo', 'Llaveros', 'Peluches'];
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
+import { formatPrice as formatCurrency } from '@/lib/currency';
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>(isSupabaseConfigured ? [] : defaultProducts);
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  const categories = useMemo(() => ['Todo', ...content.categories], [content.categories]);
+  const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
   const [storeLoading, setStoreLoading] = useState(isSupabaseConfigured);
   const [storeError, setStoreError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -219,7 +218,7 @@ export default function Home() {
       context.registerTool({
         name: 'filter_collection',
         title: 'Filtrar la colección',
-        description: 'Muestra los productos de la categoría elegida: Todo, Llaveros o Peluches.',
+        description: `Muestra los productos de la categoría elegida: ${categories.join(', ')}.`,
         inputSchema: { type: 'object', properties: { category: { type: 'string', enum: categories } }, required: ['category'], additionalProperties: false },
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         execute(input) {
@@ -245,7 +244,7 @@ export default function Home() {
       }, { signal: lifecycle.signal });
     } catch { /* WebMCP es opcional según el navegador. */ }
     return () => lifecycle.abort();
-  }, [cart.length, products]);
+  }, [cart.length, products, categories]);
 
   const openAccount = (mode: 'login' | 'register') => {
     setAccountMode(mode);
@@ -424,7 +423,7 @@ export default function Home() {
       <section className="category-strip page-width" aria-label="Categorías destacadas"><div><span className="category-icon pink">♡</span><span>{content.categoryText1}</span></div><div><span className="category-icon yellow">✳</span><span>{content.categoryText2}</span></div><div><span className="category-icon lilac">⌁</span><span>{content.categoryText3}</span></div></section>
 
       <section id="tienda" className="collection-section page-width">
-        <div className="section-heading"><div><p className="section-kicker">{tr("collectionKicker")}</p><h2>{tr("collectionTitle")}<em>{tr("collectionHighlight")}</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'Todo' ? tr('all') : item === 'Llaveros' ? tr('keychains') : tr('plushies')}</button>)}</div></div>
+        <div className="section-heading"><div><p className="section-kicker">{tr("collectionKicker")}</p><h2>{tr("collectionTitle")}<em>{tr("collectionHighlight")}</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'Todo' ? tr('all') : item}</button>)}</div></div>
         {storeLoading && <p className="store-feedback" role="status">Preparando la colección…</p>}
         {storeError && <p className="store-feedback" role="alert">{storeError}</p>}
         {!storeLoading && !storeError && visibleProducts.length === 0 && <p className="empty-collection">Pronto habrá nuevos amiguitos por aquí. Vuelve a visitarnos.</p>}
@@ -516,7 +515,7 @@ export default function Home() {
 
       <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
         <DialogContent className="account-dialog">
-          <DialogHeader><div className="account-mark">✦</div><DialogTitle>{sessionEmail ? 'Tu cuenta Lúmina' : accountMode === 'login' ? 'Bienvenida de vuelta' : 'Crea tu cuenta'}</DialogTitle><DialogDescription>{sessionEmail ? `Sesión iniciada como ${sessionEmail}` : accountMode === 'login' ? 'Ingresa a tu cuenta para continuar en la tienda.' : 'Crea tu cuenta con tu correo electrónico.'}</DialogDescription></DialogHeader>
+          <DialogHeader><div className="account-mark">✦</div><DialogTitle>{sessionEmail ? `Tu cuenta ${content.brandName}` : accountMode === 'login' ? 'Bienvenida de vuelta' : 'Crea tu cuenta'}</DialogTitle><DialogDescription>{sessionEmail ? `Sesión iniciada como ${sessionEmail}` : accountMode === 'login' ? 'Ingresa a tu cuenta para continuar en la tienda.' : 'Crea tu cuenta con tu correo electrónico.'}</DialogDescription></DialogHeader>
           {sessionEmail ? <div className="signed-account"><a href="/mi-cuenta">Resumen de tu cuenta</a>{isAdmin && <a href="/admin">Ir al panel de administración</a>}<Button variant="outline" onClick={handleSignOut}>Cerrar sesión</Button></div> : <>
             <form className="account-form" onSubmit={handleAccountSubmit}>
               {accountMode === 'register' && <label>Nombre<Input required value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Tu nombre" autoComplete="name" /><small className="field-required">Campo obligatorio</small></label>}

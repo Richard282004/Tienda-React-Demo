@@ -6,20 +6,24 @@ import { Check, Clock, X } from "lucide-react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Order } from "@/lib/orders";
 import { orderStatusLabel } from "@/lib/orders";
+import { defaultStoreContent, type StoreContent } from "@/lib/store-data";
+import { formatPrice as formatCurrency } from "@/lib/currency";
 import "./confirmacion.css";
-
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  }).format(price);
 
 export default function ConfirmacionPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
 
   const completed = !!order && ["paid", "shipped", "delivered"].includes(order.status);
+
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase.from("site_content").select("value").eq("key", "store").maybeSingle().then(({ data }) => {
+      if (data?.value) setContent({ ...defaultStoreContent, ...(data.value as Partial<StoreContent>) });
+    });
+  }, []);
 
   useEffect(() => {
     const orderId = new URLSearchParams(window.location.search).get("order");

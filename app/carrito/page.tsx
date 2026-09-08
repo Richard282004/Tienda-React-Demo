@@ -7,19 +7,19 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { ProductArtwork } from '@/components/product-artwork';
 import { calculateShipping } from '@/lib/checkout-validation';
-import { CHILE_REGIONS, COMUNAS_BY_REGION, type Address, type ShippingRate } from '@/lib/orders';
-import { type Product } from '@/lib/store-data';
+import { type Address, type ShippingRate } from '@/lib/orders';
+import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
+import { formatPrice as formatCurrency } from '@/lib/currency';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import './carrito.css';
-
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
 
 type Shipping = { name: string; email: string; phone: string; region: string; comuna: string; address: string; addressExtra: string };
 const emptyShipping: Shipping = { name: '', email: '', phone: '', region: '', comuna: '', address: '', addressExtra: '' };
 
 export default function CarritoPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
   const [cart, setCart] = useState<string[]>([]);
   const [storageReady, setStorageReady] = useState(false);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
@@ -51,12 +51,14 @@ export default function CarritoPage() {
     const client = supabase;
     const load = async () => {
       if (!client) { setLoading(false); return; }
-      const [{ data: productRows }, { data: rateRows }] = await Promise.all([
+      const [{ data: productRows }, { data: rateRows }, { data: settings }] = await Promise.all([
         client.from('products').select('id, name, price, color, art, image_url, stock, active').order('sort_order'),
         client.from('shipping_rates').select('region, cost'),
+        client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       ]);
       setProducts((productRows ?? []) as Product[]);
       setShippingRates((rateRows ?? []) as ShippingRate[]);
+      if (settings?.value) setContent({ ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) });
       const { data: userData } = await client.auth.getUser();
       const user = userData.user;
       if (user) {
@@ -236,14 +238,11 @@ export default function CarritoPage() {
               <label>Nombre completo<Input required autoComplete="name" maxLength={120} value={shipping.name} onChange={(event) => setShipping({ ...shipping, name: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
               <label>Correo electrónico<Input required autoComplete="email" type="email" maxLength={254} value={shipping.email} onChange={(event) => setShipping({ ...shipping, email: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
               <label>Teléfono<Input required type="tel" autoComplete="tel" maxLength={40} value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /><small className="field-required">Campo obligatorio</small></label>
-              <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value, comuna: '' })}>
+              <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value })}>
                 <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
-                {CHILE_REGIONS.map((region) => <NativeSelectOption key={region} value={region}>{region}</NativeSelectOption>)}
+                {shippingRates.map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
               </NativeSelect><small className="field-required">Campo obligatorio</small></label>
-              <label>Comuna{shipping.region && COMUNAS_BY_REGION[shipping.region] ? <NativeSelect required className="admin-select" value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })}>
-                <NativeSelectOption value="">Selecciona tu comuna</NativeSelectOption>
-                {COMUNAS_BY_REGION[shipping.region].map((comuna) => <NativeSelectOption key={comuna} value={comuna}>{comuna}</NativeSelectOption>)}
-              </NativeSelect> : <Input required maxLength={120} value={shipping.comuna} placeholder="Elige primero tu región" disabled={!shipping.region} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} />}<small className="field-required">Campo obligatorio</small></label>
+              <label>Comuna / ciudad<Input required maxLength={120} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
               <label>Dirección<Input required autoComplete="address-line1" maxLength={250} value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /><small className="field-required">Campo obligatorio</small></label>
               <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
               {checkoutError && <p className="account-message">{checkoutError}</p>}

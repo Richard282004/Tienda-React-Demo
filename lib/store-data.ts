@@ -2,7 +2,7 @@ export type Product = {
   id: string;
   name: string;
   description?: string | null;
-  type: 'Llaveros' | 'Peluches';
+  type: string;
   price: number;
   color: string;
   art: string;
@@ -19,6 +19,9 @@ export type Product = {
 export type StoreContent = {
   brandName: string;
   brandTagline: string;
+  categories: string[];
+  currency: string;
+  locale: string;
   heroEyebrow: string;
   heroTitle: string;
   heroHighlight: string;
@@ -72,6 +75,9 @@ export const defaultProducts: Product[] = [
 export const defaultStoreContent: StoreContent = {
   brandName: 'LÚMINA',
   brandTagline: 'hecho a mano',
+  categories: ['Llaveros', 'Peluches'],
+  currency: 'CLP',
+  locale: 'es-CL',
   heroEyebrow: 'Pequeñas cosas, grandes sonrisas',
   heroTitle: 'Un poquito de',
   heroHighlight: 'ternura para llevar.',

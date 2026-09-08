@@ -6,5 +6,6 @@ declare namespace Cloudflare {
     SUPABASE_SERVICE_ROLE_KEY?: string;
     MP_ACCESS_TOKEN?: string;
     RESEND_API_KEY?: string;
+    RESEND_FROM_EMAIL?: string;
   }
 }

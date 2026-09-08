@@ -5,14 +5,13 @@ import { ArrowLeft, ChevronRight, LogOut, Pencil, Plus, Trash2 } from 'lucide-re
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { CHILE_REGIONS, COMUNAS_BY_REGION, orderStatusLabel, type Address, type Order } from '@/lib/orders';
+import { orderStatusLabel, type Address, type Order, type ShippingRate } from '@/lib/orders';
+import { defaultStoreContent, type StoreContent } from '@/lib/store-data';
+import { formatPrice as formatCurrency } from '@/lib/currency';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import './mi-cuenta.css';
 
 type Tab = 'datos' | 'direcciones' | 'pedidos';
-
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
 
 const emptyAddressForm = { full_name: '', phone: '', region: '', comuna: '', address: '', address_extra: '' };
 
@@ -29,6 +28,9 @@ export default function MiCuentaPage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [addressForm, setAddressForm] = useState<typeof emptyAddressForm | null>(null);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
 
   useEffect(() => {
     const load = async () => {
@@ -38,15 +40,19 @@ export default function MiCuentaPage() {
       if (!user) { setLoading(false); return; }
       setUserId(user.id);
       setEmail(user.email ?? null);
-      const [{ data: profile }, { data: orderRows }, { data: addressRows }] = await Promise.all([
+      const [{ data: profile }, { data: orderRows }, { data: addressRows }, { data: rateRows }, { data: settings }] = await Promise.all([
         supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle<{ full_name: string | null }>(),
         supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('addresses').select('*').eq('user_id', user.id).order('created_at'),
+        supabase.from('shipping_rates').select('region, cost'),
+        supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       ]);
       setName(profile?.full_name ?? '');
       setOrders((orderRows ?? []) as Order[]);
       setOrdersLoaded(true);
       setAddresses((addressRows ?? []) as Address[]);
+      setShippingRates((rateRows ?? []) as ShippingRate[]);
+      if (settings?.value) setContent({ ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) });
       setLoading(false);
     };
     void load();
@@ -153,14 +159,11 @@ export default function MiCuentaPage() {
                 <form onSubmit={saveAddress} className="account-page-form">
                   <label>Nombre de quien recibe<Input required value={addressForm.full_name} onChange={(event) => setAddressForm({ ...addressForm, full_name: event.target.value })} /></label>
                   <label>Teléfono<Input required type="tel" value={addressForm.phone} onChange={(event) => setAddressForm({ ...addressForm, phone: event.target.value })} placeholder="+56 9 ..." /></label>
-                  <label>Región<NativeSelect required className="admin-select" value={addressForm.region} onChange={(event) => setAddressForm({ ...addressForm, region: event.target.value, comuna: '' })}>
+                  <label>Región<NativeSelect required className="admin-select" value={addressForm.region} onChange={(event) => setAddressForm({ ...addressForm, region: event.target.value })}>
                     <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
-                    {CHILE_REGIONS.map((region) => <NativeSelectOption key={region} value={region}>{region}</NativeSelectOption>)}
+                    {shippingRates.map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
                   </NativeSelect></label>
-                  <label>Comuna{addressForm.region && COMUNAS_BY_REGION[addressForm.region] ? <NativeSelect required className="admin-select" value={addressForm.comuna} onChange={(event) => setAddressForm({ ...addressForm, comuna: event.target.value })}>
-                    <NativeSelectOption value="">Selecciona tu comuna</NativeSelectOption>
-                    {COMUNAS_BY_REGION[addressForm.region].map((comuna) => <NativeSelectOption key={comuna} value={comuna}>{comuna}</NativeSelectOption>)}
-                  </NativeSelect> : <Input required value={addressForm.comuna} placeholder="Elige primero tu región" disabled={!addressForm.region} onChange={(event) => setAddressForm({ ...addressForm, comuna: event.target.value })} />}</label>
+                  <label>Comuna / ciudad<Input required value={addressForm.comuna} onChange={(event) => setAddressForm({ ...addressForm, comuna: event.target.value })} /></label>
                   <label>Dirección<Input required value={addressForm.address} onChange={(event) => setAddressForm({ ...addressForm, address: event.target.value })} placeholder="Calle, número" /></label>
                   <label>Depto / referencia (opcional)<Input value={addressForm.address_extra} onChange={(event) => setAddressForm({ ...addressForm, address_extra: event.target.value })} /></label>
                   {message && <p className="account-message">{message}</p>}

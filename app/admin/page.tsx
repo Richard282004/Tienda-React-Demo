@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { orderStatusLabel, type DiscountCode, type Faq, type Order, type OrderStatus, type Profile, type ProductImage, type Review, type ShippingRate, type ShowcaseItem } from '@/lib/orders';
+import { formatPrice as formatCurrency } from '@/lib/currency';
 import { supabase } from '@/lib/supabase';
 import './admin.css';
 
@@ -25,16 +26,16 @@ const emptyProduct: ProductDraft = {
 
 const emptyDiscount = { code: '', type: 'percent' as 'percent' | 'fixed', value: 10, active: true, max_uses: '' as number | '', expires_at: '' };
 
-const formatPrice = (price: number) =>
-  new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(price);
-
 export default function AdminPage() {
   const [state, setState] = useState<AdminState>('loading');
   const [activeTab, setActiveTab] = useState('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
   const [orders, setOrders] = useState<Order[]>([]);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [newShippingRegion, setNewShippingRegion] = useState('');
+  const [newShippingCost, setNewShippingCost] = useState(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -214,6 +215,23 @@ export default function AdminPage() {
     setMessage(error ? error.message : `Costo de envío actualizado para ${region}.`);
   };
 
+  const addShippingRate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !newShippingRegion.trim()) return;
+    const { error } = await supabase.from('shipping_rates').insert({ region: newShippingRegion.trim(), cost: newShippingCost });
+    if (error) { setMessage(error.message); return; }
+    const { data } = await supabase.from('shipping_rates').select('region, cost').order('region');
+    setShippingRates((data ?? []) as ShippingRate[]);
+    setNewShippingRegion('');
+    setNewShippingCost(0);
+  };
+
+  const deleteShippingRate = async (region: string) => {
+    if (!supabase) return;
+    await supabase.from('shipping_rates').delete().eq('region', region);
+    setShippingRates((current) => current.filter((rate) => rate.region !== region));
+  };
+
   const resolveSession = async () => {
     if (!supabase) { setState('setup'); return; }
     const { data } = await supabase.auth.getSession();
@@ -258,7 +276,7 @@ export default function AdminPage() {
   };
 
   const openNewProduct = () => {
-    setDraft({ ...emptyProduct, sort_order: products.length + 1 });
+    setDraft({ ...emptyProduct, type: content.categories[0] ?? '', sort_order: products.length + 1 });
     setImageFile(null);
     setImagePreview(null);
     setGallery([]);
@@ -372,7 +390,7 @@ export default function AdminPage() {
 
   if (state === 'setup') return <main className="admin-center"><section className="setup-card"><div className="admin-badge"><ShieldCheck /> Configuración pendiente</div><h1>Conecta Supabase para activar el panel</h1><p>La administración ya está construida. Para encenderla, crea el proyecto en Supabase, ejecuta el archivo de configuración SQL y agrega la URL y la clave pública del proyecto.</p><ol><li>Ejecuta <strong>supabase/schema.sql</strong> en el editor SQL.</li><li>Copia la URL del proyecto y la clave publicable.</li><li>Registra tu cuenta y márcala como administradora.</li></ol><a href="/"><ArrowLeft size={16} /> Volver a la tienda</a></section></main>;
 
-  if (state === 'login') return <main className="admin-center"><section className="admin-login"><div className="admin-brand">✦</div><p className="admin-kicker">Administración Lúmina</p><h1>Gestiona tu tienda</h1><p>Ingresa con la cuenta administradora.</p><form onSubmit={login}><label>Correo<Input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Contraseña<Input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>{message && <p className="admin-message error">{message}</p>}<Button disabled={busy} type="submit">{busy ? 'Ingresando…' : 'Iniciar sesión'}</Button></form><div className="admin-divider"><span /> o <span /></div><Button variant="outline" disabled={busy} onClick={googleLogin}><strong>G</strong> Continuar con Google</Button><a className="back-store" href="/"><ArrowLeft size={16} /> Volver a la tienda</a></section></main>;
+  if (state === 'login') return <main className="admin-center"><section className="admin-login"><div className="admin-brand">✦</div><p className="admin-kicker">Administración {content.brandName}</p><h1>Gestiona tu tienda</h1><p>Ingresa con la cuenta administradora.</p><form onSubmit={login}><label>Correo<Input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Contraseña<Input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>{message && <p className="admin-message error">{message}</p>}<Button disabled={busy} type="submit">{busy ? 'Ingresando…' : 'Iniciar sesión'}</Button></form><div className="admin-divider"><span /> o <span /></div><Button variant="outline" disabled={busy} onClick={googleLogin}><strong>G</strong> Continuar con Google</Button><a className="back-store" href="/"><ArrowLeft size={16} /> Volver a la tienda</a></section></main>;
 
   if (state === 'denied') return <main className="admin-center"><section className="setup-card"><div className="admin-badge danger">Acceso restringido</div><h1>Esta cuenta no es administradora</h1><p>La sesión es válida, pero no tiene permiso para modificar la tienda.</p><div className="denied-actions"><Button variant="outline" onClick={logout}>Cerrar sesión</Button><a href="/">Volver a la tienda</a></div></section></main>;
 
@@ -425,19 +443,25 @@ export default function AdminPage() {
         )}
       </TabsContent>
       <TabsContent value="shipping">
-        <div className="admin-section-heading"><div><h2>Costos de envío</h2><p>Se aplican según la región que elige el cliente al pagar.</p></div></div>
+        <div className="admin-section-heading"><div><h2>Costos de envío</h2><p>Estas son las regiones/zonas que el cliente puede elegir al pagar. Agrega, edita o quita las que quieras.</p></div></div>
         <div className="shipping-rates-grid">
           {shippingRates.map((rate) => (
             <div className="shipping-rate-row" key={rate.region}>
               <span>{rate.region}</span>
               <Input type="number" min="0" defaultValue={rate.cost} onBlur={(event) => void saveShippingRate(rate.region, Number(event.target.value))} />
+              <button type="button" className="shipping-rate-delete" aria-label={`Eliminar zona ${rate.region}`} onClick={() => void deleteShippingRate(rate.region)}><Trash2 size={15} /></button>
             </div>
           ))}
         </div>
+        <form className="shipping-rate-add" onSubmit={addShippingRate}>
+          <Input required value={newShippingRegion} onChange={(event) => setNewShippingRegion(event.target.value)} placeholder="Nombre de la región/zona" />
+          <Input required min="0" type="number" value={newShippingCost} onChange={(event) => setNewShippingCost(Number(event.target.value))} placeholder="Costo" />
+          <Button type="submit"><Truck size={16} /> Agregar zona</Button>
+        </form>
       </TabsContent>
       <TabsContent value="products">
         <div className="admin-section-heading"><div><h2>Productos</h2><p>{products.length} productos en el catálogo</p></div><Button onClick={openNewProduct}><PackagePlus size={17} /> Nuevo producto</Button></div>
-        <div className="admin-product-grid">{products.length ? products.map((product) => <article className="admin-product" key={product.id}><div className="admin-product-image" style={{ backgroundColor: product.color }}>{product.image_url ? <img src={product.image_url} alt={product.name} style={{ objectPosition: `${product.image_position_x ?? 50}% ${product.image_position_y ?? 50}%`, transform: `scale(${product.image_zoom ?? 1})` }} /> : product.art}</div><div className="admin-product-info"><span>{product.type} · {product.active ? 'Publicado' : 'Oculto'}</span><h3>{product.name}</h3><strong>${product.price.toLocaleString('es-CL')}</strong></div><div className="admin-product-actions"><Button size="icon-sm" variant="outline" onClick={() => openEditProduct(product)} aria-label={`Editar ${product.name}`}><Pencil /></Button><Button size="icon-sm" variant="destructive" onClick={() => deleteProduct(product)} aria-label={`Eliminar ${product.name}`}><Trash2 /></Button></div></article>) : <div className="admin-empty"><ImagePlus size={34} /><h3>Aún no hay productos</h3><p>Crea el primero para mostrarlo en la tienda.</p><Button onClick={openNewProduct}>Crear producto</Button></div>}</div>
+        <div className="admin-product-grid">{products.length ? products.map((product) => <article className="admin-product" key={product.id}><div className="admin-product-image" style={{ backgroundColor: product.color }}>{product.image_url ? <img src={product.image_url} alt={product.name} style={{ objectPosition: `${product.image_position_x ?? 50}% ${product.image_position_y ?? 50}%`, transform: `scale(${product.image_zoom ?? 1})` }} /> : product.art}</div><div className="admin-product-info"><span>{product.type} · {product.active ? 'Publicado' : 'Oculto'}</span><h3>{product.name}</h3><strong>{formatPrice(product.price)}</strong></div><div className="admin-product-actions"><Button size="icon-sm" variant="outline" onClick={() => openEditProduct(product)} aria-label={`Editar ${product.name}`}><Pencil /></Button><Button size="icon-sm" variant="destructive" onClick={() => deleteProduct(product)} aria-label={`Eliminar ${product.name}`}><Trash2 /></Button></div></article>) : <div className="admin-empty"><ImagePlus size={34} /><h3>Aún no hay productos</h3><p>Crea el primero para mostrarlo en la tienda.</p><Button onClick={openNewProduct}>Crear producto</Button></div>}</div>
       </TabsContent>
       <TabsContent value="discounts">
         <div className="admin-section-heading"><div><h2>Códigos de descuento</h2><p>{discounts.length} códigos creados</p></div></div>
@@ -531,6 +555,7 @@ export default function AdminPage() {
       <TabsContent value="content">
         <form className="content-editor" onSubmit={saveContent}><div className="admin-section-heading"><div><h2>Textos y contacto</h2><p>Cambia el contenido principal sin tocar código.</p></div><Button disabled={busy} type="submit"><Save size={17} /> Guardar cambios</Button></div>
           <section><h3>Marca</h3><div className="form-grid"><label>Nombre de la tienda<Input value={content.brandName} onChange={(event) => setContent({ ...content, brandName: event.target.value })} /></label><label>Frase bajo el nombre<Input value={content.brandTagline} onChange={(event) => setContent({ ...content, brandTagline: event.target.value })} /></label></div></section>
+          <section><h3>Categorías y moneda</h3><p className="admin-section-note">Cambia esto para vender otro tipo de producto o en otro país, sin tocar código.</p><div className="form-grid"><label className="full">Categorías de producto (separadas por coma)<Input value={content.categories.join(', ')} onChange={(event) => setContent({ ...content, categories: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Llaveros, Peluches" /></label><label>Código de moneda (ISO 4217)<Input value={content.currency} onChange={(event) => setContent({ ...content, currency: event.target.value.trim().toUpperCase() })} placeholder="CLP" /></label><label>Locale de formato<Input value={content.locale} onChange={(event) => setContent({ ...content, locale: event.target.value.trim() })} placeholder="es-CL" /></label></div></section>
           <section><h3>Portada</h3><div className="form-grid"><label>Texto superior<Input value={content.heroEyebrow} onChange={(event) => setContent({ ...content, heroEyebrow: event.target.value })} /></label><label>Título<Input value={content.heroTitle} onChange={(event) => setContent({ ...content, heroTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.heroHighlight} onChange={(event) => setContent({ ...content, heroHighlight: event.target.value })} /></label><label className="full">Descripción<Textarea value={content.heroDescription} onChange={(event) => setContent({ ...content, heroDescription: event.target.value })} /></label><label>Botón principal<Input value={content.heroCtaPrimary} onChange={(event) => setContent({ ...content, heroCtaPrimary: event.target.value })} /></label><label>Enlace secundario<Input value={content.heroCtaSecondary} onChange={(event) => setContent({ ...content, heroCtaSecondary: event.target.value })} /></label><label>Nota 1<Input value={content.heroNote1} onChange={(event) => setContent({ ...content, heroNote1: event.target.value })} /></label><label>Nota 2<Input value={content.heroNote2} onChange={(event) => setContent({ ...content, heroNote2: event.target.value })} /></label></div></section>
           <section><h3>Franja de categorías</h3><div className="form-grid"><label>Texto 1<Input value={content.categoryText1} onChange={(event) => setContent({ ...content, categoryText1: event.target.value })} /></label><label>Texto 2<Input value={content.categoryText2} onChange={(event) => setContent({ ...content, categoryText2: event.target.value })} /></label><label>Texto 3<Input value={content.categoryText3} onChange={(event) => setContent({ ...content, categoryText3: event.target.value })} /></label></div></section>
           <section><h3>Sobre nosotros</h3><div className="form-grid"><label>Título<Input value={content.aboutTitle} onChange={(event) => setContent({ ...content, aboutTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.aboutHighlight} onChange={(event) => setContent({ ...content, aboutHighlight: event.target.value })} /></label><label className="full">Historia<Textarea value={content.aboutText} onChange={(event) => setContent({ ...content, aboutText: event.target.value })} /></label><label className="full">Cita final<Input value={content.storyQuote} onChange={(event) => setContent({ ...content, storyQuote: event.target.value })} /></label><label>Firma de la cita<Input value={content.storyQuoteAuthor} onChange={(event) => setContent({ ...content, storyQuoteAuthor: event.target.value })} /></label></div></section>
@@ -542,7 +567,7 @@ export default function AdminPage() {
       </TabsContent>
     </Tabs>
 
-    <Dialog open={productOpen} onOpenChange={setProductOpen}><DialogContent className="product-dialog"><DialogHeader><DialogTitle>{draft.id ? 'Editar producto' : 'Nuevo producto'}</DialogTitle><DialogDescription>Los cambios publicados aparecerán en la tienda.</DialogDescription></DialogHeader><form className="product-form" onSubmit={saveProduct}><div className="form-grid"><label>Nombre<Input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label className="full">Descripción<Textarea value={draft.description ?? ''} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Describe el producto: material, tamaño, detalles..." /></label><label>Categoría<NativeSelect className="admin-select" value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value as Product['type'] })}><NativeSelectOption value="Llaveros">Llaveros</NativeSelectOption><NativeSelectOption value="Peluches">Peluches</NativeSelectOption></NativeSelect></label><label>Precio en CLP<Input required min="0" type="number" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label><label>Orden<Input min="0" type="number" value={draft.sort_order} onChange={(event) => setDraft({ ...draft, sort_order: Number(event.target.value) })} /></label><label>Stock (vacío = sin límite)<Input min="0" type="number" value={draft.stock ?? ''} placeholder="Sin límite" onChange={(event) => setDraft({ ...draft, stock: event.target.value === '' ? null : Number(event.target.value) })} /></label><label>Color<Input type="color" value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })} /></label><label>Emoji<Input value={draft.art} onChange={(event) => setDraft({ ...draft, art: event.target.value })} /></label><label>Etiqueta<Input value={draft.tag ?? ''} placeholder="Nuevo, Más vendido…" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} /></label><label>Visibilidad<NativeSelect className="admin-select" value={draft.active ? 'active' : 'hidden'} onChange={(event) => setDraft({ ...draft, active: event.target.value === 'active' })}><NativeSelectOption value="active">Publicado</NativeSelectOption><NativeSelectOption value="hidden">Oculto</NativeSelectOption></NativeSelect></label><label className="full upload-field"><span>Fotografía</span><div><Upload size={18} /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) startCrop([file], 'product'); event.target.value = ''; }} /><small>{imageFile?.name ?? (draft.image_url ? 'Se conservará la foto actual' : 'PNG, JPG o WebP · máximo 5 MB')}</small></div></label>
+    <Dialog open={productOpen} onOpenChange={setProductOpen}><DialogContent className="product-dialog"><DialogHeader><DialogTitle>{draft.id ? 'Editar producto' : 'Nuevo producto'}</DialogTitle><DialogDescription>Los cambios publicados aparecerán en la tienda.</DialogDescription></DialogHeader><form className="product-form" onSubmit={saveProduct}><div className="form-grid"><label>Nombre<Input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label className="full">Descripción<Textarea value={draft.description ?? ''} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Describe el producto: material, tamaño, detalles..." /></label><label>Categoría<NativeSelect className="admin-select" value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })}>{content.categories.map((item) => <NativeSelectOption key={item} value={item}>{item}</NativeSelectOption>)}</NativeSelect></label><label>Precio en {content.currency}<Input required min="0" type="number" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label><label>Orden<Input min="0" type="number" value={draft.sort_order} onChange={(event) => setDraft({ ...draft, sort_order: Number(event.target.value) })} /></label><label>Stock (vacío = sin límite)<Input min="0" type="number" value={draft.stock ?? ''} placeholder="Sin límite" onChange={(event) => setDraft({ ...draft, stock: event.target.value === '' ? null : Number(event.target.value) })} /></label><label>Color<Input type="color" value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })} /></label><label>Emoji<Input value={draft.art} onChange={(event) => setDraft({ ...draft, art: event.target.value })} /></label><label>Etiqueta<Input value={draft.tag ?? ''} placeholder="Nuevo, Más vendido…" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} /></label><label>Visibilidad<NativeSelect className="admin-select" value={draft.active ? 'active' : 'hidden'} onChange={(event) => setDraft({ ...draft, active: event.target.value === 'active' })}><NativeSelectOption value="active">Publicado</NativeSelectOption><NativeSelectOption value="hidden">Oculto</NativeSelectOption></NativeSelect></label><label className="full upload-field"><span>Fotografía</span><div><Upload size={18} /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) startCrop([file], 'product'); event.target.value = ''; }} /><small>{imageFile?.name ?? (draft.image_url ? 'Se conservará la foto actual' : 'PNG, JPG o WebP · máximo 5 MB')}</small></div></label>
 {(imagePreview ?? draft.image_url) && <div className="full image-adjust-preview"><img src={imagePreview ?? draft.image_url ?? ''} alt="Vista previa" style={{ objectPosition: `${draft.image_position_x ?? 50}% ${draft.image_position_y ?? 50}%`, transformOrigin: `${draft.image_position_x ?? 50}% ${draft.image_position_y ?? 50}%`, transform: `scale(${draft.image_zoom ?? 1})` }} /></div>}
 {draft.id && <div className="full gallery-manager">
   <span className="gallery-manager-label">Fotos adicionales (galería)</span>

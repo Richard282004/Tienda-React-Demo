@@ -11,13 +11,16 @@ export async function createMercadoPagoPreference(opts: {
   discountAmount?: number;
   payerEmail: string;
   siteUrl: string;
+  // Debe calzar con la moneda de la cuenta de Mercado Pago del comercio
+  // (CLP para Chile, ARS para Argentina, MXN para México, etc.).
+  currency?: string;
 }) {
-  const { accessToken, orderId, items, shippingCost, discountAmount = 0, payerEmail, siteUrl } = opts;
+  const { accessToken, orderId, items, shippingCost, discountAmount = 0, payerEmail, siteUrl, currency = 'CLP' } = opts;
   const body = {
     items: [
-      ...items.map((item) => ({ title: item.title, quantity: item.quantity, unit_price: item.unit_price, currency_id: 'CLP' })),
-      ...(shippingCost > 0 ? [{ title: 'Envío', quantity: 1, unit_price: shippingCost, currency_id: 'CLP' }] : []),
-      ...(discountAmount > 0 ? [{ title: 'Descuento', quantity: 1, unit_price: -discountAmount, currency_id: 'CLP' }] : []),
+      ...items.map((item) => ({ title: item.title, quantity: item.quantity, unit_price: item.unit_price, currency_id: currency })),
+      ...(shippingCost > 0 ? [{ title: 'Envío', quantity: 1, unit_price: shippingCost, currency_id: currency }] : []),
+      ...(discountAmount > 0 ? [{ title: 'Descuento', quantity: 1, unit_price: -discountAmount, currency_id: currency }] : []),
     ],
     payer: { email: payerEmail },
     external_reference: orderId,
