@@ -40,6 +40,19 @@ export async function POST(request: Request) {
   }
   try {
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+    // Si la clienta tiene sesión iniciada, el pedido queda vinculado a su
+    // cuenta para que aparezca en "Mis pedidos". Sin token, el pedido igual
+    // se crea normalmente (compra como invitada).
+    let userId: string | null = null;
+    const authHeader = request.headers.get("authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const { data: userData } = await supabase.auth.getUser(authHeader.slice(7));
+        userId = userData.user?.id ?? null;
+      } catch {
+        /* Token inválido o expirado: el pedido sigue como compra de invitada. */
+      }
+    }
     // Libera primero el stock de pedidos abandonados (pending sin pago hace
     // más de 10 min) para que el cálculo de disponibilidad de abajo sea real.
     try {
@@ -150,6 +163,7 @@ export async function POST(request: Request) {
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
+        user_id: userId,
         customer_name: payload.customerName,
         customer_email: payload.customerEmail,
         customer_phone: payload.customerPhone,

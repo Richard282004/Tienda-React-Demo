@@ -132,9 +132,11 @@ export default function CarritoPage() {
     const counts = new Map<string, number>();
     cart.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
     try {
+      const { data: sessionData } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
+      const token = sessionData.session?.access_token;
       const response = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           items: [...counts.entries()].map(([productId, quantity]) => ({ productId, quantity })),
           customerName: shipping.name,

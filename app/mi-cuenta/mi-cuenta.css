@@ -22,6 +22,23 @@
 .account-page-form input, .account-page-form select { min-height: 44px; font-size: 15px; border-color: #decfc9; background: white; }
 .account-page-form .primary-button { margin-top: 6px; width: fit-content; }
 .admin-select { width: 100%; }
+.account-page-orders-loading, .account-page-orders-empty { color: var(--muted); font-size: 14px; }
+.account-page-orders { display: grid; gap: 16px; max-width: 560px; }
+.account-page-order { border: 1px solid #e5d6d0; border-radius: 16px; padding: 18px; background: #fff; }
+.account-page-order-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #efe2dc; }
+.account-page-order-header strong { font-family: Georgia, serif; font-size: 16px; font-weight: 400; }
+.account-page-order-header span { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+.account-page-order-items { list-style: none; margin: 14px 0; padding: 0; display: grid; gap: 6px; font-size: 13px; color: var(--ink); }
+.account-page-order-items li { display: flex; justify-content: space-between; }
+.account-page-order-tracking { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+.account-page-order-total { display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid #efe2dc; font-size: 14px; }
+.account-page-order-total strong { color: var(--plum); }
+.order-status-badge { border-radius: 99px; padding: 5px 11px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.order-status-badge.status-pending { background: #f6e9c9; color: #93701f; }
+.order-status-badge.status-paid { background: #e4f0e2; color: #4f7a4a; }
+.order-status-badge.status-shipped { background: #dbe6f2; color: #3f628a; }
+.order-status-badge.status-delivered { background: #e2ddf2; color: #5b4a94; }
+.order-status-badge.status-cancelled { background: #f4dede; color: #9a4b4b; }
 @media (max-width: 760px) {
   .account-page-grid { grid-template-columns: 1fr; }
   .account-page-content { padding: 22px; }
