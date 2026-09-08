@@ -13,6 +13,8 @@ import {
   MessageCircle,
   Menu,
   Minus,
+  Pause,
+  Play,
   Phone,
   Plus,
   Search,
@@ -66,6 +68,8 @@ export default function Home() {
   const [accountMessage, setAccountMessage] = useState('');
   const [notice, setNotice] = useState('');
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [carouselPaused, setCarouselPaused] = useState(false);
+  const [carouselHovering, setCarouselHovering] = useState(false);
 
 
   const visibleProducts = useMemo(
@@ -225,6 +229,13 @@ export default function Home() {
     });
     return () => { active = false; sessionRevision++; subscription.subscription.unsubscribe(); };
   }, []);
+
+  useEffect(() => {
+    if (!carouselApi || carouselPaused || carouselHovering) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const interval = window.setInterval(() => carouselApi.scrollNext(), 3200);
+    return () => window.clearInterval(interval);
+  }, [carouselApi, carouselPaused, carouselHovering]);
 
   useEffect(() => {
     const context = (document as Document & {
@@ -420,8 +431,8 @@ export default function Home() {
       </section>
 
       <section className="work-showcase" aria-label="Trabajos recientes">
-        <div className="showcase-heading page-width"><div><p className="section-kicker">Trabajos recientes</p><h2>Hechos para <em>acompañarte</em></h2></div><div className="carousel-controls"><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
-        <Carousel setApi={setCarouselApi} opts={{ loop: true, align: 'start' }} className="work-carousel">
+        <div className="showcase-heading page-width"><div><p className="section-kicker">Trabajos recientes</p><h2>Hechos para <em>acompañarte</em></h2></div><div className="carousel-controls"><button className="pause-carousel" aria-label={carouselPaused ? 'Reanudar carrusel automático' : 'Pausar carrusel automático'} onClick={() => setCarouselPaused((paused) => !paused)}>{carouselPaused ? <Play size={16} /> : <Pause size={16} />}</button><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
+        <Carousel setApi={setCarouselApi} opts={{ loop: true, align: 'start' }} className="work-carousel" onMouseEnter={() => setCarouselHovering(true)} onMouseLeave={() => setCarouselHovering(false)}>
           <CarouselContent className="carousel-track">
             {products.map((product, index) => (
               <CarouselItem className="work-slide" key={`${product.id}-${index}`}>
