@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowLeft, Check, Clock, DollarSign, FileText, HelpCircl
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ImageCropDialog } from '@/components/image-crop-dialog';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -44,6 +45,8 @@ export default function AdminPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [gallery, setGallery] = useState<ProductImage[]>([]);
   const [galleryBusy, setGalleryBusy] = useState(false);
+  const [cropQueue, setCropQueue] = useState<File[]>([]);
+  const [cropTarget, setCropTarget] = useState<'product' | 'gallery' | 'showcase' | null>(null);
   const [discounts, setDiscounts] = useState<DiscountCode[]>([]);
   const [discountDraft, setDiscountDraft] = useState(emptyDiscount);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -278,20 +281,40 @@ export default function AdminPage() {
     setImagePreview((current) => { if (current) URL.revokeObjectURL(current); return file ? URL.createObjectURL(file) : null; });
   };
 
-  const addGalleryPhotos = async (files: FileList | null) => {
-    if (!supabase || !files?.length || !draft.id) return;
-    setGalleryBusy(true);
-    for (const file of Array.from(files)) {
-      const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
-      const path = `${crypto.randomUUID()}-${safeName}`;
-      const { error: uploadError } = await supabase.storage.from('products').upload(path, file, { cacheControl: '3600' });
-      if (uploadError) { setMessage(uploadError.message); continue; }
-      const imageUrl = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
-      await supabase.from('product_images').insert({ product_id: draft.id, image_url: imageUrl, sort_order: gallery.length });
-    }
+  // Toda foto nueva (producto, galería o vitrina) pasa primero por el
+  // recorte cuadrado obligatorio, para que se vea igual de bien en la
+  // tarjeta grande, la miniatura del carrito y la galería.
+  const startCrop = (files: File[], target: 'product' | 'gallery' | 'showcase') => {
+    if (!files.length) return;
+    setCropQueue(files);
+    setCropTarget(target);
+  };
+  const onCropCancel = () => { setCropQueue([]); setCropTarget(null); };
+  const uploadSingleGalleryPhoto = async (file: File) => {
+    if (!supabase || !draft.id) return;
+    const path = `${crypto.randomUUID()}-foto.jpg`;
+    const { error: uploadError } = await supabase.storage.from('products').upload(path, file, { cacheControl: '3600' });
+    if (uploadError) { setMessage(uploadError.message); return; }
+    const imageUrl = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
+    await supabase.from('product_images').insert({ product_id: draft.id, image_url: imageUrl, sort_order: gallery.length });
     const { data } = await supabase.from('product_images').select('*').eq('product_id', draft.id).order('sort_order');
     setGallery((data ?? []) as ProductImage[]);
-    setGalleryBusy(false);
+  };
+  const onCropConfirm = async (blob: Blob) => {
+    const file = new File([blob], 'foto.jpg', { type: 'image/jpeg' });
+    if (cropTarget === 'product') handleImageFile(file);
+    if (cropTarget === 'showcase') setShowcaseFile(file);
+    if (cropTarget === 'gallery') { setGalleryBusy(true); await uploadSingleGalleryPhoto(file); }
+    setCropQueue((current) => {
+      const next = current.slice(1);
+      if (!next.length) { setCropTarget(null); setGalleryBusy(false); }
+      return next;
+    });
+  };
+
+  const addGalleryPhotos = (files: FileList | null) => {
+    if (!files?.length || !draft.id) return;
+    startCrop(Array.from(files), 'gallery');
   };
 
   const deleteGalleryPhoto = async (id: string) => {
@@ -471,7 +494,7 @@ export default function AdminPage() {
         <form className="discount-form showcase-form" onSubmit={addShowcaseItem}>
           <label>Título<Input required value={showcaseDraft.title} placeholder="Encargo personalizado" onChange={(event) => setShowcaseDraft({ ...showcaseDraft, title: event.target.value })} /></label>
           <label>Subtítulo (opcional)<Input value={showcaseDraft.subtitle} placeholder="Para el cumpleaños de Sofía" onChange={(event) => setShowcaseDraft({ ...showcaseDraft, subtitle: event.target.value })} /></label>
-          <label className="full upload-field"><span>Fotografía</span><div><Upload size={18} /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setShowcaseFile(event.target.files?.[0] ?? null)} /><small>{showcaseFile?.name ?? 'PNG, JPG o WebP · máximo 5 MB'}</small></div></label>
+          <label className="full upload-field"><span>Fotografía</span><div><Upload size={18} /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) startCrop([file], 'showcase'); event.target.value = ''; }} /><small>{showcaseFile?.name ?? 'PNG, JPG o WebP · máximo 5 MB'}</small></div></label>
           <Button disabled={showcaseBusy} type="submit" className="discount-submit"><ImagePlus size={16} /> {showcaseBusy ? 'Subiendo…' : 'Agregar a la vitrina'}</Button>
         </form>
         <div className="discounts-list">
@@ -519,7 +542,7 @@ export default function AdminPage() {
       </TabsContent>
     </Tabs>
 
-    <Dialog open={productOpen} onOpenChange={setProductOpen}><DialogContent className="product-dialog"><DialogHeader><DialogTitle>{draft.id ? 'Editar producto' : 'Nuevo producto'}</DialogTitle><DialogDescription>Los cambios publicados aparecerán en la tienda.</DialogDescription></DialogHeader><form className="product-form" onSubmit={saveProduct}><div className="form-grid"><label>Nombre<Input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label className="full">Descripción<Textarea value={draft.description ?? ''} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Describe el producto: material, tamaño, detalles..." /></label><label>Categoría<NativeSelect className="admin-select" value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value as Product['type'] })}><NativeSelectOption value="Llaveros">Llaveros</NativeSelectOption><NativeSelectOption value="Peluches">Peluches</NativeSelectOption></NativeSelect></label><label>Precio en CLP<Input required min="0" type="number" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label><label>Orden<Input min="0" type="number" value={draft.sort_order} onChange={(event) => setDraft({ ...draft, sort_order: Number(event.target.value) })} /></label><label>Stock (vacío = sin límite)<Input min="0" type="number" value={draft.stock ?? ''} placeholder="Sin límite" onChange={(event) => setDraft({ ...draft, stock: event.target.value === '' ? null : Number(event.target.value) })} /></label><label>Color<Input type="color" value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })} /></label><label>Emoji<Input value={draft.art} onChange={(event) => setDraft({ ...draft, art: event.target.value })} /></label><label>Etiqueta<Input value={draft.tag ?? ''} placeholder="Nuevo, Más vendido…" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} /></label><label>Visibilidad<NativeSelect className="admin-select" value={draft.active ? 'active' : 'hidden'} onChange={(event) => setDraft({ ...draft, active: event.target.value === 'active' })}><NativeSelectOption value="active">Publicado</NativeSelectOption><NativeSelectOption value="hidden">Oculto</NativeSelectOption></NativeSelect></label><label className="full upload-field"><span>Fotografía</span><div><Upload size={18} /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => handleImageFile(event.target.files?.[0] ?? null)} /><small>{imageFile?.name ?? (draft.image_url ? 'Se conservará la foto actual' : 'PNG, JPG o WebP · máximo 5 MB')}</small></div></label>
+    <Dialog open={productOpen} onOpenChange={setProductOpen}><DialogContent className="product-dialog"><DialogHeader><DialogTitle>{draft.id ? 'Editar producto' : 'Nuevo producto'}</DialogTitle><DialogDescription>Los cambios publicados aparecerán en la tienda.</DialogDescription></DialogHeader><form className="product-form" onSubmit={saveProduct}><div className="form-grid"><label>Nombre<Input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label className="full">Descripción<Textarea value={draft.description ?? ''} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Describe el producto: material, tamaño, detalles..." /></label><label>Categoría<NativeSelect className="admin-select" value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value as Product['type'] })}><NativeSelectOption value="Llaveros">Llaveros</NativeSelectOption><NativeSelectOption value="Peluches">Peluches</NativeSelectOption></NativeSelect></label><label>Precio en CLP<Input required min="0" type="number" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label><label>Orden<Input min="0" type="number" value={draft.sort_order} onChange={(event) => setDraft({ ...draft, sort_order: Number(event.target.value) })} /></label><label>Stock (vacío = sin límite)<Input min="0" type="number" value={draft.stock ?? ''} placeholder="Sin límite" onChange={(event) => setDraft({ ...draft, stock: event.target.value === '' ? null : Number(event.target.value) })} /></label><label>Color<Input type="color" value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })} /></label><label>Emoji<Input value={draft.art} onChange={(event) => setDraft({ ...draft, art: event.target.value })} /></label><label>Etiqueta<Input value={draft.tag ?? ''} placeholder="Nuevo, Más vendido…" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} /></label><label>Visibilidad<NativeSelect className="admin-select" value={draft.active ? 'active' : 'hidden'} onChange={(event) => setDraft({ ...draft, active: event.target.value === 'active' })}><NativeSelectOption value="active">Publicado</NativeSelectOption><NativeSelectOption value="hidden">Oculto</NativeSelectOption></NativeSelect></label><label className="full upload-field"><span>Fotografía</span><div><Upload size={18} /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) startCrop([file], 'product'); event.target.value = ''; }} /><small>{imageFile?.name ?? (draft.image_url ? 'Se conservará la foto actual' : 'PNG, JPG o WebP · máximo 5 MB')}</small></div></label>
 {(imagePreview ?? draft.image_url) && <div className="full image-adjust">
   <div className="image-adjust-preview"><img src={imagePreview ?? draft.image_url ?? ''} alt="Vista previa" style={{ objectPosition: `${draft.image_position_x ?? 50}% ${draft.image_position_y ?? 50}%`, transformOrigin: `${draft.image_position_x ?? 50}% ${draft.image_position_y ?? 50}%`, transform: `scale(${draft.image_zoom ?? 1})` }} /></div>
   <div className="image-adjust-controls">
@@ -532,9 +555,11 @@ export default function AdminPage() {
   <span className="gallery-manager-label">Fotos adicionales (galería)</span>
   <div className="gallery-manager-grid">
     {gallery.map((image) => <div className="gallery-manager-item" key={image.id}><img src={image.image_url} alt="" /><button type="button" onClick={() => deleteGalleryPhoto(image.id)} aria-label="Eliminar foto"><Trash2 size={14} /></button></div>)}
-    <label className="gallery-manager-add">{galleryBusy ? '...' : <><Upload size={16} /> Agregar</>}<input type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={galleryBusy} onChange={(event) => void addGalleryPhotos(event.target.files)} /></label>
+    <label className="gallery-manager-add">{galleryBusy ? '...' : <><Upload size={16} /> Agregar</>}<input type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={galleryBusy} onChange={(event) => { addGalleryPhotos(event.target.files); event.target.value = ''; }} /></label>
   </div>
 </div>}
 </div>{message && <p className="admin-message">{message}</p>}<Button disabled={busy} type="submit" className="save-product"><Save size={17} /> {busy ? 'Guardando…' : 'Guardar producto'}</Button></form></DialogContent></Dialog>
+
+    <ImageCropDialog file={cropQueue[0] ?? null} onCancel={onCropCancel} onConfirm={onCropConfirm} />
   </main>;
 }

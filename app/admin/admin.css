@@ -72,6 +72,12 @@
 .showcase-row-info { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
 .showcase-thumb { width: 54px; height: 54px; overflow: hidden; border-radius: 10px; flex-shrink: 0; }
 .showcase-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.crop-dialog { max-width: 360px !important; border-radius: 22px !important; background: #fffaf5 !important; color: #351f2c !important; }
+.crop-viewport { position: relative; overflow: hidden; margin: 0 auto; border-radius: 16px; background: #f0e4de; touch-action: none; cursor: grab; }
+.crop-viewport img { position: absolute; max-width: none; user-select: none; -webkit-user-drag: none; }
+.crop-zoom { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 10px; margin-top: 16px; color: #69545c; font-size: 12px; font-weight: 700; }
+.crop-zoom input { width: 100%; }
+.crop-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 @media (max-width: 900px) { .discount-form { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 620px) { .discount-form { grid-template-columns: 1fr; } }.admin-product-info span { color: #957e86; font-size: 10px; text-transform: uppercase; }.admin-product-info h3 { margin: 5px 0 7px; font-family: Georgia, serif; font-size: 17px; font-weight: 400; }.admin-product-info strong { font-size: 13px; }.admin-product-actions { display: grid; gap: 7px; }.admin-empty { grid-column: 1/-1; display: grid; min-height: 300px; place-items: center; align-content: center; gap: 10px; border: 1px dashed #d9c7c0; border-radius: 20px; color: #8e777f; text-align: center; }.admin-empty h3, .admin-empty p { margin: 0; }.admin-empty h3 { color: #351f2c; font-family: Georgia, serif; font-size: 24px; font-weight: 400; }.admin-empty p { font-size: 13px; }
 .content-editor section { margin-top: 16px; border: 1px solid #e1d2cc; border-radius: 20px; padding: 24px; background: #fffaf5; }.content-editor section h3 { margin: 0 0 18px; font-family: Georgia, serif; font-size: 21px; font-weight: 400; }.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; }.form-grid .full { grid-column: 1/-1; }.content-editor textarea { min-height: 90px; }.admin-section-note { margin: -8px 0 16px; color: #8b747c; font-size: 12px; }

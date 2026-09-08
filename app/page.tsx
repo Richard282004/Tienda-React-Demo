@@ -138,6 +138,14 @@ export default function Home() {
   const [discountChecking, setDiscountChecking] = useState(false);
   const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number } | null>(null);
   const shippingCost = calculateShipping(total, shippingRates.find((rate) => rate.region === shipping.region)?.cost);
+  const shippingComplete = Boolean(
+    shipping.name.trim() &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shipping.email.trim()) &&
+    shipping.phone.trim() &&
+    shipping.region &&
+    shipping.comuna.trim() &&
+    shipping.address.trim(),
+  );
   const discountAmount = appliedDiscount ? Math.min(total, appliedDiscount.amount) : 0;
   const grandTotal = total - discountAmount + (shippingCost ?? 0);
 
@@ -155,7 +163,9 @@ export default function Home() {
   const handleCheckout = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (checkoutLock.current) return;
-    if (!cartProducts.length || shippingCost === null) { setCheckoutError('Selecciona una región con envío disponible.'); return; }
+    if (!cartProducts.length) return;
+    if (!shippingComplete) { setCheckoutError('Completa todos tus datos de envío antes de pagar.'); return; }
+    if (shippingCost === null) { setCheckoutError('Selecciona una región con envío disponible.'); return; }
     checkoutLock.current = true;
     setCheckoutBusy(true);
     setCheckoutError('');
@@ -664,7 +674,7 @@ export default function Home() {
               <div className="checkout-total"><span>Total</span><strong>{shippingCost === null ? "Por calcular" : formatPrice(grandTotal)}</strong></div>
             </div>
             {checkoutError && <p className="account-message">{checkoutError}</p>}
-            <Button disabled={checkoutBusy || shippingCost === null || cartProducts.length === 0} type="submit" className="primary-button account-submit">{checkoutBusy ? 'Redirigiendo a Mercado Pago…' : 'Pagar con Mercado Pago'} <ArrowRight size={16} /></Button>
+            <Button disabled={checkoutBusy || !shippingComplete || shippingCost === null || cartProducts.length === 0} type="submit" className="primary-button account-submit">{checkoutBusy ? 'Redirigiendo a Mercado Pago…' : 'Pagar con Mercado Pago'} <ArrowRight size={16} /></Button>
           </form>
         </DialogContent>
       </Dialog>
