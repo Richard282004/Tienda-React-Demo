@@ -401,3 +401,50 @@ grant update on public.profiles to authenticated;
 drop policy if exists "profiles_admin_update" on public.profiles;
 create policy "profiles_admin_update" on public.profiles
 for update to authenticated using (public.is_admin()) with check (true);
+
+-- ── Vitrina curada ("Trabajos recientes") ──────────────────────────────────
+
+create table if not exists public.showcase_items (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  subtitle text,
+  image_url text not null,
+  active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.showcase_items enable row level security;
+revoke all on public.showcase_items from anon, authenticated;
+grant select on public.showcase_items to anon, authenticated;
+grant insert, update, delete on public.showcase_items to authenticated;
+
+drop policy if exists "showcase_public_read" on public.showcase_items;
+create policy "showcase_public_read" on public.showcase_items
+for select to anon, authenticated using (active or public.is_admin());
+drop policy if exists "showcase_admin_write" on public.showcase_items;
+create policy "showcase_admin_write" on public.showcase_items
+for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- ── Preguntas frecuentes ────────────────────────────────────────────────────
+
+create table if not exists public.faqs (
+  id uuid primary key default gen_random_uuid(),
+  question text not null,
+  answer text not null,
+  active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.faqs enable row level security;
+revoke all on public.faqs from anon, authenticated;
+grant select on public.faqs to anon, authenticated;
+grant insert, update, delete on public.faqs to authenticated;
+
+drop policy if exists "faqs_public_read" on public.faqs;
+create policy "faqs_public_read" on public.faqs
+for select to anon, authenticated using (active or public.is_admin());
+drop policy if exists "faqs_admin_write" on public.faqs;
+create policy "faqs_admin_write" on public.faqs
+for all to authenticated using (public.is_admin()) with check (public.is_admin());

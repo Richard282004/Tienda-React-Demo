@@ -10,7 +10,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
-import { orderStatusLabel, type DiscountCode, type Order, type OrderStatus, type Profile, type ProductImage, type Review, type ShippingRate } from '@/lib/orders';
+import { orderStatusLabel, type DiscountCode, type Faq, type Order, type OrderStatus, type Profile, type ProductImage, type Review, type ShippingRate, type ShowcaseItem } from '@/lib/orders';
 import { supabase } from '@/lib/supabase';
 import './admin.css';
 
@@ -48,10 +48,16 @@ export default function AdminPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
+  const [showcaseFile, setShowcaseFile] = useState<File | null>(null);
+  const [showcaseBusy, setShowcaseBusy] = useState(false);
+  const [showcaseDraft, setShowcaseDraft] = useState({ title: '', subtitle: '' });
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [faqDraft, setFaqDraft] = useState({ question: '', answer: '' });
 
   const loadAdminData = async () => {
     if (!supabase) return;
-    const [{ data: productRows, error: productError }, { data: contentRow, error: contentError }, { data: orderRows }, { data: rateRows }, { data: discountRows }, { data: reviewRows }, { data: profileRows }] = await Promise.all([
+    const [{ data: productRows, error: productError }, { data: contentRow, error: contentError }, { data: orderRows }, { data: rateRows }, { data: discountRows }, { data: reviewRows }, { data: profileRows }, { data: showcaseRows }, { data: faqRows }] = await Promise.all([
       supabase.from('products').select('*').order('sort_order'),
       supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
@@ -59,6 +65,8 @@ export default function AdminPage() {
       supabase.from('discount_codes').select('*').order('created_at', { ascending: false }),
       supabase.from('reviews').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      supabase.from('showcase_items').select('*').order('sort_order'),
+      supabase.from('faqs').select('*').order('sort_order'),
     ]);
     if (productError || contentError) { setMessage(productError?.message ?? contentError?.message ?? 'No se pudo cargar la información.'); return; }
     setProducts((productRows ?? []) as Product[]);
@@ -68,6 +76,60 @@ export default function AdminPage() {
     setDiscounts((discountRows ?? []) as DiscountCode[]);
     setReviews((reviewRows ?? []) as Review[]);
     setProfiles((profileRows ?? []) as Profile[]);
+    setShowcaseItems((showcaseRows ?? []) as ShowcaseItem[]);
+    setFaqs((faqRows ?? []) as Faq[]);
+  };
+
+  const addShowcaseItem = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !showcaseFile) { setMessage('Elige una foto para la vitrina.'); return; }
+    setShowcaseBusy(true); setMessage('');
+    const safeName = showcaseFile.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
+    const path = `showcase-${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage.from('products').upload(path, showcaseFile, { cacheControl: '3600' });
+    if (uploadError) { setShowcaseBusy(false); setMessage(uploadError.message); return; }
+    const imageUrl = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
+    const { error } = await supabase.from('showcase_items').insert({ title: showcaseDraft.title || 'Trabajo reciente', subtitle: showcaseDraft.subtitle || null, image_url: imageUrl, sort_order: showcaseItems.length });
+    setShowcaseBusy(false);
+    if (error) { setMessage(error.message); return; }
+    setShowcaseDraft({ title: '', subtitle: '' });
+    setShowcaseFile(null);
+    await loadAdminData();
+  };
+
+  const toggleShowcaseActive = async (id: string, active: boolean) => {
+    if (!supabase) return;
+    await supabase.from('showcase_items').update({ active }).eq('id', id);
+    setShowcaseItems((current) => current.map((item) => (item.id === id ? { ...item, active } : item)));
+  };
+
+  const deleteShowcaseItem = async (id: string) => {
+    if (!supabase || !window.confirm('¿Eliminar esta foto de la vitrina?')) return;
+    await supabase.from('showcase_items').delete().eq('id', id);
+    setShowcaseItems((current) => current.filter((item) => item.id !== id));
+  };
+
+  const saveFaq = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) return;
+    setBusy(true); setMessage('');
+    const { error } = await supabase.from('faqs').insert({ question: faqDraft.question, answer: faqDraft.answer, sort_order: faqs.length });
+    setBusy(false);
+    if (error) { setMessage(error.message); return; }
+    setFaqDraft({ question: '', answer: '' });
+    await loadAdminData();
+  };
+
+  const toggleFaqActive = async (id: string, active: boolean) => {
+    if (!supabase) return;
+    await supabase.from('faqs').update({ active }).eq('id', id);
+    setFaqs((current) => current.map((faq) => (faq.id === id ? { ...faq, active } : faq)));
+  };
+
+  const deleteFaq = async (id: string) => {
+    if (!supabase || !window.confirm('¿Eliminar esta pregunta?')) return;
+    await supabase.from('faqs').delete().eq('id', id);
+    setFaqs((current) => current.filter((faq) => faq.id !== id));
   };
 
   const saveDiscount = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -284,10 +346,10 @@ export default function AdminPage() {
   if (state === 'denied') return <main className="admin-center"><section className="setup-card"><div className="admin-badge danger">Acceso restringido</div><h1>Esta cuenta no es administradora</h1><p>La sesión es válida, pero no tiene permiso para modificar la tienda.</p><div className="denied-actions"><Button variant="outline" onClick={logout}>Cerrar sesión</Button><a href="/">Volver a la tienda</a></div></section></main>;
 
   return <main className="admin-shell">
-    <header className="admin-header"><div><p className="admin-kicker">{content.brandName} · Panel privado</p><h1>Administración de la tienda</h1></div><div><a href="/">Ver tienda</a><Button variant="outline" onClick={logout}><LogOut size={16} /> Salir</Button></div></header>
+    <header className="admin-header"><div><p className="admin-kicker">{content.brandName} · Panel privado</p><h1>Administración de la tienda</h1></div><div><a href="/" target="_blank" rel="noopener noreferrer">Ver tienda ↗</a><Button variant="outline" onClick={logout}><LogOut size={16} /> Salir</Button></div></header>
     {message && <div className="admin-message success"><Check size={16} /> {message}</div>}
     <Tabs defaultValue="products" className="admin-tabs">
-      <TabsList className="admin-tabs-list"><TabsTrigger value="products">Productos</TabsTrigger><TabsTrigger value="orders">Pedidos</TabsTrigger><TabsTrigger value="shipping">Envíos</TabsTrigger><TabsTrigger value="discounts">Descuentos</TabsTrigger><TabsTrigger value="reviews">Reseñas</TabsTrigger><TabsTrigger value="users">Usuarios</TabsTrigger><TabsTrigger value="content">Textos y contacto</TabsTrigger></TabsList>
+      <TabsList className="admin-tabs-list"><TabsTrigger value="products">Productos</TabsTrigger><TabsTrigger value="orders">Pedidos</TabsTrigger><TabsTrigger value="shipping">Envíos</TabsTrigger><TabsTrigger value="discounts">Descuentos</TabsTrigger><TabsTrigger value="reviews">Reseñas</TabsTrigger><TabsTrigger value="users">Usuarios</TabsTrigger><TabsTrigger value="showcase">Vitrina</TabsTrigger><TabsTrigger value="faq">FAQ</TabsTrigger><TabsTrigger value="content">Textos y contacto</TabsTrigger></TabsList>
       <TabsContent value="orders">
         <div className="admin-section-heading"><div><h2>Pedidos</h2><p>{orders.length} pedidos recibidos</p></div></div>
         {orders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Aún no hay pedidos</h3><p>Aquí aparecerán las compras pagadas con Mercado Pago.</p></div> : (
@@ -380,6 +442,45 @@ export default function AdminPage() {
           ))}
         </div>
       </TabsContent>
+      <TabsContent value="showcase">
+        <div className="admin-section-heading"><div><h2>Vitrina ("Trabajos recientes")</h2><p>Si agregas al menos una foto aquí, reemplaza el carrusel automático del catálogo.</p></div></div>
+        <form className="discount-form showcase-form" onSubmit={addShowcaseItem}>
+          <label>Título<Input required value={showcaseDraft.title} placeholder="Encargo personalizado" onChange={(event) => setShowcaseDraft({ ...showcaseDraft, title: event.target.value })} /></label>
+          <label>Subtítulo (opcional)<Input value={showcaseDraft.subtitle} placeholder="Para el cumpleaños de Sofía" onChange={(event) => setShowcaseDraft({ ...showcaseDraft, subtitle: event.target.value })} /></label>
+          <label className="full upload-field"><span>Fotografía</span><div><Upload size={18} /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setShowcaseFile(event.target.files?.[0] ?? null)} /><small>{showcaseFile?.name ?? 'PNG, JPG o WebP · máximo 5 MB'}</small></div></label>
+          <Button disabled={showcaseBusy} type="submit" className="discount-submit"><ImagePlus size={16} /> {showcaseBusy ? 'Subiendo…' : 'Agregar a la vitrina'}</Button>
+        </form>
+        <div className="discounts-list">
+          {showcaseItems.length === 0 ? <div className="admin-empty"><ImagePlus size={34} /><h3>Aún no hay fotos en la vitrina</h3><p>Mientras esté vacía, el carrusel sigue mostrando el catálogo automáticamente.</p></div> : showcaseItems.map((item) => (
+            <div className="discount-row" key={item.id}>
+              <div className="showcase-row-info"><div className="showcase-thumb"><img src={item.image_url} alt={item.title} /></div><div><strong>{item.title}</strong><span>{item.subtitle}</span></div></div>
+              <div className="discount-row-actions">
+                <button className={`discount-toggle ${item.active ? 'active' : ''}`} onClick={() => toggleShowcaseActive(item.id, !item.active)}>{item.active ? 'Visible' : 'Oculto'}</button>
+                <Button size="icon-sm" variant="destructive" onClick={() => deleteShowcaseItem(item.id)} aria-label={`Eliminar ${item.title}`}><Trash2 /></Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </TabsContent>
+      <TabsContent value="faq">
+        <div className="admin-section-heading"><div><h2>Preguntas frecuentes</h2><p>Aparecen antes de "Sobre nosotros" en la tienda.</p></div></div>
+        <form className="discount-form" onSubmit={saveFaq}>
+          <label className="full">Pregunta<Input required value={faqDraft.question} placeholder="¿Cuánto demora el envío?" onChange={(event) => setFaqDraft({ ...faqDraft, question: event.target.value })} /></label>
+          <label className="full">Respuesta<Textarea required value={faqDraft.answer} onChange={(event) => setFaqDraft({ ...faqDraft, answer: event.target.value })} /></label>
+          <Button disabled={busy} type="submit" className="discount-submit">Agregar pregunta</Button>
+        </form>
+        <div className="admin-reviews-list">
+          {faqs.length === 0 ? <div className="admin-empty"><h3>Aún no hay preguntas</h3><p>Agrega las dudas más comunes de tus clientas.</p></div> : faqs.map((faq) => (
+            <div className={`admin-review-row ${faq.active ? '' : 'hidden-review'}`} key={faq.id}>
+              <div><strong>{faq.question}</strong><p>{faq.answer}</p></div>
+              <div className="discount-row-actions">
+                <button className={`discount-toggle ${faq.active ? 'active' : ''}`} onClick={() => toggleFaqActive(faq.id, !faq.active)}>{faq.active ? 'Visible' : 'Oculta'}</button>
+                <Button size="icon-sm" variant="destructive" onClick={() => deleteFaq(faq.id)} aria-label="Eliminar pregunta"><Trash2 /></Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </TabsContent>
       <TabsContent value="content">
         <form className="content-editor" onSubmit={saveContent}><div className="admin-section-heading"><div><h2>Textos y contacto</h2><p>Cambia el contenido principal sin tocar código.</p></div><Button disabled={busy} type="submit"><Save size={17} /> Guardar cambios</Button></div>
           <section><h3>Marca</h3><div className="form-grid"><label>Nombre de la tienda<Input value={content.brandName} onChange={(event) => setContent({ ...content, brandName: event.target.value })} /></label><label>Frase bajo el nombre<Input value={content.brandTagline} onChange={(event) => setContent({ ...content, brandTagline: event.target.value })} /></label></div></section>
@@ -387,6 +488,8 @@ export default function AdminPage() {
           <section><h3>Franja de categorías</h3><div className="form-grid"><label>Texto 1<Input value={content.categoryText1} onChange={(event) => setContent({ ...content, categoryText1: event.target.value })} /></label><label>Texto 2<Input value={content.categoryText2} onChange={(event) => setContent({ ...content, categoryText2: event.target.value })} /></label><label>Texto 3<Input value={content.categoryText3} onChange={(event) => setContent({ ...content, categoryText3: event.target.value })} /></label></div></section>
           <section><h3>Sobre nosotros</h3><div className="form-grid"><label>Título<Input value={content.aboutTitle} onChange={(event) => setContent({ ...content, aboutTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.aboutHighlight} onChange={(event) => setContent({ ...content, aboutHighlight: event.target.value })} /></label><label className="full">Historia<Textarea value={content.aboutText} onChange={(event) => setContent({ ...content, aboutText: event.target.value })} /></label><label className="full">Cita final<Input value={content.storyQuote} onChange={(event) => setContent({ ...content, storyQuote: event.target.value })} /></label><label>Firma de la cita<Input value={content.storyQuoteAuthor} onChange={(event) => setContent({ ...content, storyQuoteAuthor: event.target.value })} /></label></div></section>
           <section><h3>Contacto y envíos</h3><div className="form-grid"><label>Teléfono<Input value={content.phone} onChange={(event) => setContent({ ...content, phone: event.target.value })} /></label><label>Correo<Input type="email" value={content.email} onChange={(event) => setContent({ ...content, email: event.target.value })} /></label><label>WhatsApp (con código de país, sin espacios)<Input value={content.whatsapp ?? ''} placeholder="56912345678" onChange={(event) => setContent({ ...content, whatsapp: event.target.value })} /></label><label className="full">Mensaje superior<Input value={content.shippingMessage} onChange={(event) => setContent({ ...content, shippingMessage: event.target.value })} /></label><label className="full">Llamado a la acción del pie de página<Input value={content.footerCta} onChange={(event) => setContent({ ...content, footerCta: event.target.value })} /></label></div></section>
+          <section><h3>English (opcional)</h3><p className="admin-section-note">Se muestra cuando la clienta cambia el idioma con el botón EN/ES de la tienda. Deja vacío lo que no quieras traducir todavía.</p><div className="form-grid"><label>Hero eyebrow<Input value={content.heroEyebrow_en ?? ''} onChange={(event) => setContent({ ...content, heroEyebrow_en: event.target.value })} /></label><label>Hero title<Input value={content.heroTitle_en ?? ''} onChange={(event) => setContent({ ...content, heroTitle_en: event.target.value })} /></label><label>Hero highlight<Input value={content.heroHighlight_en ?? ''} onChange={(event) => setContent({ ...content, heroHighlight_en: event.target.value })} /></label><label className="full">Hero description<Textarea value={content.heroDescription_en ?? ''} onChange={(event) => setContent({ ...content, heroDescription_en: event.target.value })} /></label><label>Primary button<Input value={content.heroCtaPrimary_en ?? ''} onChange={(event) => setContent({ ...content, heroCtaPrimary_en: event.target.value })} /></label><label>Secondary link<Input value={content.heroCtaSecondary_en ?? ''} onChange={(event) => setContent({ ...content, heroCtaSecondary_en: event.target.value })} /></label><label>About title<Input value={content.aboutTitle_en ?? ''} onChange={(event) => setContent({ ...content, aboutTitle_en: event.target.value })} /></label><label>About highlight<Input value={content.aboutHighlight_en ?? ''} onChange={(event) => setContent({ ...content, aboutHighlight_en: event.target.value })} /></label><label className="full">About text<Textarea value={content.aboutText_en ?? ''} onChange={(event) => setContent({ ...content, aboutText_en: event.target.value })} /></label><label className="full">Closing quote<Input value={content.storyQuote_en ?? ''} onChange={(event) => setContent({ ...content, storyQuote_en: event.target.value })} /></label><label className="full">Shipping message<Input value={content.shippingMessage_en ?? ''} onChange={(event) => setContent({ ...content, shippingMessage_en: event.target.value })} /></label><label className="full">Footer call to action<Input value={content.footerCta_en ?? ''} onChange={(event) => setContent({ ...content, footerCta_en: event.target.value })} /></label></div></section>
+          <section><h3>Analítica</h3><p className="admin-section-note">Deja vacío para no cargar el script. Necesitas tus propios IDs de Google Analytics y/o Meta Pixel.</p><div className="form-grid"><label>Google Analytics (Measurement ID)<Input value={content.gaId ?? ''} placeholder="G-XXXXXXXXXX" onChange={(event) => setContent({ ...content, gaId: event.target.value })} /></label><label>Meta Pixel ID<Input value={content.metaPixelId ?? ''} placeholder="123456789012345" onChange={(event) => setContent({ ...content, metaPixelId: event.target.value })} /></label></div></section>
         </form>
       </TabsContent>
     </Tabs>

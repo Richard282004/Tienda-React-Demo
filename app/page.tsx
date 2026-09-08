@@ -35,8 +35,9 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { defaultProducts, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
-import { CHILE_REGIONS, COMUNAS_BY_REGION, type ProductImage, type Review, type ShippingRate } from '@/lib/orders';
+import { CHILE_REGIONS, COMUNAS_BY_REGION, type Faq, type ProductImage, type Review, type ShippingRate, type ShowcaseItem } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { t, type Lang } from '@/lib/i18n';
 
 const categories = ['Todo', 'Llaveros', 'Peluches'];
 const formatPrice = (price: number) =>
@@ -70,6 +71,21 @@ export default function Home() {
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
   const [carouselPaused, setCarouselPaused] = useState(false);
   const [carouselHovering, setCarouselHovering] = useState(false);
+  const [lang, setLang] = useState<Lang>('es');
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('lumina-lang');
+      if (saved === 'en' || saved === 'es') setLang(saved);
+    } catch { /* sin acceso a localStorage, se queda en español */ }
+  }, []);
+  const toggleLang = () => {
+    setLang((current) => {
+      const next = current === 'es' ? 'en' : 'es';
+      try { localStorage.setItem('lumina-lang', next); } catch { /* no crítico */ }
+      return next;
+    });
+  };
+  const tr = (key: Parameters<typeof t>[1]) => t(lang, key);
 
 
   const visibleProducts = useMemo(
@@ -83,6 +99,9 @@ export default function Home() {
   const cartProducts = cart.map((id) => products.find((product) => product.id === id)).filter(Boolean) as Product[];
   const total = cartProducts.reduce((sum, product) => sum + product.price, 0);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
+  const [faqs, setFaqs] = useState<Faq[]>([]);
+  const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
@@ -195,12 +214,14 @@ export default function Home() {
     };
     const loadStore = async () => {
       try {
-        const [catalog, settings, rates, gallery, reviewRows] = await Promise.all([
+        const [catalog, settings, rates, gallery, reviewRows, showcaseRows, faqRows] = await Promise.all([
           client.from('products').select('*').eq('active', true).order('sort_order'),
           client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
           client.from('shipping_rates').select('region, cost').order('region'),
           client.from('product_images').select('*').order('sort_order'),
           client.from('reviews').select('*').order('created_at', { ascending: false }),
+          client.from('showcase_items').select('*').eq('active', true).order('sort_order'),
+          client.from('faqs').select('*').eq('active', true).order('sort_order'),
         ]);
         if (!active) return;
         if (catalog.error) { setStoreError('No pudimos cargar la colección. Intenta recargar la página.'); return; }
@@ -215,6 +236,8 @@ export default function Home() {
         const reviewsByProduct: Record<string, Review[]> = {};
         for (const review of (reviewRows.data ?? []) as Review[]) (reviewsByProduct[review.product_id] ??= []).push(review);
         setReviews(reviewsByProduct);
+        setShowcaseItems((showcaseRows.data ?? []) as ShowcaseItem[]);
+        setFaqs((faqRows.data ?? []) as Faq[]);
       } catch {
         if (active) setStoreError('No pudimos conectar con la tienda. Intenta recargar la página.');
       } finally {
@@ -380,27 +403,28 @@ export default function Home() {
     <main className="site-shell">
       <a className="skip-link" href="#tienda">Saltar a la colección</a>
       <div className="utility-bar">
-        <span><Truck size={15} /> Envíos a todo Chile</span>
-        <span className="utility-message">{content.shippingMessage}</span>
+        <span><Truck size={15} /> {tr('freeShipping')}</span>
+        <span className="utility-message">{lang === 'en' && content.shippingMessage_en ? content.shippingMessage_en : content.shippingMessage}</span>
         <div className="utility-actions">
           <a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a>
-          <button onClick={() => openAccount('login')}><UserRound size={14} /> {sessionEmail ?? 'Iniciar sesión'}</button>
-          {sessionEmail ? <button className="register-link" onClick={handleSignOut}>Cerrar sesión</button> : <button className="register-link" onClick={() => openAccount('register')}>Crear cuenta</button>}
+          <button onClick={() => openAccount('login')}><UserRound size={14} /> {sessionEmail ?? tr('login')}</button>
+          {sessionEmail ? <button className="register-link" onClick={handleSignOut}>Cerrar sesión</button> : <button className="register-link" onClick={() => openAccount('register')}>{tr('createAccount')}</button>}
         </div>
       </div>
 
       <header className="site-header">
-        <a href="#inicio" className="brand" aria-label="Lúmina, inicio">
+        <a href="#inicio" className="brand" aria-label={`${content.brandName}, inicio`}>
           <span className="brand-mark">✦</span>
           <span>{content.brandName}<small>{content.brandTagline}</small></span>
         </a>
         <nav id="main-navigation" className={`main-nav ${menuOpen ? 'open' : ''}`} aria-label="Navegación principal">
-          <a href="#inicio" onClick={() => setMenuOpen(false)}>Inicio</a>
-          <a href="#tienda" onClick={() => setMenuOpen(false)}>Tienda</a>
-          <a href="#nosotros" onClick={() => setMenuOpen(false)}>Sobre nosotros</a>
-          <a href="#contacto" onClick={() => setMenuOpen(false)}>Contáctanos</a><button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}>Mi cuenta</button>
+          <a href="#inicio" onClick={() => setMenuOpen(false)}>{tr('navHome')}</a>
+          <a href="#tienda" onClick={() => setMenuOpen(false)}>{tr('navShop')}</a>
+          <a href="#nosotros" onClick={() => setMenuOpen(false)}>{tr('navAbout')}</a>
+          <a href="#contacto" onClick={() => setMenuOpen(false)}>{tr('navContact')}</a><button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}>Mi cuenta</button>
         </nav>
         <div className="header-actions">
+          <button aria-label={lang === 'es' ? 'Switch to English' : 'Cambiar a español'} className="lang-toggle" onClick={toggleLang}>{lang === 'es' ? 'EN' : 'ES'}</button>
           <Button aria-label="Buscar productos" variant="ghost" size="icon" className={`icon-button ${searchOpen ? 'active' : ''}`} onClick={() => setSearchOpen((open) => !open)}><Search size={19} /></Button>
           <Button aria-label="Mi cuenta" variant="ghost" size="icon" className="icon-button account-icon" onClick={() => openAccount('login')}><UserRound size={19} /></Button>
           <Button aria-label={`Abrir bolsita, ${cart.length} productos`} variant="ghost" size="icon" className="bag-button" onClick={() => setCartOpen(true)}><ShoppingBag size={19} />{cart.length > 0 && <span key={cart.length} className="bag-badge">{cart.length}</span>}</Button>
@@ -411,7 +435,7 @@ export default function Home() {
       {searchOpen && (
         <section className="search-panel" aria-label="Buscador de productos">
           <div className="search-panel-inner page-width">
-            <div className="search-field"><Search size={19} /><Input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busca llaveros, peluches o un personaje..." aria-label="Buscar en la tienda" /><button onClick={() => { setSearchOpen(false); setSearch(''); }} aria-label="Cerrar buscador"><X size={18} /></button></div>
+            <div className="search-field"><Search size={19} /><Input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tr("searchPlaceholder")} aria-label="Buscar en la tienda" /><button onClick={() => { setSearchOpen(false); setSearch(''); }} aria-label="Cerrar buscador"><X size={18} /></button></div>
             <div className="search-results">
               {searchResults.length ? searchResults.map((product) => <button key={product.id} onClick={() => { setSearchOpen(false); setSearch(''); setCategory('Todo'); window.setTimeout(() => document.getElementById(`producto-${product.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0); }}><span style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></span><span><strong>{product.name}</strong><small>{product.type} · {formatPrice(product.price)}</small></span><ArrowRight size={15} /></button>) : <p>No encontramos productos con ese nombre.</p>}
             </div>
@@ -421,28 +445,34 @@ export default function Home() {
 
       <section id="inicio" className="hero-section page-width">
         <div className="hero-copy">
-          <div className="eyebrow"><Sparkles size={15} /> {content.heroEyebrow}</div>
-          <h1>{content.heroTitle}<br /><em>{content.heroHighlight}</em></h1>
-          <p>{content.heroDescription}</p>
-          <div className="hero-actions"><Button className="primary-button" onClick={() => document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' })}>{content.heroCtaPrimary} <ArrowRight size={17} /></Button><a className="text-link" href="#nosotros">{content.heroCtaSecondary} <ArrowRight size={15} /></a></div>
+          <div className="eyebrow"><Sparkles size={15} /> {lang === 'en' && content.heroEyebrow_en ? content.heroEyebrow_en : content.heroEyebrow}</div>
+          <h1>{lang === 'en' && content.heroTitle_en ? content.heroTitle_en : content.heroTitle}<br /><em>{lang === 'en' && content.heroHighlight_en ? content.heroHighlight_en : content.heroHighlight}</em></h1>
+          <p>{lang === 'en' && content.heroDescription_en ? content.heroDescription_en : content.heroDescription}</p>
+          <div className="hero-actions"><Button className="primary-button" onClick={() => document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' })}>{lang === 'en' && content.heroCtaPrimary_en ? content.heroCtaPrimary_en : content.heroCtaPrimary} <ArrowRight size={17} /></Button><a className="text-link" href="#nosotros">{lang === 'en' && content.heroCtaSecondary_en ? content.heroCtaSecondary_en : content.heroCtaSecondary} <ArrowRight size={15} /></a></div>
           <div className="hero-notes"><span><Check size={15} /> {content.heroNote1}</span><span><Check size={15} /> {content.heroNote2}</span></div>
         </div>
         <div className="hero-image-wrap"><div className="hero-scribble">para regalar<br />o regalarte <span>♡</span></div><img src="/lumina-hero.png" alt="Tres productos de crochet: un conejo, un oso y un hongo" className="hero-image" width={1122} height={1402} fetchPriority="high" /><div className="hero-sticker">nuevos<br /><strong>amiguitos</strong></div></div>
       </section>
 
       <section className="work-showcase" aria-label="Trabajos recientes">
-        <div className="showcase-heading page-width"><div><p className="section-kicker">Trabajos recientes</p><h2>Hechos para <em>acompañarte</em></h2></div><div className="carousel-controls"><button className="pause-carousel" aria-label={carouselPaused ? 'Reanudar carrusel automático' : 'Pausar carrusel automático'} onClick={() => setCarouselPaused((paused) => !paused)}>{carouselPaused ? <Play size={16} /> : <Pause size={16} />}</button><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
+        <div className="showcase-heading page-width"><div><p className="section-kicker">{tr("workShowcase")}</p><h2>{lang === "en" ? "Made to " : "Hechos para "}<em>{lang === "en" ? "keep you company" : "acompañarte"}</em></h2></div><div className="carousel-controls"><button className="pause-carousel" aria-label={carouselPaused ? 'Reanudar carrusel automático' : 'Pausar carrusel automático'} onClick={() => setCarouselPaused((paused) => !paused)}>{carouselPaused ? <Play size={16} /> : <Pause size={16} />}</button><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
         <Carousel setApi={setCarouselApi} opts={{ loop: true, align: 'start' }} className="work-carousel" onMouseEnter={() => setCarouselHovering(true)} onMouseLeave={() => setCarouselHovering(false)}>
           <CarouselContent className="carousel-track">
-            {products.map((product, index) => (
-              <CarouselItem className="work-slide" key={`${product.id}-${index}`}>
-                <article className="work-card" style={{ backgroundColor: product.color }}>
-                  <div className="work-art"><ProductArtwork product={product} /></div>
-                  <div><span>{product.type}</span><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div>
-                  <Button aria-label={`Agregar ${product.name} al carrito`} size="icon" className="quick-add" onClick={() => addToCart(product.id)}><Plus size={17} /></Button>
-                </article>
-              </CarouselItem>
-            ))}
+            {showcaseItems.length > 0
+              ? showcaseItems.map((item) => (
+                <CarouselItem className="work-slide" key={item.id}>
+                  <article className="work-card work-card-photo"><img src={item.image_url} alt={item.title} /><div><h3>{item.title}</h3>{item.subtitle && <p>{item.subtitle}</p>}</div></article>
+                </CarouselItem>
+              ))
+              : products.map((product, index) => (
+                <CarouselItem className="work-slide" key={`${product.id}-${index}`}>
+                  <article className="work-card" style={{ backgroundColor: product.color }}>
+                    <div className="work-art"><ProductArtwork product={product} /></div>
+                    <div><span>{product.type}</span><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div>
+                    <Button aria-label={`Agregar ${product.name} al carrito`} size="icon" className="quick-add" onClick={() => addToCart(product.id)}><Plus size={17} /></Button>
+                  </article>
+                </CarouselItem>
+              ))}
           </CarouselContent>
         </Carousel>
       </section>
@@ -450,7 +480,7 @@ export default function Home() {
       <section className="category-strip page-width" aria-label="Categorías destacadas"><div><span className="category-icon pink">♡</span><span>{content.categoryText1}</span></div><div><span className="category-icon yellow">✳</span><span>{content.categoryText2}</span></div><div><span className="category-icon lilac">⌁</span><span>{content.categoryText3}</span></div></section>
 
       <section id="tienda" className="collection-section page-width">
-        <div className="section-heading"><div><p className="section-kicker">La colección</p><h2>Elige tu nuevo <em>favorito</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item}</button>)}</div></div>
+        <div className="section-heading"><div><p className="section-kicker">{tr("collectionKicker")}</p><h2>{tr("collectionTitle")}<em>{tr("collectionHighlight")}</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'Todo' ? tr('all') : item === 'Llaveros' ? tr('keychains') : tr('plushies')}</button>)}</div></div>
         {storeLoading && <p className="store-feedback" role="status">Preparando la colección…</p>}
         {storeError && <p className="store-feedback" role="alert">{storeError}</p>}
         {!storeLoading && !storeError && visibleProducts.length === 0 && <p className="empty-collection">Pronto habrá nuevos amiguitos por aquí. Vuelve a visitarnos.</p>}
@@ -475,18 +505,31 @@ export default function Home() {
                 <button className="reviews-link" onClick={() => openReviews(product)}>
                   {avgRating ? <><Star size={13} fill="currentColor" /> {avgRating.toFixed(1)} ({productReviews.length})</> : 'Sé el primero en opinar'}
                 </button>
-                <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? 'Agotado' : lowStock ? `¡Últimas ${product.stock}!` : 'Disponible'}</span>
+                <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? tr('soldOut') : lowStock ? `¡Últimas ${product.stock}!` : tr('available')}</span>
               </div>
               <strong>{formatPrice(product.price)}</strong>
             </div>
-            <Button className="add-button" variant="outline" disabled={outOfStock} onClick={() => addToCart(product.id)}>Agregar a la bolsita <Plus size={16} /></Button>
+            <Button className="add-button" variant="outline" disabled={outOfStock} onClick={() => addToCart(product.id)}>{tr('addToBag')} <Plus size={16} /></Button>
           </article>;
         })}</div>
       </section>
 
-      <section id="nosotros" className="story-section page-width"><div className="story-card"><span className="story-number">01</span><p className="section-kicker">Sobre nosotros</p><h2>{content.aboutTitle}<br /><em>{content.aboutHighlight}</em></h2><p>{content.aboutText}</p><a className="text-link" href="#contacto">Hablemos de tu idea <ArrowRight size={15} /></a></div><div className="story-quote"><span>“</span><p>{content.storyQuote}</p><small>{content.storyQuoteAuthor}</small></div></section>
+      {faqs.length > 0 && <section className="faq-section page-width" aria-label={tr('faqTitle')}>
+        <div className="showcase-heading"><div><p className="section-kicker">{tr('faqKicker')}</p><h2>{tr('faqTitle')}</h2></div></div>
+        <div className="faq-list">
+          {faqs.map((faq) => {
+            const isOpen = openFaq === faq.id;
+            return <div className={`faq-item ${isOpen ? 'open' : ''}`} key={faq.id}>
+              <button type="button" onClick={() => setOpenFaq(isOpen ? null : faq.id)} aria-expanded={isOpen}>{faq.question}<Plus size={16} className="faq-toggle-icon" /></button>
+              {isOpen && <p>{faq.answer}</p>}
+            </div>;
+          })}
+        </div>
+      </section>}
 
-      <footer id="contacto" className="site-footer page-width"><div className="footer-brand"><span className="brand-mark">✦</span><span>{content.brandName}<small>{content.brandTagline}</small></span></div><div className="footer-contact"><p>¿Tienes una idea especial?</p><a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a><a href={`mailto:${content.email}`}><Mail size={14} /> {content.email}</a></div><div className="footer-links"><a href="#inicio">Inicio</a><a href="#tienda">Tienda</a><a href="#nosotros">Sobre nosotros</a><a href="/terminos">Términos y condiciones</a><a href="/privacidad">Privacidad</a></div></footer>
+      <section id="nosotros" className="story-section page-width"><div className="story-card"><span className="story-number">01</span><p className="section-kicker">{tr('aboutKicker')}</p><h2>{lang === 'en' && content.aboutTitle_en ? content.aboutTitle_en : content.aboutTitle}<br /><em>{lang === 'en' && content.aboutHighlight_en ? content.aboutHighlight_en : content.aboutHighlight}</em></h2><p>{lang === 'en' && content.aboutText_en ? content.aboutText_en : content.aboutText}</p><a className="text-link" href="#contacto">{tr('talkToUs')} <ArrowRight size={15} /></a></div><div className="story-quote"><span>“</span><p>{lang === 'en' && content.storyQuote_en ? content.storyQuote_en : content.storyQuote}</p><small>{content.storyQuoteAuthor}</small></div></section>
+
+      <footer id="contacto" className="site-footer page-width"><div className="footer-brand"><span className="brand-mark">✦</span><span>{content.brandName}<small>{content.brandTagline}</small></span></div><div className="footer-contact"><p>{lang === 'en' && content.footerCta_en ? content.footerCta_en : content.footerCta}</p><a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a><a href={`mailto:${content.email}`}><Mail size={14} /> {content.email}</a></div><div className="footer-links"><a href="#inicio">{tr('navHome')}</a><a href="#tienda">{tr('navShop')}</a><a href="#nosotros">{tr('navAbout')}</a><a href="/terminos">Términos y condiciones</a><a href="/privacidad">Privacidad</a></div></footer>
 
       {content.whatsapp && <a className="whatsapp-fab" href={`https://wa.me/${content.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" aria-label="Escríbenos por WhatsApp"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.18 3.03 14.69 2 12.04 2Zm0 18.12h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.19 8.19 0 0 1-1.26-4.33c0-4.53 3.69-8.22 8.23-8.22 2.2 0 4.26.86 5.82 2.41a8.16 8.16 0 0 1 2.41 5.82c0 4.53-3.69 8.2-8.2 8.2Zm4.51-6.15c-.25-.12-1.46-.72-1.68-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.16-.29.18-.53.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.83-.2-.48-.4-.42-.56-.42-.14 0-.31-.02-.47-.02s-.43.06-.66.31c-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.16 1.75 2.67 4.24 3.74.59.25 1.05.4 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.46-.6 1.66-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28Z" /></svg></a>}
 
@@ -551,10 +594,10 @@ export default function Home() {
 
       <Dialog open={cartOpen} onOpenChange={setCartOpen}>
         <DialogContent className="cart-panel" style={{ transform: 'none', translate: 'none' }}>
-          <DialogHeader className="cart-heading"><p className="section-kicker">Tu selección</p><DialogTitle>Tu bolsita ({cartProducts.length})</DialogTitle><DialogDescription>Tus próximos compañeros, hechos a mano.</DialogDescription>{cartProducts.length > 0 && <button type="button" className="clear-cart" onClick={() => setCart([])}>Vaciar carrito</button>}</DialogHeader>
+          <DialogHeader className="cart-heading"><p className="section-kicker">{tr('yourBag')}</p><DialogTitle>{tr('yourBag')} ({cartProducts.length})</DialogTitle><DialogDescription>Tus próximos compañeros, hechos a mano.</DialogDescription>{cartProducts.length > 0 && <button type="button" className="clear-cart" onClick={() => setCart([])}>{tr('clearCart')}</button>}</DialogHeader>
           {cartProducts.length === 0 ? <div className="empty-cart"><span aria-hidden="true">♡</span><p>Tu bolsita está esperando<br />algo bonito.</p><Button className="primary-button" onClick={() => { setCartOpen(false); document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' }); }}>Explorar tienda</Button></div> : <>
             <div className="cart-items">{cartProducts.map((product, index) => <div className="cart-item" key={`${product.id}-${index}`}><div className="cart-thumb" style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></div><div><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div><button aria-label={`Eliminar una unidad de ${product.name}`} onClick={() => setCart((current) => { const at = current.indexOf(product.id); return current.filter((_, i) => i !== at); })}><Minus size={15} /></button></div>)}</div>
-            <div className="cart-total"><span>Subtotal</span><strong>{formatPrice(total)}</strong></div><p className="cart-shipping-note">El envío se calcula al elegir tu región.</p><Button className="primary-button checkout-button" disabled={storeLoading || !!storeError} onClick={() => { setCartOpen(false); setCheckoutError(''); setCheckoutOpen(true); }}>Continuar compra <ArrowRight size={17} /></Button>
+            <div className="cart-total"><span>{tr('subtotal')}</span><strong>{formatPrice(total)}</strong></div><p className="cart-shipping-note">El envío se calcula al elegir tu región.</p><Button className="primary-button checkout-button" disabled={storeLoading || !!storeError} onClick={() => { setCartOpen(false); setCheckoutError(''); setCheckoutOpen(true); }}>{tr('checkout')} <ArrowRight size={17} /></Button>
           </>}
         </DialogContent>
       </Dialog>
