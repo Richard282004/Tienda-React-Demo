@@ -57,6 +57,9 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+-- Solo se invoca como trigger al crear un usuario: nadie necesita llamarla
+-- directamente por API.
+revoke all on function public.handle_new_user() from public;
 
 create or replace function public.is_admin()
 returns boolean
@@ -69,6 +72,12 @@ as $$
     where id = (select auth.uid()) and role = 'admin'
   );
 $$;
+-- Las políticas RLS de anon/authenticated la llaman dentro de sus propias
+-- consultas (products_public_read, etc.), así que ambas necesitan poder
+-- ejecutarla; solo el grant genérico a PUBLIC (heredado por cualquier rol
+-- futuro) sobra.
+revoke all on function public.is_admin() from public;
+grant execute on function public.is_admin() to anon, authenticated;
 
 alter table public.profiles enable row level security;
 alter table public.products enable row level security;
@@ -162,8 +171,15 @@ drop policy if exists "shipping_public_read" on public.shipping_rates;
 create policy "shipping_public_read" on public.shipping_rates
 for select to anon, authenticated using (true);
 drop policy if exists "shipping_admin_write" on public.shipping_rates;
-create policy "shipping_admin_write" on public.shipping_rates
-for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "shipping_admin_insert" on public.shipping_rates;
+create policy "shipping_admin_insert" on public.shipping_rates
+for insert to authenticated with check (public.is_admin());
+drop policy if exists "shipping_admin_update" on public.shipping_rates;
+create policy "shipping_admin_update" on public.shipping_rates
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "shipping_admin_delete" on public.shipping_rates;
+create policy "shipping_admin_delete" on public.shipping_rates
+for delete to authenticated using (public.is_admin());
 
 insert into public.shipping_rates (region, cost) values
   ('Arica y Parinacota', 6990), ('Tarapacá', 6990), ('Antofagasta', 6990),
@@ -200,6 +216,7 @@ create table if not exists public.orders (
 
 create index if not exists orders_created_at_idx on public.orders (created_at desc);
 create index if not exists orders_mp_preference_idx on public.orders (mp_preference_id);
+create index if not exists orders_user_id_idx on public.orders (user_id);
 
 alter table public.orders enable row level security;
 revoke all on public.orders from anon, authenticated;
@@ -329,8 +346,15 @@ drop policy if exists "product_images_public_read" on public.product_images;
 create policy "product_images_public_read" on public.product_images
 for select to anon, authenticated using (true);
 drop policy if exists "product_images_admin_write" on public.product_images;
-create policy "product_images_admin_write" on public.product_images
-for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "product_images_admin_insert" on public.product_images;
+create policy "product_images_admin_insert" on public.product_images
+for insert to authenticated with check (public.is_admin());
+drop policy if exists "product_images_admin_update" on public.product_images;
+create policy "product_images_admin_update" on public.product_images
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "product_images_admin_delete" on public.product_images;
+create policy "product_images_admin_delete" on public.product_images
+for delete to authenticated using (public.is_admin());
 
 -- ── Códigos de descuento ────────────────────────────────────────────────────
 
@@ -402,6 +426,7 @@ create table if not exists public.reviews (
   created_at timestamptz not null default now()
 );
 create index if not exists reviews_product_idx on public.reviews (product_id, created_at desc);
+create index if not exists reviews_user_id_idx on public.reviews (user_id);
 
 alter table public.reviews enable row level security;
 revoke all on public.reviews from anon, authenticated;
@@ -427,7 +452,7 @@ for delete to authenticated using ((select auth.uid()) = user_id or public.is_ad
 grant update on public.profiles to authenticated;
 drop policy if exists "profiles_admin_update" on public.profiles;
 create policy "profiles_admin_update" on public.profiles
-for update to authenticated using (public.is_admin()) with check (true);
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- ── Vitrina curada ("Trabajos recientes") ──────────────────────────────────
 
@@ -450,8 +475,15 @@ drop policy if exists "showcase_public_read" on public.showcase_items;
 create policy "showcase_public_read" on public.showcase_items
 for select to anon, authenticated using (active or public.is_admin());
 drop policy if exists "showcase_admin_write" on public.showcase_items;
-create policy "showcase_admin_write" on public.showcase_items
-for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "showcase_admin_insert" on public.showcase_items;
+create policy "showcase_admin_insert" on public.showcase_items
+for insert to authenticated with check (public.is_admin());
+drop policy if exists "showcase_admin_update" on public.showcase_items;
+create policy "showcase_admin_update" on public.showcase_items
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "showcase_admin_delete" on public.showcase_items;
+create policy "showcase_admin_delete" on public.showcase_items
+for delete to authenticated using (public.is_admin());
 
 -- ── Preguntas frecuentes ────────────────────────────────────────────────────
 
@@ -473,5 +505,12 @@ drop policy if exists "faqs_public_read" on public.faqs;
 create policy "faqs_public_read" on public.faqs
 for select to anon, authenticated using (active or public.is_admin());
 drop policy if exists "faqs_admin_write" on public.faqs;
-create policy "faqs_admin_write" on public.faqs
-for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "faqs_admin_insert" on public.faqs;
+create policy "faqs_admin_insert" on public.faqs
+for insert to authenticated with check (public.is_admin());
+drop policy if exists "faqs_admin_update" on public.faqs;
+create policy "faqs_admin_update" on public.faqs
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "faqs_admin_delete" on public.faqs;
+create policy "faqs_admin_delete" on public.faqs
+for delete to authenticated using (public.is_admin());
