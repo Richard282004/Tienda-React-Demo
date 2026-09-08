@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Check, Clock, DollarSign, ImagePlus, LogOut, Package, PackagePlus, Pencil, Save, ShieldCheck, Star, Tag, Trash2, Upload, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, Clock, DollarSign, FileText, HelpCircle, ImagePlus, Images, LogOut, Package, PackagePlus, Pencil, Save, ShieldCheck, Star, Tag, Trash2, Truck, Upload, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -362,7 +362,17 @@ export default function AdminPage() {
       <div className="stat-card"><div className="stat-icon products"><Package size={18} /></div><div><span>Productos activos</span><strong>{products.filter((product) => product.active !== false).length}</strong></div></div>
     </div>
     <Tabs defaultValue="products" className="admin-tabs" orientation="vertical">
-      <TabsList className="admin-tabs-list"><TabsTrigger value="products">Productos</TabsTrigger><TabsTrigger value="orders">Pedidos</TabsTrigger><TabsTrigger value="shipping">Envíos</TabsTrigger><TabsTrigger value="discounts">Descuentos</TabsTrigger><TabsTrigger value="reviews">Reseñas</TabsTrigger><TabsTrigger value="users">Usuarios</TabsTrigger><TabsTrigger value="showcase">Vitrina</TabsTrigger><TabsTrigger value="faq">FAQ</TabsTrigger><TabsTrigger value="content">Textos y contacto</TabsTrigger></TabsList>
+      <TabsList className="admin-tabs-list">
+        <TabsTrigger value="products"><Package size={17} /> Productos</TabsTrigger>
+        <TabsTrigger value="orders"><Truck size={17} /> Pedidos</TabsTrigger>
+        <TabsTrigger value="shipping"><Truck size={17} /> Envíos</TabsTrigger>
+        <TabsTrigger value="discounts"><Tag size={17} /> Descuentos</TabsTrigger>
+        <TabsTrigger value="reviews"><Star size={17} /> Reseñas</TabsTrigger>
+        <TabsTrigger value="users"><Users size={17} /> Usuarios</TabsTrigger>
+        <TabsTrigger value="showcase"><Images size={17} /> Vitrina</TabsTrigger>
+        <TabsTrigger value="faq"><HelpCircle size={17} /> FAQ</TabsTrigger>
+        <TabsTrigger value="content"><FileText size={17} /> Textos y contacto</TabsTrigger>
+      </TabsList>
       <TabsContent value="orders">
         <div className="admin-section-heading"><div><h2>Pedidos</h2><p>{orders.length} pedidos recibidos</p></div></div>
         {orders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Aún no hay pedidos</h3><p>Aquí aparecerán las compras pagadas con Mercado Pago.</p></div> : (
