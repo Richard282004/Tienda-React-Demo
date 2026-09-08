@@ -78,6 +78,11 @@ export default function Home() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+  useEffect(() => {
+    // Aprovecha cada visita para liberar el stock de pedidos abandonados
+    // (pending sin pago hace más de 10 min), sin depender de un cron.
+    fetch('/api/orders/expire', { method: 'POST' }).catch(() => {});
+  }, []);
   const [lang, setLang] = useState<Lang>('es');
   useEffect(() => {
     try {

@@ -40,6 +40,13 @@ export async function POST(request: Request) {
   }
   try {
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+    // Libera primero el stock de pedidos abandonados (pending sin pago hace
+    // más de 10 min) para que el cálculo de disponibilidad de abajo sea real.
+    try {
+      await supabase.rpc("expire_stale_orders");
+    } catch {
+      /* No crítico: si falla, el checkout sigue con el stock disponible actual. */
+    }
     const { data: products, error: productsError } = await supabase
       .from("products")
       .select("id, name, price, active, stock")

@@ -282,6 +282,33 @@ end;
 $$;
 revoke all on function public.restore_order_stock(jsonb) from public;
 
+-- Pedidos "pending" (nunca pagados) que reservaron stock quedan cancelados
+-- automáticamente tras 10 minutos y su stock vuelve al inventario. Se llama
+-- desde el servidor (nunca expuesta a anon/authenticated): al iniciar cada
+-- checkout y de forma oportunista cuando alguien visita la tienda.
+create or replace function public.expire_stale_orders()
+returns integer
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  order_row record;
+  expired_count integer := 0;
+begin
+  for order_row in
+    select id, items from public.orders
+    where status = 'pending' and created_at < now() - interval '10 minutes'
+    for update skip locked
+  loop
+    perform public.restore_order_stock(order_row.items);
+    update public.orders set status = 'cancelled', updated_at = now() where id = order_row.id;
+    expired_count := expired_count + 1;
+  end loop;
+  return expired_count;
+end;
+$$;
+revoke all on function public.expire_stale_orders() from public;
+
 -- ── Galería de fotos adicionales por producto ──────────────────────────────
 
 create table if not exists public.product_images (
