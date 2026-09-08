@@ -143,6 +143,10 @@ button { cursor: pointer; } button:disabled { cursor: not-allowed; }
 .brand, .footer-brand { font-size: 29px; letter-spacing: .08em; font-weight: 400; gap: 12px; }
 .brand small, .footer-brand small { font-size: 10px; letter-spacing: .2em; line-height: 1.5; color: var(--muted); }
 .brand-mark { width: 42px; height: 42px; background: #edd5df; color: #7a3654; font-size: 28px; }
+.brand { min-width: 0; }
+.brand > span { min-width: 0; }
+.brand-name { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: inherit; }
+.footer-brand .brand-name { display: inline; white-space: normal; overflow: visible; }
 .main-nav { margin-left: 0; gap: 32px; font-size: 14px; }
 .header-actions { gap: 8px; }
 .header-actions button { min-width: 44px; min-height: 44px; border-radius: 50%; }
