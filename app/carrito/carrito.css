@@ -28,6 +28,7 @@
 .cart-page-pay { width: 100%; margin-top: 8px; }
 .admin-select { width: 100%; }
 .cart-page-pickup-note { margin: 0; padding: 12px 14px; border: 1px dashed #d9c7c0; border-radius: 12px; background: #f6efeb; color: #6d5a61; font-size: 12.5px; line-height: 1.5; }
+.cart-shipping-warning { display: flex; align-items: flex-start; gap: 8px; margin: -4px 0 0; padding: 12px 14px; border: 1px solid #e8b4b4; border-radius: 12px; background: #fdecec; color: #9a2f2f; font-size: 13px; font-weight: 600; line-height: 1.5; }
 @media (max-width: 860px) {
   .cart-page-grid { grid-template-columns: 1fr; }
   .cart-page-summary { position: static; }

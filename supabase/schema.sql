@@ -641,6 +641,15 @@ end $$;
 -- para pagar (se coordina directo con la cliente, ej. por el chat del pedido).
 alter table public.shipping_rates add column if not exists requires_address boolean not null default true;
 
+-- Advertencia opcional por zona de envío (ej. "solo comuna de Pudahuel"),
+-- editable desde el panel y mostrada en rojo en el checkout cuando el
+-- cliente elige esa zona.
+alter table public.shipping_rates add column if not exists warning text;
+
+update public.shipping_rates
+  set warning = 'Solo disponible para direcciones dentro de la comuna de Pudahuel, Región Metropolitana. Si no vives ahí, elige otra zona de envío.'
+  where region ilike '%pudahuel%' and warning is null;
+
 -- Cancelar un pedido a mano desde el panel: solo la admin puede, y devuelve
 -- el stock reservado en el mismo paso (cancelar no pasa por Mercado Pago, así
 -- que el stock no se libera solo como sí ocurre vía el webhook de pago).

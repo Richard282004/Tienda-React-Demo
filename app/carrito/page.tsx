@@ -53,7 +53,7 @@ export default function CarritoPage() {
       if (!client) { setLoading(false); return; }
       const [{ data: productRows }, { data: rateRows }, { data: settings }] = await Promise.all([
         client.from('products').select('id, name, price, color, art, image_url, stock, active').order('sort_order'),
-        client.from('shipping_rates').select('region, cost, requires_address'),
+        client.from('shipping_rates').select('region, cost, requires_address, warning'),
         client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       ]);
       setProducts((productRows ?? []) as Product[]);
@@ -246,6 +246,7 @@ export default function CarritoPage() {
                 <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
                 {shippingRates.map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
               </NativeSelect><small className="field-required">Campo obligatorio</small></label>
+              {selectedRate?.warning && <p className="cart-shipping-warning" role="alert">⚠ {selectedRate.warning}</p>}
               {requiresAddress ? (
                 <>
                   <label>Comuna / ciudad<Input required maxLength={120} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>

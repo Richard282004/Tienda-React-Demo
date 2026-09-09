@@ -69,7 +69,7 @@ export default function AdminPage() {
       supabase.from('products').select('*').order('sort_order'),
       supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
-      supabase.from('shipping_rates').select('region, cost, requires_address').order('region'),
+      supabase.from('shipping_rates').select('region, cost, requires_address, warning').order('region'),
       supabase.from('discount_codes').select('*').order('created_at', { ascending: false }),
       supabase.from('reviews').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
@@ -243,12 +243,21 @@ export default function AdminPage() {
     setMessage(error ? error.message : `Costo de envío actualizado para ${region}.`);
   };
 
+  const saveShippingWarning = async (region: string, warning: string) => {
+    if (!supabase) return;
+    const value = warning.trim() || null;
+    const { error } = await supabase.from('shipping_rates').update({ warning: value, updated_at: new Date().toISOString() }).eq('region', region);
+    if (error) { setMessage(error.message); return; }
+    setShippingRates((current) => current.map((rate) => (rate.region === region ? { ...rate, warning: value } : rate)));
+    setMessage(`Advertencia actualizada para ${region}.`);
+  };
+
   const addShippingRate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase || !newShippingRegion.trim()) return;
     const { error } = await supabase.from('shipping_rates').insert({ region: newShippingRegion.trim(), cost: newShippingCost, requires_address: newShippingRequiresAddress });
     if (error) { setMessage(error.message); return; }
-    const { data } = await supabase.from('shipping_rates').select('region, cost, requires_address').order('region');
+    const { data } = await supabase.from('shipping_rates').select('region, cost, requires_address, warning').order('region');
     setShippingRates((data ?? []) as ShippingRate[]);
     setNewShippingRegion('');
     setNewShippingCost(0);
@@ -497,10 +506,13 @@ export default function AdminPage() {
         <div className="shipping-rates-grid">
           {shippingRates.map((rate) => (
             <div className="shipping-rate-row" key={rate.region}>
-              <span>{rate.region}</span>
-              <label className="shipping-rate-address-toggle"><input type="checkbox" checked={rate.requires_address ?? true} onChange={(event) => void toggleShippingRequiresAddress(rate.region, event.target.checked)} /> Requiere dirección</label>
-              <Input type="number" min="0" defaultValue={rate.cost} onBlur={(event) => void saveShippingRate(rate.region, Number(event.target.value))} />
-              <button type="button" className="shipping-rate-delete" aria-label={`Eliminar zona ${rate.region}`} onClick={() => void deleteShippingRate(rate.region)}><Trash2 size={15} /></button>
+              <div className="shipping-rate-row-main">
+                <span>{rate.region}</span>
+                <label className="shipping-rate-address-toggle"><input type="checkbox" checked={rate.requires_address ?? true} onChange={(event) => void toggleShippingRequiresAddress(rate.region, event.target.checked)} /> Requiere dirección</label>
+                <Input type="number" min="0" defaultValue={rate.cost} onBlur={(event) => void saveShippingRate(rate.region, Number(event.target.value))} />
+                <button type="button" className="shipping-rate-delete" aria-label={`Eliminar zona ${rate.region}`} onClick={() => void deleteShippingRate(rate.region)}><Trash2 size={15} /></button>
+              </div>
+              <Input className="shipping-rate-warning-input" defaultValue={rate.warning ?? ''} placeholder="Advertencia opcional en rojo (ej: solo comuna de Pudahuel, Región Metropolitana)" onBlur={(event) => void saveShippingWarning(rate.region, event.target.value)} />
             </div>
           ))}
         </div>
