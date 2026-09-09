@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "createdAt": "2026-09-09T16:37:34.229Z",
+        "reason": "Arial only appears as a decorative single-glyph fallback (brand-mark sparkle, hero-scribble sticker) and as the last fallback after Geist in the body stack -- never the display/body voice. DESIGN.md (documented this session) records Georgia+Geist as the actual typographic system."
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.34, 1.56, .64, 1)",
+        "createdAt": "2026-09-09T16:37:34.253Z",
+        "reason": "Spring/overshoot easing is an intentional, narrowly-scoped accent limited to the cart badge pop and cart/whatsapp FAB entrance -- matches the playful handmade-crochet brand. Documented in DESIGN.md/.impeccable/design.json this session as motion token 'spring-pop', not used for general UI transitions."
+      }
+    ]
+  }
+}
