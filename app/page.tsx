@@ -414,14 +414,14 @@ export default function Home() {
         {storeLoading && <p className="store-feedback" role="status">Preparando la colección…</p>}
         {storeError && <p className="store-feedback" role="alert">{storeError}</p>}
         {!storeLoading && !storeError && visibleProducts.length === 0 && <p className="empty-collection">Pronto habrá nuevos amiguitos por aquí. Vuelve a visitarnos.</p>}
-        <div className="product-grid">{visibleProducts.map((product) => {
+        <div className="product-grid" key={category}>{visibleProducts.map((product) => {
           const outOfStock = product.active === false || (product.stock != null && product.stock <= 0);
           const lowStock = !outOfStock && product.stock != null && product.stock <= 5;
           const productReviews = reviews[product.id] ?? [];
           const avgRating = productReviews.length ? productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length : null;
-          const hasGallery = (productImages[product.id] ?? []).length > 0;
+          const goToProduct = () => { window.location.href = `/producto/${product.id}`; };
           return <article className="product-card" id={`producto-${product.id}`} key={product.id}>
-            <div className="product-visual" style={{ backgroundColor: product.color }} onClick={() => hasGallery && openGallery(product)} role={hasGallery ? 'button' : undefined} tabIndex={hasGallery ? 0 : undefined}>
+            <div className="product-visual" style={{ backgroundColor: product.color }} onClick={goToProduct} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); goToProduct(); } }} role="link" tabIndex={0} aria-label={`Ver ${product.name}`}>
               {product.tag && <span className="product-tag">{product.tag}</span>}
               <button className={`heart-icon ${favorites.includes(product.id) ? 'liked' : ''}`} onClick={(event) => { event.stopPropagation(); setFavorites((current) => current.includes(product.id) ? current.filter((item) => item !== product.id) : [...current, product.id]); }} aria-pressed={favorites.includes(product.id)} aria-label={favorites.includes(product.id) ? `Quitar ${product.name} de favoritos` : `Agregar ${product.name} a favoritos`}><Heart size={18} fill={favorites.includes(product.id) ? 'currentColor' : 'none'} /></button>
               <ProductArtwork product={product} className="product-photo" />
@@ -429,7 +429,7 @@ export default function Home() {
             </div>
             <div className="product-info">
               <div>
-                <h3>{product.name}</h3>
+                <h3 className="product-name-link" onClick={goToProduct}>{product.name}</h3>
                 <p>{product.type} · tejido a mano</p>
                 {product.description && <p className="product-description">{product.description}</p>}
                 <button className="reviews-link" onClick={() => openReviews(product)}>

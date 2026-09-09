@@ -75,15 +75,15 @@ export default function FavoritosPage() {
               const outOfStock = product.active === false || (product.stock != null && product.stock <= 0);
               return (
                 <article className="product-card" key={product.id}>
-                  <div className="product-visual" style={{ backgroundColor: product.color }}>
+                  <div className="product-visual" style={{ backgroundColor: product.color }} onClick={() => { window.location.href = `/producto/${product.id}`; }} role="link" tabIndex={0} aria-label={`Ver ${product.name}`} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.location.href = `/producto/${product.id}`; } }}>
                     {product.tag && <span className="product-tag">{product.tag}</span>}
-                    <button className="heart-icon liked" onClick={() => removeFavorite(product.id)} aria-label={`Quitar ${product.name} de favoritos`}><Heart size={18} fill="currentColor" /></button>
+                    <button className="heart-icon liked" onClick={(event) => { event.stopPropagation(); removeFavorite(product.id); }} aria-label={`Quitar ${product.name} de favoritos`}><Heart size={18} fill="currentColor" /></button>
                     <ProductArtwork product={product} className="product-photo" />
                     <span className="yarn-shadow" />
                   </div>
                   <div className="product-info">
                     <div>
-                      <h3>{product.name}</h3>
+                      <h3 className="product-name-link" onClick={() => { window.location.href = `/producto/${product.id}`; }}>{product.name}</h3>
                       <p>{product.type} · tejido a mano</p>
                       <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? 'Agotado' : 'Disponible'}</span>
                     </div>
