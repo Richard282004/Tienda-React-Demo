@@ -376,6 +376,8 @@ export default function Home() {
       </header>
 
       {searchOpen && (
+        <>
+        <div className="search-overlay" onClick={() => { setSearchOpen(false); setSearch(''); }} aria-hidden="true" />
         <section className="search-panel" aria-label="Buscador de productos">
           <div className="search-panel-inner page-width">
             <div className="search-field"><Search size={19} /><Input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tr("searchPlaceholder")} aria-label="Buscar en la tienda" /><button onClick={() => { setSearchOpen(false); setSearch(''); }} aria-label="Cerrar buscador"><X size={18} /></button></div>
@@ -384,6 +386,7 @@ export default function Home() {
             </div>
           </div>
         </section>
+        </>
       )}
 
       <section id="inicio" className="hero-section page-width">
