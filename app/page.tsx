@@ -345,10 +345,11 @@ export default function Home() {
           <span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span>
         </a>
         <nav id="main-navigation" className={`main-nav ${menuOpen ? 'open' : ''}`} aria-label="Navegación principal">
+          <button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}><UserRound size={18} /> {sessionEmail ? 'Mi cuenta' : 'Iniciar sesión / Crear cuenta'}</button>
           <a href="#inicio" onClick={() => setMenuOpen(false)}>Inicio</a>
           <a href="#tienda" onClick={() => setMenuOpen(false)}>Tienda</a>
           <a href="#nosotros" onClick={() => setMenuOpen(false)}>Sobre nosotros</a>
-          <a href="#contacto" onClick={() => setMenuOpen(false)}>Contáctanos</a><a href="/favoritos" onClick={() => setMenuOpen(false)}>Favoritos</a><button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}>Mi cuenta</button>
+          <a href="#contacto" onClick={() => setMenuOpen(false)}>Contáctanos</a><a href="/favoritos" onClick={() => setMenuOpen(false)}>Favoritos</a>
         </nav>
         <div className="header-actions">
           <Button aria-label={`Ver favoritos, ${favorites.length} guardados`} variant="ghost" size="icon" className="icon-button bag-button" onClick={() => { window.location.href = '/favoritos'; }}><Heart size={19} fill={favorites.length ? 'currentColor' : 'none'} />{favorites.length > 0 && <span key={favorites.length} className="bag-badge">{favorites.length}</span>}</Button>
