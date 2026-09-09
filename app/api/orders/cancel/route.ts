@@ -5,7 +5,7 @@ import { sendOrderStatusEmail } from "@/lib/email";
 import { refundMercadoPagoPayment } from "@/lib/mercadopago";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
-// Cancela un pedido desde el panel: si ya se le cobró de verdad a la clienta
+// Cancela un pedido desde el panel: si ya se le cobró de verdad a la cliente
 // (tiene mp_payment_id), reembolsa automáticamente vía la API de Mercado
 // Pago antes de marcarlo cancelado. Devuelve el stock reservado igual.
 export async function POST(request: Request) {

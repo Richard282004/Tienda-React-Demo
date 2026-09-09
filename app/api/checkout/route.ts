@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   }
   try {
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
-    // Si la clienta tiene sesión iniciada, el pedido queda vinculado a su
+    // Si la cliente tiene sesión iniciada, el pedido queda vinculado a su
     // cuenta para que aparezca en "Mis pedidos". Sin token, el pedido igual
     // se crea normalmente (compra como invitada).
     let userId: string | null = null;

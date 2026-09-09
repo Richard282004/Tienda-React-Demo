@@ -130,7 +130,7 @@ Paleta cálida de boutique: crema como base, rosa como acento emocional, ciruela
 
 ## Layout
 
-Contenedor centrado `.page-width` (máximo 1240px, márgenes fluidos `calc((100vw - 1240px)/2)` en desktop ancho). Ritmo generoso entre secciones (`padding-block` 85-95px en desktop, colapsando a 50-56px en mobile). Grid de producto: 3 columnas desktop → 2 tablet → 1 en <370px. El hero es 2 columnas (`1fr 1fr`) que colapsan a 1 columna bajo 900px. Mobile-first real: casi todo el sitio se prueba y ajusta explícitamente en breakpoints 980/900/800/640/560/420/370/350px porque la mayoría de las clientas compran desde el celular.
+Contenedor centrado `.page-width` (máximo 1240px, márgenes fluidos `calc((100vw - 1240px)/2)` en desktop ancho). Ritmo generoso entre secciones (`padding-block` 85-95px en desktop, colapsando a 50-56px en mobile). Grid de producto: 3 columnas desktop → 2 tablet → 1 en <370px. El hero es 2 columnas (`1fr 1fr`) que colapsan a 1 columna bajo 900px. Mobile-first real: casi todo el sitio se prueba y ajusta explícitamente en breakpoints 980/900/800/640/560/420/370/350px porque la mayoría de las clientes compran desde el celular.
 
 ## Elevation & Depth
 

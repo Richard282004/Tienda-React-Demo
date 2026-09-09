@@ -25,13 +25,13 @@ Frente a vender solo por Instagram/Mercado Libre: tienda propia con checkout rea
 - Email transaccional: Resend.
 - Deploy: Cloudflare Workers (vinext).
 - Codebase pensado también como plantilla reutilizable para futuros clientes (repo privado `tienda-base` separado); por eso categorías, moneda, locale y zonas de envío están des-hardcodeadas y viven en `site_content` / tabla `shipping_rates`.
-- Vendedora usa el panel admin para: productos (con reordenamiento drag-and-drop), stock, pedidos (cancelar con reembolso automático + restock), zonas de envío, contenido legal (términos/privacidad editables), consentimiento de analítica, y chat con clientas por pedido.
+- Vendedora usa el panel admin para: productos (con reordenamiento drag-and-drop), stock, pedidos (cancelar con reembolso automático + restock), zonas de envío, contenido legal (términos/privacidad editables), consentimiento de analítica, y chat con clientes por pedido.
 
 ## Capabilities and Constraints
 
 - Reserva de stock: 10 minutos, cancelación automática de pedidos pendientes no pagados.
 - Cancelación manual por admin: reembolso automático vía API de Mercado Pago + restock automático.
-- Direcciones múltiples guardadas por clienta (estilo Adidas: dirección principal + agregar más).
+- Direcciones múltiples guardadas por cliente (estilo Adidas: dirección principal + agregar más).
 - Zona de envío "entrega personal" gratis, limitada a comuna Pudahuel (RM), sin exigir dirección/comuna en checkout.
 - Favoritos persistidos (localStorage) con página propia de productos que gustaron.
 - Carrito se vacía tras compra exitosa.
@@ -54,8 +54,8 @@ Catálogo real de productos y fotos vía admin (Supabase Storage), no placeholde
 1. El checkout y el dinero son reales (producción Mercado Pago): cualquier cambio en flujo de pago, stock o reembolso debe tratarse como crítico, nunca cosmético.
 2. La marca es artesanal y cercana — el diseño amplifica ese lenguaje existente (rosa, crema, tono cálido), no lo reemplaza sin que se pida.
 3. El código debe seguir siendo reutilizable como plantilla: evitar volver a hardcodear categorías, moneda, locale o zonas de envío.
-4. Mobile-first: la mayoría de las clientas compran desde el celular vía redes sociales.
-5. Trazabilidad y confianza: pedidos, stock y reembolsos deben ser siempre verificables por la clienta y la vendedora (historial, chat, estados claros).
+4. Mobile-first: la mayoría de las clientes compran desde el celular vía redes sociales.
+5. Trazabilidad y confianza: pedidos, stock y reembolsos deben ser siempre verificables por la cliente y la vendedora (historial, chat, estados claros).
 
 ## Accessibility & Inclusion
 

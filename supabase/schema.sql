@@ -519,9 +519,9 @@ create policy "faqs_admin_delete" on public.faqs
 for delete to authenticated using (public.is_admin());
 
 -- ── Perfil: dirección de envío guardada ─────────────────────────────────────
--- Permite precargar los datos de envío en el checkout para clientas con
+-- Permite precargar los datos de envío en el checkout para clientes con
 -- cuenta. Se editan solo mediante la función de abajo (nunca con un UPDATE
--- directo a la tabla), así una clienta nunca puede tocar su propio `role`.
+-- directo a la tabla), así una cliente nunca puede tocar su propio `role`.
 
 alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists region text;
@@ -553,7 +553,7 @@ $$;
 revoke all on function public.update_own_profile(text, text, text, text, text, text) from public;
 grant execute on function public.update_own_profile(text, text, text, text, text, text) to authenticated;
 
--- ── Direcciones guardadas (varias por clienta) ──────────────────────────────
+-- ── Direcciones guardadas (varias por cliente) ──────────────────────────────
 
 create table if not exists public.addresses (
   id uuid primary key default gen_random_uuid(),
@@ -588,8 +588,8 @@ $$;
 revoke all on function public.update_own_name(text) from public;
 grant execute on function public.update_own_name(text) to authenticated;
 
--- ── Chat por pedido (clienta ↔ admin) ───────────────────────────────────────
--- Solo disponible para pedidos de clientas con cuenta (order.user_id no nulo);
+-- ── Chat por pedido (cliente ↔ admin) ───────────────────────────────────────
+-- Solo disponible para pedidos de clientes con cuenta (order.user_id no nulo);
 -- las compras como invitada no tienen con quién autenticar el otro lado.
 
 create table if not exists public.order_messages (
@@ -638,7 +638,7 @@ begin
 end $$;
 
 -- Zonas de envío tipo "retiro/entrega personal" no necesitan comuna/dirección
--- para pagar (se coordina directo con la clienta, ej. por el chat del pedido).
+-- para pagar (se coordina directo con la cliente, ej. por el chat del pedido).
 alter table public.shipping_rates add column if not exists requires_address boolean not null default true;
 
 -- Cancelar un pedido a mano desde el panel: solo la admin puede, y devuelve
