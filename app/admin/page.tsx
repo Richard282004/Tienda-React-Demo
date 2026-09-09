@@ -197,12 +197,25 @@ export default function AdminPage() {
     if (!supabase) return;
     const previous = orders.find((item) => item.id === orderId);
     setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...patch } : order)));
-    // Cancelar a mano un pedido no pasa por Mercado Pago, así que el stock
-    // reservado no vuelve solo: esta función lo devuelve y cambia el estado
-    // en un solo paso (solo la admin puede llamarla).
+    // Cancelar a mano no pasa por Mercado Pago solo: este endpoint reembolsa
+    // de verdad (si ya se cobró), devuelve el stock y cambia el estado.
     if (patch.status === 'cancelled' && previous && previous.status !== 'cancelled') {
-      const { error } = await supabase.rpc('admin_cancel_order', { p_order_id: orderId });
-      if (error) { setMessage(error.message); await loadAdminData(); return; }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      try {
+        const response = await fetch('/api/orders/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ orderId }),
+        });
+        const result = (await response.json()) as { error?: string; refunded?: boolean; refundError?: string };
+        if (!response.ok || result.error) { setMessage(result.error ?? 'No se pudo cancelar el pedido.'); await loadAdminData(); return; }
+        setMessage(result.refunded ? 'Pedido cancelado y reembolsado en Mercado Pago.' : result.refundError ? `Pedido cancelado, pero el reembolso automático falló: ${result.refundError}. Revisa el reembolso a mano en Mercado Pago.` : 'Pedido cancelado.');
+      } catch {
+        setMessage('No se pudo conectar para cancelar el pedido.');
+        await loadAdminData();
+        return;
+      }
       if (patch.tracking_number !== undefined) {
         await supabase.from('orders').update({ tracking_number: patch.tracking_number }).eq('id', orderId);
       }
