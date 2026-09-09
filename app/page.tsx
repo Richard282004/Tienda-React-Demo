@@ -83,12 +83,9 @@ export default function Home() {
       if (saved === 'en' || saved === 'es') setLang(saved);
     } catch { /* sin acceso a localStorage, se queda en español */ }
   }, []);
-  const toggleLang = () => {
-    setLang((current) => {
-      const next = current === 'es' ? 'en' : 'es';
-      try { localStorage.setItem('lumina-lang', next); } catch { /* no crítico */ }
-      return next;
-    });
+  const setLangTo = (next: Lang) => {
+    setLang(next);
+    try { localStorage.setItem('lumina-lang', next); } catch { /* no crítico */ }
   };
   const tr = (key: Parameters<typeof t>[1]) => t(lang, key);
 
@@ -367,7 +364,10 @@ export default function Home() {
           <a href="#contacto" onClick={() => setMenuOpen(false)}>{tr('navContact')}</a><button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}>Mi cuenta</button>
         </nav>
         <div className="header-actions">
-          <button aria-label={lang === 'es' ? 'Switch to English' : 'Cambiar a español'} className="lang-toggle" onClick={toggleLang}>{lang === 'es' ? 'EN' : 'ES'}</button>
+          <div className="lang-toggle" role="group" aria-label="Idioma / Language">
+            <button type="button" className={lang === 'es' ? 'active' : ''} aria-pressed={lang === 'es'} onClick={() => setLangTo('es')}>ES</button>
+            <button type="button" className={lang === 'en' ? 'active' : ''} aria-pressed={lang === 'en'} onClick={() => setLangTo('en')}>EN</button>
+          </div>
           <Button aria-label="Buscar productos" variant="ghost" size="icon" className={`icon-button ${searchOpen ? 'active' : ''}`} onClick={() => setSearchOpen((open) => !open)}><Search size={19} /></Button>
           <Button aria-label="Mi cuenta" variant="ghost" size="icon" className="icon-button account-icon" onClick={() => openAccount('login')}><UserRound size={19} /></Button>
           <Button aria-label={`Abrir bolsita, ${cart.length} productos`} variant="ghost" size="icon" className="bag-button" onClick={() => { window.location.href = '/carrito'; }}><ShoppingBag size={19} />{cart.length > 0 && <span key={cart.length} className="bag-badge">{cart.length}</span>}</Button>
