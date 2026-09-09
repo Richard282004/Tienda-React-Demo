@@ -165,6 +165,9 @@ export default function CarritoPage() {
           } catch { /* Guardar la dirección es un complemento; el pedido ya se creó igual. */ }
         }
       }
+      // El pedido ya quedó creado (con el stock reservado); la bolsita de
+      // compra ya cumplió su función, así que se vacía antes de salir a pagar.
+      try { localStorage.setItem('lumina-bag', JSON.stringify([])); } catch { /* no crítico */ }
       window.location.href = data.initPoint;
     } catch {
       setCheckoutError('No se pudo conectar con el servidor de pagos.');

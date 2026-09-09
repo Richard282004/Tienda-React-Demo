@@ -361,7 +361,7 @@ export default function Home() {
           <a href="#inicio" onClick={() => setMenuOpen(false)}>{tr('navHome')}</a>
           <a href="#tienda" onClick={() => setMenuOpen(false)}>{tr('navShop')}</a>
           <a href="#nosotros" onClick={() => setMenuOpen(false)}>{tr('navAbout')}</a>
-          <a href="#contacto" onClick={() => setMenuOpen(false)}>{tr('navContact')}</a><button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}>Mi cuenta</button>
+          <a href="#contacto" onClick={() => setMenuOpen(false)}>{tr('navContact')}</a><a href="/favoritos" onClick={() => setMenuOpen(false)}>Favoritos</a><button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}>Mi cuenta</button>
         </nav>
         <div className="header-actions">
           <div className="lang-toggle" role="group" aria-label="Idioma / Language">
@@ -369,6 +369,7 @@ export default function Home() {
             <span aria-hidden="true">/</span>
             <button type="button" className={lang === 'en' ? 'active' : ''} aria-pressed={lang === 'en'} onClick={() => setLangTo('en')}>EN</button>
           </div>
+          <Button aria-label={`Ver favoritos, ${favorites.length} guardados`} variant="ghost" size="icon" className="icon-button bag-button" onClick={() => { window.location.href = '/favoritos'; }}><Heart size={19} fill={favorites.length ? 'currentColor' : 'none'} />{favorites.length > 0 && <span key={favorites.length} className="bag-badge">{favorites.length}</span>}</Button>
           <Button aria-label="Buscar productos" variant="ghost" size="icon" className={`icon-button ${searchOpen ? 'active' : ''}`} onClick={() => setSearchOpen((open) => !open)}><Search size={19} /></Button>
           <Button aria-label="Mi cuenta" variant="ghost" size="icon" className="icon-button account-icon" onClick={() => openAccount('login')}><UserRound size={19} /></Button>
           <Button aria-label={`Abrir bolsita, ${cart.length} productos`} variant="ghost" size="icon" className="bag-button" onClick={() => { window.location.href = '/carrito'; }}><ShoppingBag size={19} />{cart.length > 0 && <span key={cart.length} className="bag-badge">{cart.length}</span>}</Button>
