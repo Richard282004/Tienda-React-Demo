@@ -34,7 +34,7 @@ export type Order = {
   updated_at: string;
 };
 
-export type ShippingRate = { region: string; cost: number };
+export type ShippingRate = { region: string; cost: number; requires_address?: boolean };
 
 export type OrderMessage = {
   id: string;

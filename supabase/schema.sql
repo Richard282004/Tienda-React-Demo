@@ -636,3 +636,7 @@ begin
     alter publication supabase_realtime add table public.order_messages;
   end if;
 end $$;
+
+-- Zonas de envío tipo "retiro/entrega personal" no necesitan comuna/dirección
+-- para pagar (se coordina directo con la clienta, ej. por el chat del pedido).
+alter table public.shipping_rates add column if not exists requires_address boolean not null default true;

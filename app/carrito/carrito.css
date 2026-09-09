@@ -27,6 +27,7 @@
 .cart-page-form-heading { margin: 0 0 4px; color: var(--muted); font-family: var(--font-geist-sans), sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
 .cart-page-pay { width: 100%; margin-top: 8px; }
 .admin-select { width: 100%; }
+.cart-page-pickup-note { margin: 0; padding: 12px 14px; border: 1px dashed #d9c7c0; border-radius: 12px; background: #f6efeb; color: #6d5a61; font-size: 12.5px; line-height: 1.5; }
 @media (max-width: 860px) {
   .cart-page-grid { grid-template-columns: 1fr; }
   .cart-page-summary { position: static; }

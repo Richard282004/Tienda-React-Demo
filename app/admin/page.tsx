@@ -37,6 +37,7 @@ export default function AdminPage() {
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [newShippingRegion, setNewShippingRegion] = useState('');
   const [newShippingCost, setNewShippingCost] = useState(0);
+  const [newShippingRequiresAddress, setNewShippingRequiresAddress] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -68,7 +69,7 @@ export default function AdminPage() {
       supabase.from('products').select('*').order('sort_order'),
       supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
-      supabase.from('shipping_rates').select('region, cost').order('region'),
+      supabase.from('shipping_rates').select('region, cost, requires_address').order('region'),
       supabase.from('discount_codes').select('*').order('created_at', { ascending: false }),
       supabase.from('reviews').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
@@ -220,12 +221,19 @@ export default function AdminPage() {
   const addShippingRate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase || !newShippingRegion.trim()) return;
-    const { error } = await supabase.from('shipping_rates').insert({ region: newShippingRegion.trim(), cost: newShippingCost });
+    const { error } = await supabase.from('shipping_rates').insert({ region: newShippingRegion.trim(), cost: newShippingCost, requires_address: newShippingRequiresAddress });
     if (error) { setMessage(error.message); return; }
-    const { data } = await supabase.from('shipping_rates').select('region, cost').order('region');
+    const { data } = await supabase.from('shipping_rates').select('region, cost, requires_address').order('region');
     setShippingRates((data ?? []) as ShippingRate[]);
     setNewShippingRegion('');
     setNewShippingCost(0);
+    setNewShippingRequiresAddress(true);
+  };
+
+  const toggleShippingRequiresAddress = async (region: string, requiresAddress: boolean) => {
+    if (!supabase) return;
+    await supabase.from('shipping_rates').update({ requires_address: requiresAddress }).eq('region', region);
+    setShippingRates((current) => current.map((rate) => (rate.region === region ? { ...rate, requires_address: requiresAddress } : rate)));
   };
 
   const deleteShippingRate = async (region: string) => {
@@ -465,6 +473,7 @@ export default function AdminPage() {
           {shippingRates.map((rate) => (
             <div className="shipping-rate-row" key={rate.region}>
               <span>{rate.region}</span>
+              <label className="shipping-rate-address-toggle"><input type="checkbox" checked={rate.requires_address ?? true} onChange={(event) => void toggleShippingRequiresAddress(rate.region, event.target.checked)} /> Requiere dirección</label>
               <Input type="number" min="0" defaultValue={rate.cost} onBlur={(event) => void saveShippingRate(rate.region, Number(event.target.value))} />
               <button type="button" className="shipping-rate-delete" aria-label={`Eliminar zona ${rate.region}`} onClick={() => void deleteShippingRate(rate.region)}><Trash2 size={15} /></button>
             </div>
@@ -473,8 +482,10 @@ export default function AdminPage() {
         <form className="shipping-rate-add" onSubmit={addShippingRate}>
           <Input required value={newShippingRegion} onChange={(event) => setNewShippingRegion(event.target.value)} placeholder="Nombre de la región/zona" />
           <Input required min="0" type="number" value={newShippingCost} onChange={(event) => setNewShippingCost(Number(event.target.value))} placeholder="Costo" />
+          <label className="shipping-rate-address-toggle"><input type="checkbox" checked={newShippingRequiresAddress} onChange={(event) => setNewShippingRequiresAddress(event.target.checked)} /> Requiere dirección</label>
           <Button type="submit"><Truck size={16} /> Agregar zona</Button>
         </form>
+        <p className="admin-section-note">Desmarca "Requiere dirección" para zonas de retiro/entrega personal: la clienta paga sin ingresar comuna ni dirección.</p>
       </TabsContent>
       <TabsContent value="products">
         <div className="admin-section-heading"><div><h2>Productos</h2><p>{products.length} productos en el catálogo</p></div><Button onClick={openNewProduct}><PackagePlus size={17} /> Nuevo producto</Button></div>

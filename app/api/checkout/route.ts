@@ -107,7 +107,7 @@ export async function POST(request: Request) {
     const subtotal = orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
     const { data: shippingRate, error: shippingError } = await supabase
       .from("shipping_rates")
-      .select("cost")
+      .select("cost, requires_address")
       .eq("region", payload.region)
       .maybeSingle();
     if (shippingError)
@@ -121,6 +121,11 @@ export async function POST(request: Request) {
         { error: "El envío a esa región no está disponible." },
         { status: 422 },
       );
+    // Las zonas de retiro/entrega personal (requires_address = false) no
+    // exigen comuna ni dirección; el resto de las regiones sí.
+    if (shippingRate?.requires_address !== false && (!payload.comuna || !payload.address)) {
+      return NextResponse.json({ error: "Ingresa tu comuna y dirección." }, { status: 400 });
+    }
 
     let discountAmount = 0;
     let discountCode: string | null = null;

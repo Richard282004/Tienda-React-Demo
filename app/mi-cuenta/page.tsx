@@ -45,7 +45,7 @@ export default function MiCuentaPage() {
         supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle<{ full_name: string | null }>(),
         supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('addresses').select('*').eq('user_id', user.id).order('created_at'),
-        supabase.from('shipping_rates').select('region, cost'),
+        supabase.from('shipping_rates').select('region, cost, requires_address'),
         supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       ]);
       setName(profile?.full_name ?? '');

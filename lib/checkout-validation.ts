@@ -56,8 +56,11 @@ export function parseCheckoutPayload(value: unknown): CheckoutPayload {
     customerEmail,
     customerPhone: field("customerPhone", 40),
     region: field("region", 120),
-    comuna: field("comuna", 120),
-    address: field("address", 250),
+    // Comuna y dirección son opcionales aquí: si la región elegida es de
+    // retiro/entrega personal (requires_address = false), no hacen falta.
+    // La obligatoriedad real se valida en el servidor contra shipping_rates.
+    comuna: field("comuna", 120, true),
+    address: field("address", 250, true),
     addressExtra: field("addressExtra", 250, true),
     discountCode: field("discountCode", 40, true).toUpperCase(),
   };

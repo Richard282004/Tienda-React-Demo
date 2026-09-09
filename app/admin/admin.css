@@ -109,7 +109,7 @@
 .order-card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 14px; border-top: 1px solid #efe2dc; }
 .order-card-actions label { display: grid; gap: 6px; color: #69545c; font-size: 12px; font-weight: 700; }
 .shipping-rates-grid { display: grid; gap: 10px; }
-.shipping-rate-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid #e2d4cf; border-radius: 14px; padding: 10px 16px; background: #fffaf5; }
+.shipping-rate-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; border: 1px solid #e2d4cf; border-radius: 14px; padding: 10px 16px; background: #fffaf5; }
 .shipping-rate-row span { font-size: 13px; }
 .shipping-rate-row input { width: 130px; }
 .shipping-rate-delete { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #9a737f; flex-shrink: 0; }
@@ -117,6 +117,8 @@
 .shipping-rate-add { display: flex; gap: 10px; margin-top: 16px; padding: 16px; border: 1px dashed #d9c7c0; border-radius: 14px; }
 .shipping-rate-add input:first-child { flex: 1; }
 .shipping-rate-add input:last-of-type { width: 130px; }
+.shipping-rate-address-toggle { display: flex; align-items: center; gap: 6px; flex-shrink: 0; color: #6d5a61; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.shipping-rate-address-toggle input { width: auto !important; }
 
 @media (max-width: 620px) {
   .stat-cards { grid-template-columns: 1fr 1fr; gap: 10px; }

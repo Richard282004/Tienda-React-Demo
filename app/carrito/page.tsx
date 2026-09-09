@@ -53,7 +53,7 @@ export default function CarritoPage() {
       if (!client) { setLoading(false); return; }
       const [{ data: productRows }, { data: rateRows }, { data: settings }] = await Promise.all([
         client.from('products').select('id, name, price, color, art, image_url, stock, active').order('sort_order'),
-        client.from('shipping_rates').select('region, cost'),
+        client.from('shipping_rates').select('region, cost, requires_address'),
         client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       ]);
       setProducts((productRows ?? []) as Product[]);
@@ -91,14 +91,15 @@ export default function CarritoPage() {
       .filter((group): group is { product: Product; quantity: number } => !!group.product);
   }, [cart, products]);
   const total = cartProducts.reduce((sum, product) => sum + product.price, 0);
-  const shippingCost = calculateShipping(total, shippingRates.find((rate) => rate.region === shipping.region)?.cost);
+  const selectedRate = shippingRates.find((rate) => rate.region === shipping.region);
+  const requiresAddress = selectedRate?.requires_address ?? true;
+  const shippingCost = calculateShipping(total, selectedRate?.cost);
   const shippingComplete = Boolean(
     shipping.name.trim() &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shipping.email.trim()) &&
     shipping.phone.trim() &&
     shipping.region &&
-    shipping.comuna.trim() &&
-    shipping.address.trim(),
+    (!requiresAddress || (shipping.comuna.trim() && shipping.address.trim())),
   );
   const discountAmount = appliedDiscount ? Math.min(total, appliedDiscount.amount) : 0;
   const grandTotal = total - discountAmount + (shippingCost ?? 0);
@@ -242,9 +243,15 @@ export default function CarritoPage() {
                 <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
                 {shippingRates.map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
               </NativeSelect><small className="field-required">Campo obligatorio</small></label>
-              <label>Comuna / ciudad<Input required maxLength={120} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
-              <label>Dirección<Input required autoComplete="address-line1" maxLength={250} value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /><small className="field-required">Campo obligatorio</small></label>
-              <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
+              {requiresAddress ? (
+                <>
+                  <label>Comuna / ciudad<Input required maxLength={120} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
+                  <label>Dirección<Input required autoComplete="address-line1" maxLength={250} value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /><small className="field-required">Campo obligatorio</small></label>
+                  <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
+                </>
+              ) : (
+                <p className="cart-page-pickup-note">Entrega personal: no necesitas comuna ni dirección. Coordinamos el punto de entrega directo contigo (por WhatsApp o el chat del pedido).</p>
+              )}
               {checkoutError && <p className="account-message">{checkoutError}</p>}
               {!isSupabaseConfigured && <p className="account-message">El pago no está disponible por el momento.</p>}
               <Button disabled={checkoutBusy || !shippingComplete || shippingCost === null || cartProducts.length === 0} type="submit" className="primary-button cart-page-pay">{checkoutBusy ? 'Redirigiendo a Mercado Pago…' : 'Ir a pagar'} <ArrowRight size={16} /></Button>
