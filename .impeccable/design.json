@@ -9,8 +9,8 @@
       "muted": { "role": "neutral", "displayName": "Muted", "canonical": "#75646e", "tonalRamp": ["#382a32", "#4f4048", "#66555f", "#75646e", "#8f8189", "#aba0a6", "#c9c1c5", "#e6e1e3"] },
       "blush-pink": { "role": "secondary", "displayName": "Rosa Pálido (Blush)", "canonical": "#efbac6", "tonalRamp": ["#5c2a34", "#8a4050", "#b8596d", "#d98a97", "#efbac6", "#f5d0d8", "#fae5e9", "#fdf4f6"] },
       "rose": { "role": "primary", "displayName": "Rosa (Rose)", "canonical": "#a74060", "tonalRamp": ["#3d1720", "#5e2231", "#7f2e42", "#a74060", "#c25f7d", "#d791a3", "#ebc0cc", "#f7e2e8"] },
-      "plum": { "role": "primary", "displayName": "Ciruela (Plum)", "canonical": "#70344f", "tonalRamp": ["#2a131e", "#421f2f", "#5a2b40", "#70344f", "#8f5470", "#af7c93", "#d0acb9", "#ecd8df"] },
-      "honey-yellow": { "role": "tertiary", "displayName": "Miel (Honey)", "canonical": "#f4d88c", "tonalRamp": ["#5c4a1c", "#8a712b", "#b8963a", "#dcbb5a", "#f4d88c", "#f8e4ac", "#fbf0cd", "#fdf8ea"] },
+      "plum": { "role": "primary", "displayName": "Ciruela (Plum)", "canonical": "#5c2640", "tonalRamp": ["#2a131e", "#421f2f", "#5a2b40", "#5c2640", "#8f5470", "#af7c93", "#d0acb9", "#ecd8df"] },
+      "honey-yellow": { "role": "tertiary", "displayName": "Miel (Honey)", "canonical": "#e7a94c", "tonalRamp": ["#5c4a1c", "#8a712b", "#b8963a", "#dcbb5a", "#e7a94c", "#f8e4ac", "#fbf0cd", "#fdf8ea"] },
       "border-sand": { "role": "neutral", "displayName": "Borde Arena", "canonical": "#e9ddd9", "tonalRamp": ["#5c4a44", "#8a726a", "#b89e94", "#d4bdb4", "#e9ddd9", "#f0e8e5", "#f6f1ef", "#fbf8f7"] }
     },
     "typographyMeta": {
@@ -18,7 +18,8 @@
       "headline": { "displayName": "Headline", "purpose": "h2 de sección: colecciones, story, trabajos recientes." },
       "title": { "displayName": "Title", "purpose": "Nombre de producto en tarjetas." },
       "body": { "displayName": "Body", "purpose": "Párrafos y descripciones." },
-      "label": { "displayName": "Label", "purpose": "Kickers, badges, eyebrow, uppercase pequeño." }
+      "label": { "displayName": "Label", "purpose": "Badges y tabs, sans sentence case." },
+      "tag": { "displayName": "Tag (nota adhesiva)", "purpose": "eyebrow y section-kicker: Georgia itálica, sentence case, sin tracking." }
     },
     "shadows": [
       { "name": "ambient-hover", "value": "0 14px 36px rgba(56,42,50,.04)", "purpose": "Hover de product-card, casi imperceptible." },
@@ -49,7 +50,7 @@
       "refersTo": "button-primary",
       "description": "CTA principal (hero, checkout). Pill, fondo ciruela, texto blanco.",
       "html": "<button class=\"ds-btn-primary\">Ver colección</button>",
-      "css": ".ds-btn-primary { height: 44px; padding: 0 21px; border: 0; border-radius: 999px; background: #70344f; color: #fff; font-family: var(--font-geist-sans, Arial, sans-serif); font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color 160ms cubic-bezier(0.23,1,0.32,1), transform 160ms cubic-bezier(0.23,1,0.32,1); } .ds-btn-primary:hover { background: #382a32; transform: translateY(-1px); } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:focus-visible { outline: 3px solid #a74060; outline-offset: 4px; }"
+      "css": ".ds-btn-primary { height: 44px; padding: 0 21px; border: 0; border-radius: 999px; background: #5c2640; color: #fff; font-family: var(--font-geist-sans, Arial, sans-serif); font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color 160ms cubic-bezier(0.23,1,0.32,1), transform 160ms cubic-bezier(0.23,1,0.32,1); } .ds-btn-primary:hover { background: #382a32; transform: translateY(-1px); } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:focus-visible { outline: 3px solid #a74060; outline-offset: 4px; }"
     },
     {
       "name": "Add to Cart Button",
@@ -57,15 +58,15 @@
       "refersTo": "button-add",
       "description": "Botón secundario de tarjeta de producto. Radio 12px, fondo rosa suave.",
       "html": "<button class=\"ds-btn-add\">Agregar a la bolsita</button>",
-      "css": ".ds-btn-add { width: 100%; min-height: 46px; border: 1px solid #e8d4dd; border-radius: 12px; background: #f8eff3; color: #793854; font-family: var(--font-geist-sans, Arial, sans-serif); font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color 160ms cubic-bezier(0.23,1,0.32,1), border-color 160ms cubic-bezier(0.23,1,0.32,1), color 160ms cubic-bezier(0.23,1,0.32,1), transform 160ms cubic-bezier(0.23,1,0.32,1); } .ds-btn-add:hover { background: #70344f; border-color: #70344f; color: #fff; } .ds-btn-add:active:not(:disabled) { transform: scale(0.97); } .ds-btn-add:disabled { opacity: .68; cursor: not-allowed; }"
+      "css": ".ds-btn-add { width: 100%; min-height: 46px; border: 1px solid #e8d4dd; border-radius: 12px; background: #f8eff3; color: #793854; font-family: var(--font-geist-sans, Arial, sans-serif); font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color 160ms cubic-bezier(0.23,1,0.32,1), border-color 160ms cubic-bezier(0.23,1,0.32,1), color 160ms cubic-bezier(0.23,1,0.32,1), transform 160ms cubic-bezier(0.23,1,0.32,1); } .ds-btn-add:hover { background: #5c2640; border-color: #5c2640; color: #fff; } .ds-btn-add:active:not(:disabled) { transform: scale(0.97); } .ds-btn-add:disabled { opacity: .68; cursor: not-allowed; }"
     },
     {
       "name": "Product Card",
       "kind": "card",
       "refersTo": "card-product",
-      "description": "Tarjeta de producto de la grilla. Fondo blanco, borde arena, radio 22px, hover eleva y hace zoom en la foto.",
+      "description": "Ficha de catálogo, sin card SaaS: sin borde ni sombra, foto con línea ciruela de base.",
       "html": "<div class=\"ds-product-card\"><div class=\"ds-product-visual\"><span class=\"ds-heart\">♥</span></div><div class=\"ds-product-info\"><h3>Llavero conejito</h3><strong>$8.990</strong></div></div>",
-      "css": ".ds-product-card { display: flex; flex-direction: column; border: 1px solid #e9ddd9; border-radius: 22px; padding: 10px; background: #fff; transition: box-shadow .2s, transform .2s; } .ds-product-card:hover { box-shadow: 0 14px 36px rgba(56,42,50,.04); transform: translateY(-3px); } .ds-product-visual { position: relative; aspect-ratio: 1.15; border-radius: 14px; background-image: linear-gradient(145deg, #ffffff65, #ffffff10); } .ds-heart { position: absolute; top: 10px; right: 10px; display: grid; width: 42px; height: 42px; place-items: center; border-radius: 50%; background: #ffffffdf; color: #382a32; } .ds-product-info { padding: 19px 12px 16px; } .ds-product-info h3 { font-family: Georgia, serif; font-size: 25px; font-weight: 400; margin: 0 0 7px; color: #382a32; } .ds-product-info strong { font-size: 18px; color: #70344f; }"
+      "css": ".ds-product-card { display: flex; flex-direction: column; border: 0; border-radius: 0; padding: 0; background: transparent; transition: transform .2s; } .ds-product-card:hover { transform: translateY(-3px); } .ds-product-visual { position: relative; aspect-ratio: 1.15; border-radius: 14px 14px 0 0; border-bottom: 3px solid #5c2640; background-image: linear-gradient(145deg, #ffffff65, #ffffff10); } .ds-heart { position: absolute; top: 10px; right: 10px; display: grid; width: 42px; height: 42px; place-items: center; border-radius: 50%; background: #ffffffdf; color: #382a32; } .ds-product-info { padding: 19px 12px 16px; } .ds-product-info h3 { font-family: Georgia, serif; font-size: 25px; font-weight: 400; margin: 0 0 7px; color: #382a32; } .ds-product-info strong { font-size: 18px; color: #5c2640; }"
     },
     {
       "name": "Category Tabs",
@@ -73,7 +74,7 @@
       "refersTo": "category-tabs",
       "description": "Grupo segmentado de filtro por categoría. Fondo suave, tab activo en blanco.",
       "html": "<div class=\"ds-tabs\"><button class=\"ds-tab active\">Todos</button><button class=\"ds-tab\">Llaveros</button><button class=\"ds-tab\">Peluches</button></div>",
-      "css": ".ds-tabs { display: flex; gap: 4px; border: 1px solid #e9ddd9; padding: 5px; border-radius: 999px; background: #f7f1ed; } .ds-tab { min-height: 44px; padding: 9px 21px; border: 1px solid transparent; border-radius: 999px; background: transparent; color: #75646e; font-family: var(--font-geist-sans, Arial, sans-serif); font-size: 14px; cursor: pointer; transition: color 160ms cubic-bezier(0.23,1,0.32,1), background-color 160ms cubic-bezier(0.23,1,0.32,1); } .ds-tab:hover { color: #382a32; } .ds-tab.active { background: #fff; color: #70344f; border-color: #e7d7da; box-shadow: 0 2px 6px rgba(56,42,50,.03); }"
+      "css": ".ds-tabs { display: flex; gap: 4px; border: 1px solid #e9ddd9; padding: 5px; border-radius: 999px; background: #f7f1ed; } .ds-tab { min-height: 44px; padding: 9px 21px; border: 1px solid transparent; border-radius: 999px; background: transparent; color: #75646e; font-family: var(--font-geist-sans, Arial, sans-serif); font-size: 14px; cursor: pointer; transition: color 160ms cubic-bezier(0.23,1,0.32,1), background-color 160ms cubic-bezier(0.23,1,0.32,1); } .ds-tab:hover { color: #382a32; } .ds-tab.active { background: #fff; color: #5c2640; border-color: #e7d7da; box-shadow: 0 2px 6px rgba(56,42,50,.03); }"
     },
     {
       "name": "Cart FAB",
@@ -81,7 +82,7 @@
       "refersTo": "cart-fab",
       "description": "Botón flotante circular del carrito, degradado rosa→ciruela, entrada con spring overshoot.",
       "html": "<button class=\"ds-cart-fab\">🛍<span class=\"ds-cart-fab-badge\">2</span></button>",
-      "css": ".ds-cart-fab { position: relative; display: grid; width: 56px; height: 56px; place-items: center; border: 0; border-radius: 50%; background: linear-gradient(155deg, #a74060, #70344f); color: #fff; box-shadow: 0 12px 28px rgba(167,64,96,.45); cursor: pointer; font-size: 22px; transition: transform 200ms cubic-bezier(0.23,1,0.32,1); } .ds-cart-fab:hover { transform: scale(1.06); } .ds-cart-fab:active { transform: scale(0.94); } .ds-cart-fab-badge { position: absolute; top: -2px; right: -2px; display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: #ffd166; color: #5c3a1e; font-size: 11px; font-weight: 800; box-shadow: 0 0 0 2px #fffcf8; }"
+      "css": ".ds-cart-fab { position: relative; display: grid; width: 56px; height: 56px; place-items: center; border: 0; border-radius: 50%; background: linear-gradient(155deg, #a74060, #5c2640); color: #fff; box-shadow: 0 12px 28px rgba(167,64,96,.45); cursor: pointer; font-size: 22px; transition: transform 200ms cubic-bezier(0.23,1,0.32,1); } .ds-cart-fab:hover { transform: scale(1.06); } .ds-cart-fab:active { transform: scale(0.94); } .ds-cart-fab-badge { position: absolute; top: -2px; right: -2px; display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: #ffd166; color: #5c3a1e; font-size: 11px; font-weight: 800; box-shadow: 0 0 0 2px #fffcf8; }"
     }
   ],
   "narrative": {
@@ -95,7 +96,7 @@
       "Motion sutil con ease-out cubic-bezier(0.23, 1, 0.32, 1), feedback :active scale(0.94-0.97)."
     ],
     "rules": [
-      { "name": "La Regla del Negro Cálido", "body": "Nunca usar negro puro (#000) ni gris frío. --ink (#382a32) y --plum (#70344f) son los únicos oscuros del sistema.", "section": "colors" },
+      { "name": "La Regla del Negro Cálido", "body": "Nunca usar negro puro (#000) ni gris frío. --ink (#382a32) y --plum (#5c2640) son los únicos oscuros del sistema.", "section": "colors" },
       { "name": "La Regla Serif-Solo-Título", "body": "Georgia serif aparece únicamente en títulos y nombres de producto/marca. Nunca en botones, inputs, ni texto de cuerpo.", "section": "typography" },
       { "name": "La Regla del Plano en Reposo", "body": "Ninguna tarjeta ni botón lleva sombra visible en reposo. La sombra es siempre una respuesta a hover, foco o estado flotante.", "section": "elevation" },
       { "name": "La Regla del Blob Único", "body": "El radio orgánico 46% 46% 18px 18px pertenece solo a la imagen del hero. No se replica en otros componentes.", "section": "shapes" }
@@ -103,7 +104,7 @@
     "dos": [
       "Do usar Georgia serif solo en títulos y nombres de producto; sans Geist en todo lo demás.",
       "Do mantener el sistema plano en reposo; sombra solo como respuesta a hover/foco/flotante.",
-      "Do usar --ink (#382a32) o --plum (#70344f) como oscuro; nunca negro puro.",
+      "Do usar --ink (#382a32) o --plum (#5c2640) como oscuro; nunca negro puro.",
       "Do usar pill (999px) en botones/tabs y 16-24px en tarjetas/diálogos.",
       "Do reservar el radio orgánico 46% 46% 18px 18px solo para .hero-image.",
       "Do usar var(--ease-out) para transiciones de estado, y :active scale(0.94-0.97) como feedback táctil."

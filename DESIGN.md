@@ -7,8 +7,8 @@ colors:
   muted: "#75646e"
   blush-pink: "#efbac6"
   rose: "#a74060"
-  plum: "#70344f"
-  honey-yellow: "#f4d88c"
+  plum: "#5c2640"
+  honey-yellow: "#e7a94c"
   border-sand: "#e9ddd9"
 typography:
   display:
@@ -64,9 +64,9 @@ components:
     backgroundColor: "{colors.plum}"
     textColor: "#ffffff"
   card-product:
-    backgroundColor: "#ffffff"
+    backgroundColor: "transparent"
     rounded: "{rounded.lg}"
-    padding: "10px"
+    padding: "0"
 ---
 
 # Design System: MILUÉ LOOP
@@ -91,7 +91,7 @@ El sistema rechaza explícitamente: azul/gris corporativo, esquinas rectas duras
 Paleta cálida de boutique: crema como base, rosa como acento emocional, ciruela como ancla oscura de contraste (reemplaza al negro).
 
 ### Primary
-- **Ciruela (Plum)** (`#70344f`): color de acción principal — fondo de `.primary-button`, texto de precio, acentos de marca en footer/story-card. Es el "negro" del sistema: nunca usar negro puro.
+- **Ciruela (Plum)** (`#5c2640`): color de acción principal — fondo de `.primary-button`, texto de precio, acentos de marca en footer/story-card. Es el "negro" del sistema: nunca usar negro puro.
 - **Rosa (Rose)** (`#a74060`): acento emocional — enlaces activos, subrayados de nav, `--ring` de foco, corazón de favoritos activo, degradado del cart-fab.
 
 ### Secondary
@@ -104,10 +104,10 @@ Paleta cálida de boutique: crema como base, rosa como acento emocional, ciruela
 - **Borde arena (Border Sand)** (`#e9ddd9`): todos los `border-color` de divisores, inputs, tarjetas.
 
 ### Accent (uso puntual)
-- **Miel (Honey Yellow)** (`#f4d88c`): sticker/badge decorativo del hero, icono de notificación — uso raro y festivo, nunca como color de acción.
+- **Miel (Honey Yellow)** (`#e7a94c`): sticker/badge decorativo del hero, icono de notificación — uso raro y festivo, nunca como color de acción.
 
 ### Named Rules
-**La Regla del Negro Cálido.** Nunca usar negro puro (`#000`) ni gris frío. `--ink` (`#382a32`) y `--plum` (`#70344f`) son los únicos "oscuros" del sistema.
+**La Regla del Negro Cálido.** Nunca usar negro puro (`#000`) ni gris frío. `--ink` (`#382a32`) y `--plum` (`#5c2640`) son los únicos "oscuros" del sistema.
 
 ## Typography
 
@@ -121,10 +121,12 @@ Paleta cálida de boutique: crema como base, rosa como acento emocional, ciruela
 - **Headline** (400, `clamp(34px, 3.6vw, 50px)`, line-height 1.13): `h2` de sección (colecciones, story, trabajos recientes).
 - **Title** (400, 25px, line-height 1.2): nombre de producto en `.product-info h3`.
 - **Body** (400, 16px, line-height 1.6-1.8): párrafos, descripciones.
-- **Label** (700, 12-14px, letter-spacing .1-.16em, uppercase en kickers): `.eyebrow`, `.section-kicker`, badges de categoría/disponibilidad.
+- **Label** (700, 12-14px, sans, sin tracking, sentence case): badges de categoría/disponibilidad, tabs.
+- **Tag** (400, 16-18px, Georgia italic, sin mayúsculas): `.eyebrow`, `.section-kicker` — la "nota adhesiva" escrita a mano, no un eyebrow corporativo.
 
 ### Named Rules
-**La Regla Serif-Solo-Título.** Georgia serif aparece únicamente en títulos y nombres de producto/marca. Nunca en botones, inputs, ni texto de cuerpo.
+**La Regla Serif-Solo-Título.** Georgia serif aparece únicamente en títulos, nombres de producto/marca y tags de sección. Nunca en botones, inputs, ni texto de cuerpo.
+**La Regla de la Nota Adhesiva.** Los labels de sección (`.eyebrow`, `.section-kicker`) son Georgia itálica en sentence case, nunca mayúsculas con tracking — leen como una nota escrita a mano de feria artesanal, no como un eyebrow de plantilla SaaS. Nunca volver a `text-transform: uppercase` en ellos.
 
 ## Layout
 
@@ -153,7 +155,7 @@ Curvas generosas en todo: `999px` (pill) en botones, tabs y badges; `16-24px` en
 
 ### Buttons
 - **Shape:** pill (`border-radius: 999px`), altura mínima 44px táctil.
-- **Primary (`.primary-button`):** fondo ciruela (`#70344f`), texto blanco, hover → tinta (`#382a32`); `:active { transform: scale(0.97) }`.
+- **Primary (`.primary-button`):** fondo ciruela (`#5c2640`), texto blanco, hover → tinta (`#382a32`); `:active { transform: scale(0.97) }`.
 - **Add-to-cart (`.add-button`):** variante suave, fondo `#f8eff3` con texto `#793854`, radio 12px (no pill) para diferenciarse de la acción principal; hover invierte a ciruela sólido.
 - **Ghost/Text (`.text-link`):** subrayado simple, sin fondo, usado para CTAs secundarios ("Ver historia").
 
@@ -162,7 +164,7 @@ Curvas generosas en todo: `999px` (pill) en botones, tabs y badges; `16-24px` en
 - **Availability badge:** punto de color + texto, sin fondo sólido — información, no decoración.
 
 ### Cards / Containers
-- **Product card:** borde sutil (`var(--border)`), radio 22px, fondo blanco sobre crema; hover eleva 3px + sombra ambiental + zoom 1.035 en foto.
+- **Product card:** sin borde ni sombra (no es una "tarjeta SaaS"); la foto lleva radio 14px arriba y una línea ciruela de 3px como base — ficha de catálogo, no card genérica. Hover eleva 3px + zoom 1.035 en foto, sin sombra.
 - **Story card:** fondo ciruela oscuro (`#653b52`) con texto blanco — única tarjeta de fondo oscuro del sistema, para el bloque narrativo "Sobre nosotros".
 
 ### Inputs / Fields
@@ -180,7 +182,7 @@ Botones flotantes circulares 50-56px con degradado de marca (`linear-gradient(15
 ### Do:
 - **Do** usar Georgia serif solo en títulos y nombres de producto; sans Geist en todo lo demás.
 - **Do** mantener el sistema plano en reposo; sombra solo como respuesta a hover/foco/flotante.
-- **Do** usar `--ink` (`#382a32`) o `--plum` (`#70344f`) como "oscuro"; nunca negro puro.
+- **Do** usar `--ink` (`#382a32`) o `--plum` (`#5c2640`) como "oscuro"; nunca negro puro.
 - **Do** usar pill (`999px`) en botones/tabs y 16-24px en tarjetas/diálogos.
 - **Do** reservar el radio orgánico `46% 46% 18px 18px` solo para `.hero-image`.
 - **Do** usar `var(--ease-out)` (`cubic-bezier(0.23, 1, 0.32, 1)`) para transiciones de estado, y `:active { transform: scale(0.94-0.97) }` como feedback táctil.
