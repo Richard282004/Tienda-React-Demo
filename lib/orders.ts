@@ -36,6 +36,15 @@ export type Order = {
 
 export type ShippingRate = { region: string; cost: number };
 
+export type OrderMessage = {
+  id: string;
+  order_id: string;
+  sender_id: string;
+  sender_role: 'admin' | 'customer';
+  body: string;
+  created_at: string;
+};
+
 export type DiscountCode = {
   code: string;
   type: 'percent' | 'fixed';

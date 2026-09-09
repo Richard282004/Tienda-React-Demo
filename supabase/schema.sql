@@ -587,3 +587,52 @@ as $$
 $$;
 revoke all on function public.update_own_name(text) from public;
 grant execute on function public.update_own_name(text) to authenticated;
+
+-- ── Chat por pedido (clienta ↔ admin) ───────────────────────────────────────
+-- Solo disponible para pedidos de clientas con cuenta (order.user_id no nulo);
+-- las compras como invitada no tienen con quién autenticar el otro lado.
+
+create table if not exists public.order_messages (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders(id) on delete cascade,
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  sender_role text not null check (sender_role in ('admin', 'customer')),
+  body text not null check (char_length(body) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+create index if not exists order_messages_order_idx on public.order_messages (order_id, created_at);
+
+alter table public.order_messages enable row level security;
+revoke all on public.order_messages from anon, authenticated;
+grant select, insert on public.order_messages to authenticated;
+
+drop policy if exists "order_messages_read" on public.order_messages;
+create policy "order_messages_read" on public.order_messages
+for select to authenticated using (
+  public.is_admin()
+  or exists (select 1 from public.orders o where o.id = order_id and o.user_id = (select auth.uid()))
+);
+
+drop policy if exists "order_messages_insert" on public.order_messages;
+create policy "order_messages_insert" on public.order_messages
+for insert to authenticated with check (
+  sender_id = (select auth.uid())
+  and (
+    (sender_role = 'admin' and public.is_admin())
+    or (sender_role = 'customer' and exists (select 1 from public.orders o where o.id = order_id and o.user_id = (select auth.uid())))
+  )
+);
+
+-- Habilita Supabase Realtime para esta tabla (mensajes nuevos llegan al
+-- instante sin recargar). Se salta si ya estaba habilitado.
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'order_messages'
+     )
+  then
+    alter publication supabase_realtime add table public.order_messages;
+  end if;
+end $$;

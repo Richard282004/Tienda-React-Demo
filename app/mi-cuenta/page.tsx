@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ChevronRight, LogOut, Pencil, Plus, Trash2 } from 'lucide-react';
+import { OrderChat } from '@/components/order-chat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
@@ -225,6 +226,7 @@ export default function MiCuentaPage() {
                       </ul>
                       {order.tracking_number && <p className="account-page-order-tracking">N° de seguimiento: <strong>{order.tracking_number}</strong></p>}
                       <div className="account-page-order-total"><span>Total</span><strong>{formatPrice(order.total)}</strong></div>
+                      {userId && <OrderChat orderId={order.id} senderRole="customer" currentUserId={userId} />}
                     </div>
                   ))}
                 </div>

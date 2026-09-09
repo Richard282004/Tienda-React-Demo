@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowLeft, Check, Clock, DollarSign, FileText, GripVerti
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ImageCropDialog } from '@/components/image-crop-dialog';
+import { OrderChat } from '@/components/order-chat';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -452,6 +453,7 @@ export default function AdminPage() {
                   </NativeSelect></label>
                   <label>N° de seguimiento<Input value={order.tracking_number ?? ''} placeholder="Ej: 1234567890" onBlur={(event) => void updateOrder(order.id, { tracking_number: event.target.value || null })} onChange={(event) => setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, tracking_number: event.target.value } : item)))} /></label>
                 </div>
+                {order.user_id && currentUserId ? <OrderChat orderId={order.id} senderRole="admin" currentUserId={currentUserId} /> : <p className="admin-section-note">Compra de invitada: sin cuenta, no hay chat disponible.</p>}
               </article>
             ))}
           </div>
