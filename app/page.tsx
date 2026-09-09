@@ -344,7 +344,7 @@ export default function Home() {
       <a className="skip-link" href="#tienda">Saltar a la colección</a>
       <div className="utility-bar">
         <span><Truck size={15} /> {tr('freeShipping')}</span>
-        <span className="utility-message">{lang === 'en' && content.shippingMessage_en ? content.shippingMessage_en : content.shippingMessage}</span>
+        {!storeLoading && <span className="utility-message">{lang === 'en' && content.shippingMessage_en ? content.shippingMessage_en : content.shippingMessage}</span>}
         <div className="utility-actions">
           <a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a>
           <button onClick={() => openAccount('login')}><UserRound size={14} /> {sessionEmail ?? tr('login')}</button>
