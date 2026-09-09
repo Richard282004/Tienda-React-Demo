@@ -362,6 +362,11 @@ export default function Home() {
           <a href="#tienda" onClick={() => setMenuOpen(false)}>{tr('navShop')}</a>
           <a href="#nosotros" onClick={() => setMenuOpen(false)}>{tr('navAbout')}</a>
           <a href="#contacto" onClick={() => setMenuOpen(false)}>{tr('navContact')}</a><a href="/favoritos" onClick={() => setMenuOpen(false)}>Favoritos</a><button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}>Mi cuenta</button>
+          <div className="lang-toggle lang-toggle-mobile" role="group" aria-label="Idioma / Language">
+            <button type="button" className={lang === 'es' ? 'active' : ''} aria-pressed={lang === 'es'} onClick={() => setLangTo('es')}>ES</button>
+            <span aria-hidden="true">/</span>
+            <button type="button" className={lang === 'en' ? 'active' : ''} aria-pressed={lang === 'en'} onClick={() => setLangTo('en')}>EN</button>
+          </div>
         </nav>
         <div className="header-actions">
           <div className="lang-toggle" role="group" aria-label="Idioma / Language">
