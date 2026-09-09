@@ -114,7 +114,7 @@
 .availability-badge { display: inline-block; margin-top: 2px; border-radius: 99px; padding: 3px 9px; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
 .availability-badge.available { background: #e4f0e2; color: #4f7a4a; }
 .availability-badge.unavailable { background: #f4dede; color: #9a4b4b; }
-.add-button:disabled { opacity: .5; cursor: not-allowed; }
+.add-button:disabled { opacity: .68; cursor: not-allowed; }
 .add-button:disabled:hover { border-color: #ddcbc5 !important; background: transparent !important; color: var(--ink) !important; }
 
 .checkout-dialog { max-width: 480px !important; max-height: calc(100dvh - 32px); overflow-y: auto; border-radius: 22px !important; padding: 28px !important; background: var(--cream) !important; color: var(--ink) !important; }
@@ -142,7 +142,7 @@ button { cursor: pointer; } button:disabled { cursor: not-allowed; }
 .utility-actions { display: none; }
 .site-header { height: 100px; padding-inline: max(40px, calc((100vw - 1240px) / 2)); background: var(--cream); border-color: var(--border); }
 .brand, .footer-brand { font-size: 29px; letter-spacing: .08em; font-weight: 400; gap: 12px; }
-.brand small, .footer-brand small { font-size: 10px; letter-spacing: .2em; line-height: 1.5; color: var(--muted); }
+.brand small, .footer-brand small { font-size: 11px; letter-spacing: .16em; line-height: 1.5; color: var(--muted); }
 .brand-mark { width: 42px; height: 42px; background: #edd5df; color: #7a3654; font-size: 28px; }
 .brand { min-width: 0; }
 .brand > span { min-width: 0; }
