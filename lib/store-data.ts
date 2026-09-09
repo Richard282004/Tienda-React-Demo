@@ -49,6 +49,7 @@ export type StoreContent = {
   legalRetention?: string;
   termsContent?: string;
   privacyContent?: string;
+  orderNotifyEmail?: string;
 };
 
 export const defaultProducts: Product[] = [

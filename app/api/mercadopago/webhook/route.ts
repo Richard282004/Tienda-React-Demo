@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 
-import { sendOrderStatusEmail } from "@/lib/email";
+import { sendNewOrderAdminEmail, sendOrderStatusEmail } from "@/lib/email";
 import { fetchMercadoPagoPayment } from "@/lib/mercadopago";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
     const { data: existingOrder } = await supabase
       .from("orders")
-      .select("status, items, customer_email")
+      .select("status, items, total, customer_name, customer_email, customer_phone, region, comuna, address, address_extra")
       .eq("id", payment.external_reference)
       .maybeSingle();
     const { error } = await supabase
@@ -57,8 +57,30 @@ export async function POST(request: Request) {
     if (resendApiKey && existingOrder && existingOrder.status !== orderStatus) {
       try {
         const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
-        const brandName = (settings?.value as { brandName?: string } | undefined)?.brandName || "Tu tienda";
-        await sendOrderStatusEmail({ apiKey: resendApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, brandName, fromEmail: env.RESEND_FROM_EMAIL as string | undefined });
+        const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; currency?: string; locale?: string } | undefined;
+        const brandName = store?.brandName || "Tu tienda";
+        const fromEmail = env.RESEND_FROM_EMAIL as string | undefined;
+        await sendOrderStatusEmail({ apiKey: resendApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, brandName, fromEmail });
+        if (orderStatus === "paid" && store?.orderNotifyEmail) {
+          await sendNewOrderAdminEmail({
+            apiKey: resendApiKey,
+            to: store.orderNotifyEmail,
+            orderId: payment.external_reference,
+            customerName: existingOrder.customer_name,
+            customerEmail: existingOrder.customer_email,
+            customerPhone: existingOrder.customer_phone,
+            region: existingOrder.region,
+            comuna: existingOrder.comuna,
+            address: existingOrder.address,
+            addressExtra: existingOrder.address_extra,
+            items: existingOrder.items,
+            total: existingOrder.total,
+            brandName,
+            fromEmail,
+            currency: store?.currency,
+            locale: store?.locale,
+          });
+        }
       } catch {
         /* El correo es un complemento: si falla, el estado del pedido ya quedó guardado. */
       }

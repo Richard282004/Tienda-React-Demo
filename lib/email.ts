@@ -58,6 +58,40 @@ const statusCopy: Record<string, { subject: string; title: string; body: (brandN
   cancelled: { subject: 'Tu pedido fue cancelado', title: 'Pedido cancelado', body: () => 'Tu pedido fue cancelado. Si el pago fue rechazado, puedes intentarlo de nuevo desde la tienda.' },
 };
 
+export async function sendNewOrderAdminEmail(opts: {
+  apiKey: string;
+  to: string;
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  region: string;
+  comuna: string;
+  address: string;
+  addressExtra?: string | null;
+  items: { name: string; unitPrice: number; quantity: number }[];
+  total: number;
+  brandName?: string;
+  fromEmail?: string;
+  currency?: string;
+  locale?: string;
+}) {
+  const brandName = opts.brandName || 'Tu tienda';
+  const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
+  const price = (value: number) => formatPrice(value, opts.currency, opts.locale);
+  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name} — ${price(item.unitPrice * item.quantity)}</li>`).join('');
+  const addressLine = [opts.address, opts.addressExtra].filter(Boolean).join(', ');
+  const html = wrap(
+    brandName,
+    '¡Nueva venta!',
+    `<p>Pago confirmado del pedido <strong>#${opts.orderId.slice(0, 8)}</strong>.</p>
+     <ul>${itemsHtml}</ul>
+     <p><strong>Total: ${price(opts.total)}</strong></p>
+     <p><strong>${opts.customerName}</strong><br>${opts.customerEmail} · ${opts.customerPhone}<br>${opts.comuna}, ${opts.region}${addressLine ? `<br>${addressLine}` : ''}</p>`,
+  );
+  await sendEmail(opts.apiKey, from, opts.to, `¡Nueva venta! Pedido #${opts.orderId.slice(0, 8)} — ${brandName}`, html);
+}
+
 export async function sendOrderStatusEmail(opts: { apiKey: string; to: string; orderId: string; status: string; trackingNumber?: string | null; brandName?: string; fromEmail?: string }) {
   const copy = statusCopy[opts.status];
   if (!copy) return;
