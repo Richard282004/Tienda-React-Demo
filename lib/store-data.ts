@@ -49,18 +49,6 @@ export type StoreContent = {
   legalRetention?: string;
   termsContent?: string;
   privacyContent?: string;
-  heroEyebrow_en?: string;
-  heroTitle_en?: string;
-  heroHighlight_en?: string;
-  heroDescription_en?: string;
-  heroCtaPrimary_en?: string;
-  heroCtaSecondary_en?: string;
-  aboutTitle_en?: string;
-  aboutHighlight_en?: string;
-  aboutText_en?: string;
-  storyQuote_en?: string;
-  shippingMessage_en?: string;
-  footerCta_en?: string;
 };
 
 export const defaultProducts: Product[] = [

@@ -34,7 +34,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { defaultProducts, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { type Faq, type ProductImage, type Review, type ShowcaseItem } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import { t, type Lang } from '@/lib/i18n';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 
 export default function Home() {
@@ -76,18 +75,6 @@ export default function Home() {
     // (pending sin pago hace más de 10 min), sin depender de un cron.
     fetch('/api/orders/expire', { method: 'POST' }).catch(() => {});
   }, []);
-  const [lang, setLang] = useState<Lang>('es');
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('lumina-lang');
-      if (saved === 'en' || saved === 'es') setLang(saved);
-    } catch { /* sin acceso a localStorage, se queda en español */ }
-  }, []);
-  const setLangTo = (next: Lang) => {
-    setLang(next);
-    try { localStorage.setItem('lumina-lang', next); } catch { /* no crítico */ }
-  };
-  const tr = (key: Parameters<typeof t>[1]) => t(lang, key);
 
 
   const visibleProducts = useMemo(
@@ -343,12 +330,12 @@ export default function Home() {
     <main className="site-shell">
       <a className="skip-link" href="#tienda">Saltar a la colección</a>
       <div className="utility-bar">
-        <span><Truck size={15} /> {tr('freeShipping')}</span>
-        {!storeLoading && <span className="utility-message">{lang === 'en' && content.shippingMessage_en ? content.shippingMessage_en : content.shippingMessage}</span>}
+        <span><Truck size={15} /> Envíos a todo Chile</span>
+        {!storeLoading && <span className="utility-message">{content.shippingMessage}</span>}
         <div className="utility-actions">
           <a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a>
-          <button onClick={() => openAccount('login')}><UserRound size={14} /> {sessionEmail ?? tr('login')}</button>
-          {sessionEmail ? <button className="register-link" onClick={handleSignOut}>Cerrar sesión</button> : <button className="register-link" onClick={() => openAccount('register')}>{tr('createAccount')}</button>}
+          <button onClick={() => openAccount('login')}><UserRound size={14} /> {sessionEmail ?? 'Iniciar sesión'}</button>
+          {sessionEmail ? <button className="register-link" onClick={handleSignOut}>Cerrar sesión</button> : <button className="register-link" onClick={() => openAccount('register')}>Crear cuenta</button>}
         </div>
       </div>
 
@@ -358,22 +345,12 @@ export default function Home() {
           <span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span>
         </a>
         <nav id="main-navigation" className={`main-nav ${menuOpen ? 'open' : ''}`} aria-label="Navegación principal">
-          <a href="#inicio" onClick={() => setMenuOpen(false)}>{tr('navHome')}</a>
-          <a href="#tienda" onClick={() => setMenuOpen(false)}>{tr('navShop')}</a>
-          <a href="#nosotros" onClick={() => setMenuOpen(false)}>{tr('navAbout')}</a>
-          <a href="#contacto" onClick={() => setMenuOpen(false)}>{tr('navContact')}</a><a href="/favoritos" onClick={() => setMenuOpen(false)}>Favoritos</a><button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}>Mi cuenta</button>
-          <div className="lang-toggle lang-toggle-mobile" role="group" aria-label="Idioma / Language">
-            <button type="button" className={lang === 'es' ? 'active' : ''} aria-pressed={lang === 'es'} onClick={() => setLangTo('es')}>ES</button>
-            <span aria-hidden="true">/</span>
-            <button type="button" className={lang === 'en' ? 'active' : ''} aria-pressed={lang === 'en'} onClick={() => setLangTo('en')}>EN</button>
-          </div>
+          <a href="#inicio" onClick={() => setMenuOpen(false)}>Inicio</a>
+          <a href="#tienda" onClick={() => setMenuOpen(false)}>Tienda</a>
+          <a href="#nosotros" onClick={() => setMenuOpen(false)}>Sobre nosotros</a>
+          <a href="#contacto" onClick={() => setMenuOpen(false)}>Contáctanos</a><a href="/favoritos" onClick={() => setMenuOpen(false)}>Favoritos</a><button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}>Mi cuenta</button>
         </nav>
         <div className="header-actions">
-          <div className="lang-toggle" role="group" aria-label="Idioma / Language">
-            <button type="button" className={lang === 'es' ? 'active' : ''} aria-pressed={lang === 'es'} onClick={() => setLangTo('es')}>ES</button>
-            <span aria-hidden="true">/</span>
-            <button type="button" className={lang === 'en' ? 'active' : ''} aria-pressed={lang === 'en'} onClick={() => setLangTo('en')}>EN</button>
-          </div>
           <Button aria-label={`Ver favoritos, ${favorites.length} guardados`} variant="ghost" size="icon" className="icon-button bag-button" onClick={() => { window.location.href = '/favoritos'; }}><Heart size={19} fill={favorites.length ? 'currentColor' : 'none'} />{favorites.length > 0 && <span key={favorites.length} className="bag-badge">{favorites.length}</span>}</Button>
           <Button aria-label="Buscar productos" variant="ghost" size="icon" className={`icon-button ${searchOpen ? 'active' : ''}`} onClick={() => setSearchOpen((open) => !open)}><Search size={19} /></Button>
           <Button aria-label="Mi cuenta" variant="ghost" size="icon" className="icon-button account-icon" onClick={() => openAccount('login')}><UserRound size={19} /></Button>
@@ -387,7 +364,7 @@ export default function Home() {
         <div className="search-overlay" onClick={() => { setSearchOpen(false); setSearch(''); }} aria-hidden="true" />
         <section className="search-panel" aria-label="Buscador de productos">
           <div className="search-panel-inner page-width">
-            <div className="search-field"><Search size={19} /><Input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tr("searchPlaceholder")} aria-label="Buscar en la tienda" /><button onClick={() => { setSearchOpen(false); setSearch(''); }} aria-label="Cerrar buscador"><X size={18} /></button></div>
+            <div className="search-field"><Search size={19} /><Input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busca llaveros, peluches o un personaje..." aria-label="Buscar en la tienda" /><button onClick={() => { setSearchOpen(false); setSearch(''); }} aria-label="Cerrar buscador"><X size={18} /></button></div>
             <div className="search-results">
               {searchResults.length ? searchResults.map((product) => <button key={product.id} onClick={() => { setSearchOpen(false); setSearch(''); setCategory('Todo'); window.setTimeout(() => document.getElementById(`producto-${product.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0); }}><span style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></span><span><strong>{product.name}</strong><small>{product.type} · {formatPrice(product.price)}</small></span><ArrowRight size={15} /></button>) : <p>No encontramos productos con ese nombre.</p>}
             </div>
@@ -398,17 +375,17 @@ export default function Home() {
 
       <section id="inicio" className="hero-section page-width">
         <div className="hero-copy">
-          <div className="eyebrow"><Sparkles size={15} /> {lang === 'en' && content.heroEyebrow_en ? content.heroEyebrow_en : content.heroEyebrow}</div>
-          <h1>{lang === 'en' && content.heroTitle_en ? content.heroTitle_en : content.heroTitle}<br /><em>{lang === 'en' && content.heroHighlight_en ? content.heroHighlight_en : content.heroHighlight}</em></h1>
-          <p>{lang === 'en' && content.heroDescription_en ? content.heroDescription_en : content.heroDescription}</p>
-          <div className="hero-actions"><Button className="primary-button" onClick={() => document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' })}>{lang === 'en' && content.heroCtaPrimary_en ? content.heroCtaPrimary_en : content.heroCtaPrimary} <ArrowRight size={17} /></Button><a className="text-link" href="#nosotros">{lang === 'en' && content.heroCtaSecondary_en ? content.heroCtaSecondary_en : content.heroCtaSecondary} <ArrowRight size={15} /></a></div>
+          <div className="eyebrow"><Sparkles size={15} /> {content.heroEyebrow}</div>
+          <h1>{content.heroTitle}<br /><em>{content.heroHighlight}</em></h1>
+          <p>{content.heroDescription}</p>
+          <div className="hero-actions"><Button className="primary-button" onClick={() => document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' })}>{content.heroCtaPrimary} <ArrowRight size={17} /></Button><a className="text-link" href="#nosotros">{content.heroCtaSecondary} <ArrowRight size={15} /></a></div>
           <div className="hero-notes"><span><Check size={15} /> {content.heroNote1}</span><span><Check size={15} /> {content.heroNote2}</span></div>
         </div>
         <div className="hero-image-wrap"><div className="hero-scribble">para regalar<br />o regalarte <span>♡</span></div><img src="/lumina-hero.jpg" alt="Tres productos de crochet: un conejo, un oso y un hongo" className="hero-image" width={1122} height={1402} fetchPriority="high" /><div className="hero-sticker">nuevos<br /><strong>amiguitos</strong></div></div>
       </section>
 
       <section className="work-showcase" aria-label="Trabajos recientes">
-        <div className="showcase-heading page-width"><div><p className="section-kicker">{tr("workShowcase")}</p><h2>{lang === "en" ? "Made to " : "Hechos para "}<em>{lang === "en" ? "keep you company" : "acompañarte"}</em></h2></div><div className="carousel-controls"><button className="pause-carousel" aria-label={carouselPaused ? 'Reanudar carrusel automático' : 'Pausar carrusel automático'} onClick={() => setCarouselPaused((paused) => !paused)}>{carouselPaused ? <Play size={16} /> : <Pause size={16} />}</button><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
+        <div className="showcase-heading page-width"><div><p className="section-kicker">Trabajos recientes</p><h2>Hechos para <em>acompañarte</em></h2></div><div className="carousel-controls"><button className="pause-carousel" aria-label={carouselPaused ? 'Reanudar carrusel automático' : 'Pausar carrusel automático'} onClick={() => setCarouselPaused((paused) => !paused)}>{carouselPaused ? <Play size={16} /> : <Pause size={16} />}</button><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
         <Carousel setApi={setCarouselApi} opts={{ loop: true, align: 'start' }} className="work-carousel page-width" onMouseEnter={() => setCarouselHovering(true)} onMouseLeave={() => setCarouselHovering(false)}>
           <CarouselContent className="carousel-track">
             {showcaseItems.length > 0
@@ -433,7 +410,7 @@ export default function Home() {
       <section className="category-strip page-width" aria-label="Categorías destacadas"><div><span className="category-icon pink">♡</span><span>{content.categoryText1}</span></div><div><span className="category-icon yellow">✳</span><span>{content.categoryText2}</span></div><div><span className="category-icon lilac">⌁</span><span>{content.categoryText3}</span></div></section>
 
       <section id="tienda" className="collection-section page-width">
-        <div className="section-heading"><div><p className="section-kicker">{tr("collectionKicker")}</p><h2>{tr("collectionTitle")}<em>{tr("collectionHighlight")}</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'Todo' ? tr('all') : item}</button>)}</div></div>
+        <div className="section-heading"><div><p className="section-kicker">La colección</p><h2>Elige tu nuevo <em>favorito</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'Todo' ? 'Todo' : item}</button>)}</div></div>
         {storeLoading && <p className="store-feedback" role="status">Preparando la colección…</p>}
         {storeError && <p className="store-feedback" role="alert">{storeError}</p>}
         {!storeLoading && !storeError && visibleProducts.length === 0 && <p className="empty-collection">Pronto habrá nuevos amiguitos por aquí. Vuelve a visitarnos.</p>}
@@ -458,17 +435,17 @@ export default function Home() {
                 <button className="reviews-link" onClick={() => openReviews(product)}>
                   {avgRating ? <><Star size={13} fill="currentColor" /> {avgRating.toFixed(1)} ({productReviews.length})</> : 'Sé el primero en opinar'}
                 </button>
-                <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? tr('soldOut') : lowStock ? `¡Últimas ${product.stock}!` : tr('available')}</span>
+                <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? 'Agotado' : lowStock ? `¡Últimas ${product.stock}!` : 'Disponible'}</span>
               </div>
               <strong>{formatPrice(product.price)}</strong>
             </div>
-            <Button className="add-button" variant="outline" disabled={outOfStock} onClick={() => addToCart(product.id)}>{tr('addToBag')} <Plus size={16} /></Button>
+            <Button className="add-button" variant="outline" disabled={outOfStock} onClick={() => addToCart(product.id)}>Agregar a la bolsita <Plus size={16} /></Button>
           </article>;
         })}</div>
       </section>
 
-      {faqs.length > 0 && <section className="faq-section page-width" aria-label={tr('faqTitle')}>
-        <div className="showcase-heading"><div><p className="section-kicker">{tr('faqKicker')}</p><h2>{tr('faqTitle')}</h2></div></div>
+      {faqs.length > 0 && <section className="faq-section page-width" aria-label="Preguntas frecuentes">
+        <div className="showcase-heading"><div><p className="section-kicker">Ayuda</p><h2>Preguntas frecuentes</h2></div></div>
         <div className="faq-list">
           {faqs.map((faq) => {
             const isOpen = openFaq === faq.id;
@@ -480,9 +457,9 @@ export default function Home() {
         </div>
       </section>}
 
-      <section id="nosotros" className="story-section page-width"><div className="story-card"><p className="section-kicker">{tr('aboutKicker')}</p><h2>{lang === 'en' && content.aboutTitle_en ? content.aboutTitle_en : content.aboutTitle}<br /><em>{lang === 'en' && content.aboutHighlight_en ? content.aboutHighlight_en : content.aboutHighlight}</em></h2><p>{lang === 'en' && content.aboutText_en ? content.aboutText_en : content.aboutText}</p><a className="text-link" href="#contacto">{tr('talkToUs')} <ArrowRight size={15} /></a></div><div className="story-quote"><span>“</span><p>{lang === 'en' && content.storyQuote_en ? content.storyQuote_en : content.storyQuote}</p><small>{content.storyQuoteAuthor}</small></div></section>
+      <section id="nosotros" className="story-section page-width"><div className="story-card"><p className="section-kicker">Sobre nosotros</p><h2>{content.aboutTitle}<br /><em>{content.aboutHighlight}</em></h2><p>{content.aboutText}</p><a className="text-link" href="#contacto">Hablemos de tu idea <ArrowRight size={15} /></a></div><div className="story-quote"><span>“</span><p>{content.storyQuote}</p><small>{content.storyQuoteAuthor}</small></div></section>
 
-      <footer id="contacto" className="site-footer page-width"><div className="footer-brand"><span className="brand-mark">✦</span><span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span></div><div className="footer-contact"><p>{lang === 'en' && content.footerCta_en ? content.footerCta_en : content.footerCta}</p><a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a><a href={`mailto:${content.email}`}><Mail size={14} /> {content.email}</a></div><div className="footer-links"><a href="#inicio">{tr('navHome')}</a><a href="#tienda">{tr('navShop')}</a><a href="#nosotros">{tr('navAbout')}</a><a href="/terminos">Términos y condiciones</a><a href="/privacidad">Privacidad</a></div></footer>
+      <footer id="contacto" className="site-footer page-width"><div className="footer-brand"><span className="brand-mark">✦</span><span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span></div><div className="footer-contact"><p>{content.footerCta}</p><a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a><a href={`mailto:${content.email}`}><Mail size={14} /> {content.email}</a></div><div className="footer-links"><a href="#inicio">Inicio</a><a href="#tienda">Tienda</a><a href="#nosotros">Sobre nosotros</a><a href="/terminos">Términos y condiciones</a><a href="/privacidad">Privacidad</a></div></footer>
 
       {cart.length > 0 && scrolledPastHeader && <button type="button" className="cart-fab" onClick={() => { window.location.href = '/carrito'; }} aria-label={`Abrir bolsita, ${cart.length} productos`}><ShoppingBag size={22} /><span key={cart.length} className="cart-fab-badge">{cart.length}</span></button>}
       {content.whatsapp && <a className="whatsapp-fab" href={`https://wa.me/${content.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" aria-label="Escríbenos por WhatsApp"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.18 3.03 14.69 2 12.04 2Zm0 18.12h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.19 8.19 0 0 1-1.26-4.33c0-4.53 3.69-8.22 8.23-8.22 2.2 0 4.26.86 5.82 2.41a8.16 8.16 0 0 1 2.41 5.82c0 4.53-3.69 8.2-8.2 8.2Zm4.51-6.15c-.25-.12-1.46-.72-1.68-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.16-.29.18-.53.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.83-.2-.48-.4-.42-.56-.42-.14 0-.31-.02-.47-.02s-.43.06-.66.31c-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.16 1.75 2.67 4.24 3.74.59.25 1.05.4 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.46-.6 1.66-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28Z" /></svg></a>}
