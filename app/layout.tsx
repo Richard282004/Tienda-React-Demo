@@ -9,18 +9,18 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 const siteUrl = 'https://tienda-react-demo.richardlagos2.workers.dev';
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: 'Lúmina — Amiguitos tejidos a mano', template: '%s · Lúmina' },
+  title: { default: 'MILUÉ LOOP — Amiguitos tejidos a mano', template: '%s · MILUÉ LOOP' },
   description: 'Llaveros y peluches de crochet hechos a mano, puntada por puntada. Envíos a todo Chile.',
   robots: { index: true, follow: true },
   openGraph: {
     type: 'website',
     locale: 'es_CL',
-    siteName: 'Lúmina',
-    title: 'Lúmina — Amiguitos tejidos a mano',
+    siteName: 'MILUÉ LOOP',
+    title: 'MILUÉ LOOP — Amiguitos tejidos a mano',
     description: 'Llaveros y peluches de crochet hechos a mano, puntada por puntada. Envíos a todo Chile.',
-    images: [{ url: '/lumina-hero.jpg', width: 1200, height: 630, alt: 'Llaveros y peluches Lúmina' }],
+    images: [{ url: '/lumina-hero.jpg', width: 1200, height: 630, alt: 'Llaveros y peluches MILUÉ LOOP' }],
   },
-  twitter: { card: 'summary_large_image', title: 'Lúmina — Amiguitos tejidos a mano', description: 'Llaveros y peluches de crochet hechos a mano.', images: ['/lumina-hero.jpg'] },
+  twitter: { card: 'summary_large_image', title: 'MILUÉ LOOP — Amiguitos tejidos a mano', description: 'Llaveros y peluches de crochet hechos a mano.', images: ['/lumina-hero.jpg'] },
   icons: { icon: '/favicon.svg' },
 };
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };
