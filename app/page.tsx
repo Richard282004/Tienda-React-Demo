@@ -398,7 +398,7 @@ export default function Home() {
           <div className="hero-actions"><Button className="primary-button" onClick={() => document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' })}>{lang === 'en' && content.heroCtaPrimary_en ? content.heroCtaPrimary_en : content.heroCtaPrimary} <ArrowRight size={17} /></Button><a className="text-link" href="#nosotros">{lang === 'en' && content.heroCtaSecondary_en ? content.heroCtaSecondary_en : content.heroCtaSecondary} <ArrowRight size={15} /></a></div>
           <div className="hero-notes"><span><Check size={15} /> {content.heroNote1}</span><span><Check size={15} /> {content.heroNote2}</span></div>
         </div>
-        <div className="hero-image-wrap"><div className="hero-scribble">para regalar<br />o regalarte <span>♡</span></div><img src="/lumina-hero.png" alt="Tres productos de crochet: un conejo, un oso y un hongo" className="hero-image" width={1122} height={1402} fetchPriority="high" /><div className="hero-sticker">nuevos<br /><strong>amiguitos</strong></div></div>
+        <div className="hero-image-wrap"><div className="hero-scribble">para regalar<br />o regalarte <span>♡</span></div><img src="/lumina-hero.jpg" alt="Tres productos de crochet: un conejo, un oso y un hongo" className="hero-image" width={1122} height={1402} fetchPriority="high" /><div className="hero-sticker">nuevos<br /><strong>amiguitos</strong></div></div>
       </section>
 
       <section className="work-showcase" aria-label="Trabajos recientes">
