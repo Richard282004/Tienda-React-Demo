@@ -366,6 +366,7 @@ export default function Home() {
         <div className="header-actions">
           <div className="lang-toggle" role="group" aria-label="Idioma / Language">
             <button type="button" className={lang === 'es' ? 'active' : ''} aria-pressed={lang === 'es'} onClick={() => setLangTo('es')}>ES</button>
+            <span aria-hidden="true">/</span>
             <button type="button" className={lang === 'en' ? 'active' : ''} aria-pressed={lang === 'en'} onClick={() => setLangTo('en')}>EN</button>
           </div>
           <Button aria-label="Buscar productos" variant="ghost" size="icon" className={`icon-button ${searchOpen ? 'active' : ''}`} onClick={() => setSearchOpen((open) => !open)}><Search size={19} /></Button>
