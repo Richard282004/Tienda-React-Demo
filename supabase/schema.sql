@@ -640,3 +640,30 @@ end $$;
 -- Zonas de envío tipo "retiro/entrega personal" no necesitan comuna/dirección
 -- para pagar (se coordina directo con la clienta, ej. por el chat del pedido).
 alter table public.shipping_rates add column if not exists requires_address boolean not null default true;
+
+-- Cancelar un pedido a mano desde el panel: solo la admin puede, y devuelve
+-- el stock reservado en el mismo paso (cancelar no pasa por Mercado Pago, así
+-- que el stock no se libera solo como sí ocurre vía el webhook de pago).
+create or replace function public.admin_cancel_order(p_order_id uuid)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  order_row record;
+begin
+  if not public.is_admin() then
+    raise exception 'not_authorized';
+  end if;
+  select id, items, status into order_row from public.orders where id = p_order_id;
+  if not found then
+    raise exception 'order_not_found';
+  end if;
+  if order_row.status <> 'cancelled' then
+    perform public.restore_order_stock(order_row.items);
+  end if;
+  update public.orders set status = 'cancelled', updated_at = now() where id = p_order_id;
+end;
+$$;
+revoke all on function public.admin_cancel_order(uuid) from public;
+grant execute on function public.admin_cancel_order(uuid) to authenticated;

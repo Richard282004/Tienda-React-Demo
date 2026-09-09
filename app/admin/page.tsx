@@ -195,11 +195,23 @@ export default function AdminPage() {
 
   const updateOrder = async (orderId: string, patch: Partial<Pick<Order, 'status' | 'tracking_number'>>) => {
     if (!supabase) return;
+    const previous = orders.find((item) => item.id === orderId);
     setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...patch } : order)));
-    const { error } = await supabase.from('orders').update(patch).eq('id', orderId);
-    if (error) { setMessage(error.message); await loadAdminData(); return; }
+    // Cancelar a mano un pedido no pasa por Mercado Pago, así que el stock
+    // reservado no vuelve solo: esta función lo devuelve y cambia el estado
+    // en un solo paso (solo la admin puede llamarla).
+    if (patch.status === 'cancelled' && previous && previous.status !== 'cancelled') {
+      const { error } = await supabase.rpc('admin_cancel_order', { p_order_id: orderId });
+      if (error) { setMessage(error.message); await loadAdminData(); return; }
+      if (patch.tracking_number !== undefined) {
+        await supabase.from('orders').update({ tracking_number: patch.tracking_number }).eq('id', orderId);
+      }
+    } else {
+      const { error } = await supabase.from('orders').update(patch).eq('id', orderId);
+      if (error) { setMessage(error.message); await loadAdminData(); return; }
+    }
     if (patch.status) {
-      const order = orders.find((item) => item.id === orderId);
+      const order = previous;
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       if (token) {
