@@ -28,6 +28,9 @@
 .cart-page-pay { width: 100%; margin-top: 8px; }
 .admin-select { width: 100%; }
 .cart-page-pickup-note { margin: 0; padding: 12px 14px; border: 1px dashed #d9c7c0; border-radius: 12px; background: #f6efeb; color: #6d5a61; font-size: 12.5px; line-height: 1.5; }
+.delivery-method-tabs { display: flex; gap: 4px; margin: -2px 0 2px; padding: 4px; border: 1px solid var(--border); border-radius: 99px; background: #f7f1ed; }
+.delivery-method-tabs button { flex: 1; min-height: 40px; border: 0; border-radius: 99px; padding: 8px 12px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out); }
+.delivery-method-tabs button.active { background: #fff; color: var(--plum); box-shadow: 0 2px 6px rgba(56,42,50,.06); }
 .cart-shipping-warning { display: flex; align-items: flex-start; gap: 8px; margin: -4px 0 0; padding: 12px 14px; border: 1px solid #e8b4b4; border-radius: 12px; background: #fdecec; color: #9a2f2f; font-size: 13px; font-weight: 600; line-height: 1.5; }
 @media (max-width: 860px) {
   .cart-page-grid { grid-template-columns: 1fr; }

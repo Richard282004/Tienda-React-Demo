@@ -94,6 +94,20 @@ export default function CarritoPage() {
   const selectedRate = shippingRates.find((rate) => rate.region === shipping.region);
   const requiresAddress = selectedRate?.requires_address ?? true;
   const shippingCost = calculateShipping(total, selectedRate?.cost);
+  const shippingZones = useMemo(() => shippingRates.filter((rate) => rate.requires_address ?? true), [shippingRates]);
+  const pickupZones = useMemo(() => shippingRates.filter((rate) => !(rate.requires_address ?? true)), [shippingRates]);
+  const [deliveryMethod, setDeliveryMethod] = useState<'shipping' | 'pickup'>('shipping');
+  useEffect(() => {
+    if (shipping.region && pickupZones.some((rate) => rate.region === shipping.region)) setDeliveryMethod('pickup');
+  }, [shipping.region, pickupZones]);
+  const chooseDeliveryMethod = (method: 'shipping' | 'pickup') => {
+    setDeliveryMethod(method);
+    if (method === 'pickup' && pickupZones.length === 1) {
+      setShipping((current) => ({ ...current, region: pickupZones[0].region }));
+    } else {
+      setShipping((current) => ({ ...current, region: '' }));
+    }
+  };
   const shippingComplete = Boolean(
     shipping.name.trim() &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shipping.email.trim()) &&
@@ -242,19 +256,33 @@ export default function CarritoPage() {
               <label>Nombre completo<Input required autoComplete="name" maxLength={120} value={shipping.name} onChange={(event) => setShipping({ ...shipping, name: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
               <label>Correo electrónico<Input required autoComplete="email" type="email" maxLength={254} value={shipping.email} onChange={(event) => setShipping({ ...shipping, email: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
               <label>Teléfono<Input required type="tel" autoComplete="tel" maxLength={40} value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /><small className="field-required">Campo obligatorio</small></label>
-              <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value })}>
-                <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
-                {shippingRates.map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
-              </NativeSelect><small className="field-required">Campo obligatorio</small></label>
+              {pickupZones.length > 0 && (
+                <div className="delivery-method-tabs" role="group" aria-label="Método de entrega">
+                  <button type="button" className={deliveryMethod === 'shipping' ? 'active' : ''} onClick={() => chooseDeliveryMethod('shipping')}>Envío a domicilio</button>
+                  <button type="button" className={deliveryMethod === 'pickup' ? 'active' : ''} onClick={() => chooseDeliveryMethod('pickup')}>Retiro / entrega personal</button>
+                </div>
+              )}
+              {deliveryMethod === 'shipping' || pickupZones.length === 0 ? (
+                <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value })}>
+                  <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
+                  {(pickupZones.length > 0 ? shippingZones : shippingRates).map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
+                </NativeSelect><small className="field-required">Campo obligatorio</small></label>
+              ) : pickupZones.length > 1 ? (
+                <label>Punto de retiro<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value })}>
+                  <NativeSelectOption value="">Selecciona una opción</NativeSelectOption>
+                  {pickupZones.map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
+                </NativeSelect><small className="field-required">Campo obligatorio</small></label>
+              ) : null}
+              {deliveryMethod === 'pickup' && pickupZones.length > 0 && (
+                <p className="cart-page-pickup-note">Entrega personal: no necesitas comuna ni dirección. Coordinamos el punto de entrega directo contigo (por WhatsApp o el chat del pedido).</p>
+              )}
               {selectedRate?.warning && <p className="cart-shipping-warning" role="alert">⚠ {selectedRate.warning}</p>}
-              {requiresAddress ? (
+              {requiresAddress && (
                 <>
                   <label>Comuna / ciudad<Input required maxLength={120} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
                   <label>Dirección<Input required autoComplete="address-line1" maxLength={250} value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /><small className="field-required">Campo obligatorio</small></label>
                   <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
                 </>
-              ) : (
-                <p className="cart-page-pickup-note">Entrega personal: no necesitas comuna ni dirección. Coordinamos el punto de entrega directo contigo (por WhatsApp o el chat del pedido).</p>
               )}
               {checkoutError && <p className="account-message">{checkoutError}</p>}
               {!isSupabaseConfigured && <p className="account-message">El pago no está disponible por el momento.</p>}
