@@ -159,7 +159,7 @@ export default function MiCuentaPage() {
               {addressForm ? (
                 <form onSubmit={saveAddress} className="account-page-form">
                   <label>Nombre de quien recibe<Input required value={addressForm.full_name} onChange={(event) => setAddressForm({ ...addressForm, full_name: event.target.value })} /></label>
-                  <label>Teléfono<Input required type="tel" value={addressForm.phone} onChange={(event) => setAddressForm({ ...addressForm, phone: event.target.value })} placeholder="+56 9 ..." /></label>
+                  <label>Teléfono<Input required type="tel" inputMode="tel" value={addressForm.phone} onChange={(event) => setAddressForm({ ...addressForm, phone: event.target.value })} placeholder="+56 9 ..." /></label>
                   <label>Región<NativeSelect required className="admin-select" value={addressForm.region} onChange={(event) => setAddressForm({ ...addressForm, region: event.target.value })}>
                     <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
                     {shippingRates.map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}

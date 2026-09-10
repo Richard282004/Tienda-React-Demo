@@ -255,7 +255,7 @@ export default function CarritoPage() {
               )}
               <label>Nombre completo<Input required autoComplete="name" maxLength={120} value={shipping.name} onChange={(event) => setShipping({ ...shipping, name: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
               <label>Correo electrónico<Input required autoComplete="email" type="email" maxLength={254} value={shipping.email} onChange={(event) => setShipping({ ...shipping, email: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
-              <label>Teléfono<Input required type="tel" autoComplete="tel" maxLength={40} value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /><small className="field-required">Campo obligatorio</small></label>
+              <label>Teléfono<Input required type="tel" inputMode="tel" autoComplete="tel" maxLength={40} value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /><small className="field-required">Campo obligatorio</small></label>
               {pickupZones.length > 0 && (
                 <div className="delivery-method-tabs" role="group" aria-label="Método de entrega">
                   <button type="button" className={deliveryMethod === 'shipping' ? 'active' : ''} onClick={() => chooseDeliveryMethod('shipping')}>Envío a domicilio</button>
