@@ -110,6 +110,25 @@ export default function AdminPage() {
     setFaqs((faqRows ?? []) as Faq[]);
   };
 
+  const [brandAssetBusy, setBrandAssetBusy] = useState<'logoUrl' | 'faviconUrl' | null>(null);
+  const uploadBrandAsset = async (field: 'logoUrl' | 'faviconUrl', file: File | undefined) => {
+    if (!supabase || !file) return;
+    if (!file.type.startsWith('image/')) { setMessage('El archivo debe ser una imagen.'); return; }
+    if (file.size > 1_000_000) { setMessage('La imagen es muy pesada (máx. 1 MB).'); return; }
+    setBrandAssetBusy(field); setMessage('');
+    const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
+    const path = `brand-${field === 'logoUrl' ? 'logo' : 'favicon'}-${crypto.randomUUID()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage.from('products').upload(path, file, { cacheControl: '3600' });
+    if (uploadError) { setBrandAssetBusy(null); setMessage(uploadError.message); return; }
+    const url = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
+    const nextContent = { ...content, [field]: url };
+    setContent(nextContent);
+    // Se guarda de inmediato para no depender de que recuerde apretar "Guardar".
+    const { error } = await supabase.from('site_content').upsert({ key: 'store', value: nextContent, updated_at: new Date().toISOString() });
+    setBrandAssetBusy(null);
+    setMessage(error ? error.message : field === 'logoUrl' ? 'Logo actualizado.' : 'Ícono de la pestaña actualizado (puede tardar en verse por la caché del navegador).');
+  };
+
   const addShowcaseItem = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase || !showcaseFile) { setMessage('Elige una foto para la vitrina.'); return; }
@@ -643,6 +662,26 @@ export default function AdminPage() {
       <TabsContent value="content">
         <form className="content-editor" onSubmit={saveContent}><div className="admin-section-heading"><div><h2>Textos y contacto</h2><p>Cambia el contenido principal sin tocar código.</p></div><Button disabled={busy} type="submit"><Save size={17} /> Guardar cambios</Button></div>
           <section><h3>Marca</h3><div className="form-grid"><label>Nombre de la tienda<Input value={content.brandName} onChange={(event) => setContent({ ...content, brandName: event.target.value })} /></label><label>Frase bajo el nombre<Input value={content.brandTagline} onChange={(event) => setContent({ ...content, brandTagline: event.target.value })} /></label></div></section>
+          <section><h3>Logo e ícono</h3><p className="admin-section-note">El logo sale arriba a la izquierda en la tienda. El ícono es el que aparece en la pestaña del navegador (mejor cuadrado, PNG o SVG). Se guardan al subirlos. Déjalos vacíos para usar el diseño por defecto (✦).</p>
+            <div className="brand-asset-row">
+              <div className="brand-asset">
+                <span className="brand-asset-preview">{content.logoUrl ? <img src={content.logoUrl} alt="Logo actual" /> : <span className="brand-asset-mark">✦</span>}</span>
+                <div>
+                  <strong>Logo de la tienda</strong>
+                  <label className="brand-asset-upload">{brandAssetBusy === 'logoUrl' ? 'Subiendo…' : content.logoUrl ? 'Cambiar logo' : 'Subir logo'}<input type="file" accept="image/*" disabled={brandAssetBusy !== null} onChange={(event) => void uploadBrandAsset('logoUrl', event.target.files?.[0])} /></label>
+                  {content.logoUrl && <button type="button" className="brand-asset-clear" onClick={() => setContent({ ...content, logoUrl: '' })}>Quitar (recuerda Guardar)</button>}
+                </div>
+              </div>
+              <div className="brand-asset">
+                <span className="brand-asset-preview">{content.faviconUrl ? <img src={content.faviconUrl} alt="Ícono actual" /> : <span className="brand-asset-mark">✦</span>}</span>
+                <div>
+                  <strong>Ícono de la pestaña</strong>
+                  <label className="brand-asset-upload">{brandAssetBusy === 'faviconUrl' ? 'Subiendo…' : content.faviconUrl ? 'Cambiar ícono' : 'Subir ícono'}<input type="file" accept="image/png,image/svg+xml,image/x-icon,image/webp" disabled={brandAssetBusy !== null} onChange={(event) => void uploadBrandAsset('faviconUrl', event.target.files?.[0])} /></label>
+                  {content.faviconUrl && <button type="button" className="brand-asset-clear" onClick={() => setContent({ ...content, faviconUrl: '' })}>Quitar (recuerda Guardar)</button>}
+                </div>
+              </div>
+            </div>
+          </section>
           <section><h3>Categorías y moneda</h3><p className="admin-section-note">Cambia esto para vender otro tipo de producto o en otro país, sin tocar código.</p><div className="form-grid"><label className="full">Categorías de producto (separadas por coma)<Input value={content.categories.join(', ')} onChange={(event) => setContent({ ...content, categories: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Llaveros, Peluches" /></label><label>Código de moneda (ISO 4217)<Input value={content.currency} onChange={(event) => setContent({ ...content, currency: event.target.value.trim().toUpperCase() })} placeholder="CLP" /></label><label>Locale de formato<Input value={content.locale} onChange={(event) => setContent({ ...content, locale: event.target.value.trim() })} placeholder="es-CL" /></label></div></section>
           <section><h3>Portada</h3><div className="form-grid"><label>Texto superior<Input value={content.heroEyebrow} onChange={(event) => setContent({ ...content, heroEyebrow: event.target.value })} /></label><label>Título<Input value={content.heroTitle} onChange={(event) => setContent({ ...content, heroTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.heroHighlight} onChange={(event) => setContent({ ...content, heroHighlight: event.target.value })} /></label><label className="full">Descripción<Textarea value={content.heroDescription} onChange={(event) => setContent({ ...content, heroDescription: event.target.value })} /></label><label>Botón principal<Input value={content.heroCtaPrimary} onChange={(event) => setContent({ ...content, heroCtaPrimary: event.target.value })} /></label><label>Enlace secundario<Input value={content.heroCtaSecondary} onChange={(event) => setContent({ ...content, heroCtaSecondary: event.target.value })} /></label><label>Nota 1<Input value={content.heroNote1} onChange={(event) => setContent({ ...content, heroNote1: event.target.value })} /></label><label>Nota 2<Input value={content.heroNote2} onChange={(event) => setContent({ ...content, heroNote2: event.target.value })} /></label></div></section>
           <section><h3>Franja de categorías</h3><div className="form-grid"><label>Texto 1<Input value={content.categoryText1} onChange={(event) => setContent({ ...content, categoryText1: event.target.value })} /></label><label>Texto 2<Input value={content.categoryText2} onChange={(event) => setContent({ ...content, categoryText2: event.target.value })} /></label><label>Texto 3<Input value={content.categoryText3} onChange={(event) => setContent({ ...content, categoryText3: event.target.value })} /></label></div></section>

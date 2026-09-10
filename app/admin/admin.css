@@ -154,3 +154,15 @@
   .image-adjust-preview { width: 100%; height: 160px; }
   .setup-card, .admin-login { max-height: calc(100dvh - 28px); overflow-y: auto; padding: 28px 22px; }
 }
+
+.brand-asset-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+.brand-asset { display: flex; align-items: center; gap: 14px; border: 1px solid #e9ddd8; border-radius: 14px; padding: 14px; background: #fffaf7; }
+.brand-asset > div { display: grid; gap: 6px; }
+.brand-asset strong { font-size: 13px; color: #4a363d; }
+.brand-asset-preview { display: grid; place-items: center; width: 52px; height: 52px; flex-shrink: 0; border-radius: 12px; overflow: hidden; background: #f3e9e4; }
+.brand-asset-preview img { width: 100%; height: 100%; object-fit: contain; }
+.brand-asset-mark { color: #a74060; font-size: 22px; }
+.brand-asset-upload { display: inline-flex; align-items: center; width: fit-content; padding: 7px 12px; border: 1px solid #d9c7c0; border-radius: 9px; background: #fff; color: #6d5a61; font-size: 12px; font-weight: 700; cursor: pointer; }
+.brand-asset-upload input { display: none; }
+.brand-asset-clear { width: fit-content; border: 0; background: none; padding: 0; color: #9f5367; font-size: 11px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+@media (max-width: 620px) { .brand-asset-row { grid-template-columns: 1fr; } }

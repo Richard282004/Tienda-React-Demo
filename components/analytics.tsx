@@ -33,7 +33,9 @@ export function Analytics() {
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
-        ids = (data?.value as { gaId?: string; metaPixelId?: string } | undefined) ?? {};
+        const value = (data?.value as { gaId?: string; metaPixelId?: string; faviconUrl?: string } | undefined) ?? {};
+        ids = value;
+        applyFavicon(value.faviconUrl);
         tryLoad();
       });
     const onConsentChange = () => tryLoad();
@@ -42,6 +44,18 @@ export function Analytics() {
   }, []);
 
   return <CookieConsent />;
+}
+
+// El ícono de la pestaña se define en el <head> del servidor, pero si la
+// tienda ya está cargada (o el navegador cacheó el anterior) se reemplaza aquí.
+function applyFavicon(url?: string) {
+  if (!url) return;
+  const existing = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  if (existing?.href === url) return;
+  const link = existing ?? document.createElement('link');
+  link.rel = 'icon';
+  link.href = url;
+  if (!existing) document.head.appendChild(link);
 }
 
 function loadGoogleAnalytics(id: string) {

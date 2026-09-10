@@ -51,6 +51,8 @@ export type StoreContent = {
   privacyContent?: string;
   orderNotifyEmail?: string;
   lowStockThreshold?: number;
+  logoUrl?: string;
+  faviconUrl?: string;
 };
 
 export const defaultProducts: Product[] = [

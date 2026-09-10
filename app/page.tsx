@@ -353,7 +353,7 @@ export default function Home() {
 
       <header className="site-header">
         <a href="#inicio" className="brand" aria-label={`${content.brandName}, inicio`}>
-          <span className="brand-mark">✦</span>
+          {content.logoUrl ? <img className="brand-logo" src={content.logoUrl} alt="" /> : <span className="brand-mark">✦</span>}
           <span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span>
         </a>
         <nav id="main-navigation" className={`main-nav ${menuOpen ? 'open' : ''}`} aria-label="Navegación principal">
