@@ -86,8 +86,10 @@
   .admin-header { align-items: start; }
   .stat-cards { grid-template-columns: repeat(2, 1fr); }
   .admin-tabs { flex-direction: column !important; }
-  .admin-tabs-list { flex-direction: row !important; width: 100%; overflow-x: auto; position: static; white-space: nowrap; -webkit-overflow-scrolling: touch; }
-  .admin-tabs-list button { min-height: 40px; flex: 0 0 auto; width: auto; }
+  /* Rejilla que envuelve, sin scroll horizontal: así un swipe lateral no
+     arrastra la página ni cambia de pestaña por accidente. */
+  .admin-tabs-list { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(102px, 1fr)); height: auto !important; width: 100% !important; overflow: visible !important; position: static; white-space: normal; gap: 4px !important; }
+  .admin-tabs-list button { min-height: 46px; width: 100%; min-width: 0 !important; flex: none !important; justify-content: center !important; gap: 6px; padding-inline: 6px !important; font-size: 12px; line-height: 1.15; text-align: center; }
   .product-dialog { width: calc(100% - 32px) !important; max-height: calc(100dvh - 32px); }
 }
 
@@ -141,9 +143,8 @@
   .admin-shell { padding: 26px 16px 50px; }
   .admin-header > div:last-child { width: 100%; justify-content: space-between; flex-wrap: wrap; }
   .admin-tabs { margin-top: 16px !important; }
-  .admin-tabs-list { height: 52px !important; min-height: 52px; width: 100% !important; max-width: 100%; overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  .admin-tabs-list::-webkit-scrollbar { display: none; }
-  .admin-tabs-list button { flex: 0 0 auto; min-width: 0; min-height: 38px; padding-inline: 14px !important; font-size: 12px; white-space: nowrap; }
+  .admin-tabs-list { height: auto !important; min-height: 0; width: 100% !important; max-width: 100%; overflow: visible !important; }
+  .admin-tabs-list button { min-width: 0; min-height: 44px; padding-inline: 6px !important; font-size: 11.5px; white-space: normal; }
   .admin-product { grid-template-columns: 72px minmax(0, 1fr) auto; gap: 10px; }
   .admin-product-image { width: 72px; height: 72px; }
   .content-editor section { padding: 20px 16px; }
