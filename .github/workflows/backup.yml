@@ -1,16 +1,14 @@
 name: Backup de la base de datos
 
-# Copia diaria de la base de Supabase (plan free solo guarda ~7 días).
-# El volcado se sube como artifact del workflow (privado, retención 90 días),
-# NO se commitea al repo para no dejar datos de clientes en el historial.
+# Copia diaria de los datos de Supabase, vía la API REST (sin pg_dump, sin
+# contraseña de la base). El esquema (tablas, funciones, políticas) ya vive en
+# supabase/schema.sql; esto respalda el CONTENIDO. Se sube como artifact
+# privado del workflow (90 días), NO se commitea al repo.
 #
-# Requiere el secret SUPABASE_DB_URL. IMPORTANTE: usa la cadena del
-# "Session pooler" (aws-...pooler.supabase.com:5432, usuario postgres.<ref>),
-# NO la conexión directa (db.<ref>.supabase.co) -- esa es IPv6 y los runners
-# de GitHub son IPv4, no conecta. Formato:
-#   postgresql://postgres.<ref>:<PASSWORD>@aws-0-<region>.pooler.supabase.com:5432/postgres
-# Si el password tiene símbolos (@ # / : ...), cámbialo a solo letras y números
-# en Supabase -> Settings -> Database -> Reset database password.
+# Requiere 2 secrets (GitHub -> Settings -> Secrets and variables -> Actions):
+#   SUPABASE_URL                = https://<ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY   = Supabase -> Project Settings -> API ->
+#                                 "service_role" secret (empieza con eyJ...)
 on:
   schedule:
     - cron: '17 6 * * *' # 06:17 UTC (~02:17 Chile) todos los días
@@ -23,37 +21,24 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
-      - name: Instalar cliente de PostgreSQL 17
-        run: |
-          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client-17
-          pg_dump --version
+      - uses: actions/checkout@v4
 
-      - name: Volcar la base
+      - name: Exportar tablas a JSON
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: |
-          if [ -z "$SUPABASE_DB_URL" ]; then
-            echo "Falta el secret SUPABASE_DB_URL — no hay nada que respaldar."
-            exit 1
-          fi
-          stamp=$(date -u +%Y%m%d-%H%M)
-          mkdir -p backup
-          # -Fc = formato comprimido, restaurable con pg_restore.
-          # --schema=public: solo los datos de la tienda (evita esquemas internos
-          # de Supabase que el rol del pooler no puede leer entero).
-          PGCONNECT_TIMEOUT=15 pg_dump --no-owner --no-privileges --schema=public -Fc \
-            "$SUPABASE_DB_URL" > "backup/supabase-$stamp.dump"
-          ls -lh backup/
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/backup-rest.mjs
 
-      - name: Subir el respaldo como artifact
-        id: upload
+      - name: Comprimir
+        run: |
+          cd backup && tar -czf ../supabase-backup.tar.gz * && cd ..
+          ls -lh supabase-backup.tar.gz
+
+      - name: Subir como artifact
         uses: actions/upload-artifact@v4
         with:
           name: supabase-backup
-          path: backup/*.dump
+          path: supabase-backup.tar.gz
           retention-days: 90
           if-no-files-found: error
 
