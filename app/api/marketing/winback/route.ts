@@ -9,7 +9,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 // (se marca winback_sent_at en todos sus pedidos al enviarlo).
 const MIN_DAYS = 30;
 const MAX_DAYS = 120;
-const BATCH = 40; // tope por corrida, para no saturar Resend
+const BATCH = 40; // tope por corrida, para no saturar el proveedor de correo
 
 type OrderRow = {
   customer_email: string;
@@ -27,9 +27,9 @@ export async function POST(request: Request) {
 
   const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-  const resendApiKey = env.RESEND_API_KEY as string | undefined;
+  const emailApiKey = env.BREVO_API_KEY as string | undefined;
   if (!supabaseUrl || !serviceRoleKey) return NextResponse.json({ ok: false }, { status: 503 });
-  if (!resendApiKey) return NextResponse.json({ ok: true, sent: 0, note: "sin Resend" });
+  if (!emailApiKey) return NextResponse.json({ ok: true, sent: 0, note: "sin correo" });
 
   const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
   const since = new Date(Date.now() - MAX_DAYS * 86_400_000).toISOString();
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
   const store = settings?.value as { brandName?: string; winbackCode?: string } | undefined;
   const brandName = store?.brandName || "Tu tienda";
-  const fromEmail = env.RESEND_FROM_EMAIL as string | undefined;
+  const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
   const storeUrl = new URL(request.url).origin;
 
   let sent = 0;
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     if (!claimed || !claimed.length) continue;
     try {
       await sendWinbackEmail({
-        apiKey: resendApiKey,
+        apiKey: emailApiKey,
         to: email,
         customerName: info.name ?? undefined,
         storeUrl,
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       });
       sent += 1;
     } catch {
-      /* Resend falló para este; el pedido ya quedó marcado para no reintentar en bucle. */
+      /* El correo falló para este; el pedido ya quedó marcado para no reintentar en bucle. */
     }
   }
 

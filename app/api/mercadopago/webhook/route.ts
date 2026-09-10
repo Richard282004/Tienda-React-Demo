@@ -61,18 +61,18 @@ export async function POST(request: Request) {
     if (orderStatus === "cancelled" && existingOrder && existingOrder.status !== "cancelled") {
       await supabase.rpc("restore_order_stock", { items: existingOrder.items });
     }
-    const resendApiKey = env.RESEND_API_KEY as string | undefined;
-    if (resendApiKey && existingOrder && existingOrder.status !== orderStatus) {
+    const emailApiKey = env.BREVO_API_KEY as string | undefined;
+    if (emailApiKey && existingOrder && existingOrder.status !== orderStatus) {
       try {
         const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
         const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; currency?: string; locale?: string; lowStockThreshold?: number } | undefined;
         const brandName = store?.brandName || "Tu tienda";
-        const fromEmail = env.RESEND_FROM_EMAIL as string | undefined;
+        const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
         const adminEmails = parseEmailList(store?.orderNotifyEmail);
-        await sendOrderStatusEmail({ apiKey: resendApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, brandName, fromEmail });
+        await sendOrderStatusEmail({ apiKey: emailApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, brandName, fromEmail });
         if (orderStatus === "paid" && adminEmails.length) {
           await sendNewOrderAdminEmail({
-            apiKey: resendApiKey,
+            apiKey: emailApiKey,
             to: adminEmails,
             orderId: payment.external_reference,
             customerName: existingOrder.customer_name,
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
             const { data: stockRows } = await supabase.from("products").select("name, stock").in("id", productIds);
             const low = (stockRows ?? []).filter((row): row is { name: string; stock: number } => typeof row.stock === "number" && row.stock <= threshold);
             if (low.length) {
-              await sendLowStockAdminEmail({ apiKey: resendApiKey, to: adminEmails, products: low, threshold, brandName, fromEmail });
+              await sendLowStockAdminEmail({ apiKey: emailApiKey, to: adminEmails, products: low, threshold, brandName, fromEmail });
             }
           }
         }

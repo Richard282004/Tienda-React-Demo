@@ -1,29 +1,44 @@
-// Envío de correos transaccionales vía la API REST de Resend (sin SDK, para
+// Envío de correos transaccionales vía la API REST de Brevo (sin SDK, para
 // que corra bien en el runtime de Cloudflare Workers).
 import { formatPrice } from './currency';
 import { parseEmailList } from './email-list';
 
 export { parseEmailList };
 
-const DEFAULT_FROM = 'onboarding@resend.dev';
+// Remitente de reserva. Brevo exige que el correo esté verificado en la cuenta;
+// se sobreescribe con BREVO_FROM_EMAIL. Si no hay uno verificado, Brevo rechaza
+// el envío con 400 y el correo simplemente no sale (el resto del pedido sigue).
+const DEFAULT_FROM = 'no-reply@example.com';
+
+// Acepta "Marca <correo@dominio>" o solo "correo@dominio".
+function parseSender(from: string): { name?: string; email: string } {
+  const match = from.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  if (match) return { name: match[1] || undefined, email: match[2].trim() };
+  return { email: from.trim() };
+}
 
 async function sendEmail(apiKey: string, from: string, to: string | string[], subject: string, html: string) {
-  const recipients = Array.isArray(to) ? to : [to];
-  const payload = JSON.stringify({ from, to: recipients, subject, html });
-  // Un reintento ante fallos transitorios de Resend (429 / 5xx / red caída):
+  const recipients = (Array.isArray(to) ? to : [to]).map((email) => ({ email }));
+  const payload = JSON.stringify({
+    sender: parseSender(from),
+    to: recipients,
+    subject,
+    htmlContent: html,
+  });
+  // Un reintento ante fallos transitorios de Brevo (429 / 5xx / red caída):
   // los correos salen desde rutas "fire-and-forget", así que sin esto un
   // hipo momentáneo pierde el aviso para siempre.
   let lastError = '';
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 600));
     try {
-      const response = await fetch('https://api.resend.com/emails', {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        headers: { 'Content-Type': 'application/json', accept: 'application/json', 'api-key': apiKey },
         body: payload,
       });
       if (response.ok) return;
-      lastError = `Resend error ${response.status}: ${await response.text().catch(() => '')}`;
+      lastError = `Brevo error ${response.status}: ${await response.text().catch(() => '')}`;
       if (response.status !== 429 && response.status < 500) break; // 4xx real: reintentar no ayuda
     } catch (error) {
       lastError = error instanceof Error ? error.message : 'fallo de red al enviar el correo';

@@ -21,8 +21,8 @@ export async function POST(request: Request) {
     // Antes de cancelarlos, avisa por correo a quien dejó un pedido a medias.
     // El update-con-returning "reclama" cada pedido (deja de ser null), así que
     // aunque esta ruta se llame en paralelo, el correo sale una sola vez.
-    const resendApiKey = env.RESEND_API_KEY;
-    if (resendApiKey) {
+    const emailApiKey = env.BREVO_API_KEY;
+    if (emailApiKey) {
       try {
         const cutoff = new Date(Date.now() - STALE_MINUTES * 60_000).toISOString();
         const { data: claimed } = await supabase
@@ -36,12 +36,12 @@ export async function POST(request: Request) {
           const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
           const store = settings?.value as { brandName?: string } | undefined;
           const brandName = store?.brandName || "Tu tienda";
-          const fromEmail = env.RESEND_FROM_EMAIL;
+          const fromEmail = env.BREVO_FROM_EMAIL;
           const storeUrl = new URL(request.url).origin;
           for (const order of claimed) {
             if (!order.customer_email) continue;
             await sendAbandonedCartEmail({
-              apiKey: resendApiKey,
+              apiKey: emailApiKey,
               to: order.customer_email,
               orderId: order.id,
               items: ((order.items ?? []) as OrderItem[]).map((item) => ({ name: item.name, quantity: item.quantity })),

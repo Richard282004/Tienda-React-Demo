@@ -138,7 +138,7 @@ Para operar la tienda usamos proveedores de servicios que procesan datos en nues
 - Supabase: almacenamiento de tu cuenta, pedidos y fotografías de productos.
 - Mercado Pago: procesamiento del pago (nunca vemos ni almacenamos los datos de tu tarjeta).
 - Google: si eliges iniciar sesión con tu cuenta de Google.
-- Resend: envío de los correos transaccionales de tu pedido.
+- Brevo: envío de los correos transaccionales de tu pedido.
 - Cloudflare: alojamiento del sitio web.
 
 Si activamos herramientas de análisis o publicidad (Google Analytics y/o Meta Pixel), te lo pedimos primero mediante el aviso de cookies del sitio; solo se activan si aceptas, y puedes cambiar tu decisión cuando quieras.

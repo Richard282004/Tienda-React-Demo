@@ -7,9 +7,9 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 export async function POST(request: Request) {
   const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-  const resendApiKey = env.RESEND_API_KEY as string | undefined;
+  const emailApiKey = env.BREVO_API_KEY as string | undefined;
   if (!supabaseUrl || !serviceRoleKey) return NextResponse.json({ ok: false }, { status: 503 });
-  if (!resendApiKey) return NextResponse.json({ ok: true }); // Sin Resend configurado, no hay correo que mandar.
+  if (!emailApiKey) return NextResponse.json({ ok: true }); // Sin proveedor de correo configurado, no hay correo que mandar.
 
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   try {
     const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
     const brandName = (settings?.value as { brandName?: string } | undefined)?.brandName || "Tu tienda";
-    await sendOrderStatusEmail({ apiKey: resendApiKey, to: order.customer_email, orderId: body.orderId, status: body.status, trackingNumber: body.trackingNumber, brandName, fromEmail: env.RESEND_FROM_EMAIL as string | undefined });
+    await sendOrderStatusEmail({ apiKey: emailApiKey, to: order.customer_email, orderId: body.orderId, status: body.status, trackingNumber: body.trackingNumber, brandName, fromEmail: env.BREVO_FROM_EMAIL as string | undefined });
   } catch {
     /* El correo es un complemento; el cambio de estado ya se guardó antes de llamar aquí. */
   }

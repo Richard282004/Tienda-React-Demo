@@ -220,24 +220,24 @@ export async function POST(request: Request) {
     }
 
     if (isFreeOrder) {
-      const resendApiKey = env.RESEND_API_KEY;
-      if (resendApiKey) {
+      const emailApiKey = env.BREVO_API_KEY;
+      if (emailApiKey) {
         try {
-          await sendOrderConfirmationEmail({ apiKey: resendApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, fromEmail: env.RESEND_FROM_EMAIL });
+          await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, fromEmail: env.BREVO_FROM_EMAIL });
           // Pedido gratis (100% descuento): no pasa por el webhook de Mercado
           // Pago, así que el aviso al admin y el de stock bajo van desde aquí.
           const adminEmails = parseEmailList(storeSettings.orderNotifyEmail);
           if (adminEmails.length) {
             await sendNewOrderAdminEmail({
-              apiKey: resendApiKey, to: adminEmails, orderId: order.id,
+              apiKey: emailApiKey, to: adminEmails, orderId: order.id,
               customerName: payload.customerName, customerEmail: payload.customerEmail, customerPhone: payload.customerPhone,
               region: payload.region, comuna: payload.comuna, address: payload.address, addressExtra: payload.addressExtra || null,
-              items: orderItems, total, brandName, fromEmail: env.RESEND_FROM_EMAIL, currency, locale,
+              items: orderItems, total, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale,
             });
             const threshold = typeof storeSettings.lowStockThreshold === "number" ? storeSettings.lowStockThreshold : 5;
             const { data: stockRows } = await supabase.from("products").select("name, stock").in("id", orderItems.map((item) => item.productId));
             const low = (stockRows ?? []).filter((row): row is { name: string; stock: number } => typeof row.stock === "number" && row.stock <= threshold);
-            if (low.length) await sendLowStockAdminEmail({ apiKey: resendApiKey, to: adminEmails, products: low, threshold, brandName, fromEmail: env.RESEND_FROM_EMAIL });
+            if (low.length) await sendLowStockAdminEmail({ apiKey: emailApiKey, to: adminEmails, products: low, threshold, brandName, fromEmail: env.BREVO_FROM_EMAIL });
           }
         } catch {
           /* El correo es un complemento: si falla, el pedido sigue su curso normal. */
@@ -262,10 +262,10 @@ export async function POST(request: Request) {
         currency,
       });
       await supabase.from("orders").update({ mp_preference_id: preferenceId }).eq("id", order.id);
-      const resendApiKey = env.RESEND_API_KEY;
-      if (resendApiKey) {
+      const emailApiKey = env.BREVO_API_KEY;
+      if (emailApiKey) {
         try {
-          await sendOrderConfirmationEmail({ apiKey: resendApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, fromEmail: env.RESEND_FROM_EMAIL });
+          await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, fromEmail: env.BREVO_FROM_EMAIL });
         } catch {
           /* El correo es un complemento: si falla, el pedido sigue su curso normal. */
         }

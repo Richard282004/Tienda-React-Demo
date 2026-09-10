@@ -44,7 +44,7 @@ export function parseCheckoutPayload(value: unknown): CheckoutPayload {
     return raw.trim();
   };
   // Se normaliza a minúsculas: "Nombre@Gmail.com" y "nombre@gmail.com" llegan
-  // al mismo correo, pero Resend (en modo de prueba) y otros proveedores
+  // al mismo correo, pero algunos proveedores de correo (en modo de prueba)
   // comparan la dirección tal cual, así que una mayúscula de más puede hacer
   // que el correo de confirmación no llegue.
   const customerEmail = field("customerEmail", 254).toLowerCase();

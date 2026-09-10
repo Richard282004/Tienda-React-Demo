@@ -63,12 +63,12 @@ export async function POST(request: Request) {
     .eq("id", body.orderId);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
-  const resendApiKey = env.RESEND_API_KEY as string | undefined;
-  if (resendApiKey) {
+  const emailApiKey = env.BREVO_API_KEY as string | undefined;
+  if (emailApiKey) {
     try {
       const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
       const brandName = (settings?.value as { brandName?: string } | undefined)?.brandName || "Tu tienda";
-      await sendOrderStatusEmail({ apiKey: resendApiKey, to: order.customer_email, orderId: body.orderId, status: "cancelled", trackingNumber: order.tracking_number, brandName, fromEmail: env.RESEND_FROM_EMAIL as string | undefined });
+      await sendOrderStatusEmail({ apiKey: emailApiKey, to: order.customer_email, orderId: body.orderId, status: "cancelled", trackingNumber: order.tracking_number, brandName, fromEmail: env.BREVO_FROM_EMAIL as string | undefined });
     } catch {
       /* El correo es un complemento. */
     }

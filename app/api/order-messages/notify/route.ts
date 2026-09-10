@@ -10,8 +10,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 export async function POST(request: Request) {
   const supabaseUrl = env.VITE_SUPABASE_URL;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
-  const resendApiKey = env.RESEND_API_KEY;
-  if (!supabaseUrl || !serviceRoleKey || !resendApiKey) return NextResponse.json({ ok: false }, { status: 503 });
+  const emailApiKey = env.BREVO_API_KEY;
+  if (!supabaseUrl || !serviceRoleKey || !emailApiKey) return NextResponse.json({ ok: false }, { status: 503 });
 
   const payload = (await request.json().catch(() => null)) as { orderId?: string; senderRole?: "admin" | "customer"; body?: string } | null;
   if (!payload?.orderId || !payload.senderRole || !payload.body?.trim()) return NextResponse.json({ ok: false }, { status: 400 });
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     if (!order) return NextResponse.json({ ok: false }, { status: 404 });
     const store = settings?.value as { brandName?: string; orderNotifyEmail?: string } | undefined;
     const brandName = store?.brandName || "Tu tienda";
-    const fromEmail = env.RESEND_FROM_EMAIL;
+    const fromEmail = env.BREVO_FROM_EMAIL;
     // Cliente escribe -> avisa a la tienda (uno o varios correos); tienda
     // escribe -> avisa al cliente.
     const to: string | string[] =
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     if (!to || (Array.isArray(to) && !to.length)) return NextResponse.json({ ok: true }); // sin destino: nada que avisar
 
     await sendOrderChatMessageEmail({
-      apiKey: resendApiKey,
+      apiKey: emailApiKey,
       to,
       orderId: payload.orderId,
       senderRole: payload.senderRole,

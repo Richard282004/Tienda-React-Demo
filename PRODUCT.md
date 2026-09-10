@@ -22,7 +22,7 @@ Frente a vender solo por Instagram/Mercado Libre: tienda propia con checkout rea
 
 - Base de datos/backend: Supabase (Postgres, Auth, Storage, Realtime).
 - Pagos: Mercado Pago, credenciales de producción.
-- Email transaccional: Resend.
+- Email transaccional: Brevo.
 - Deploy: Cloudflare Workers (vinext).
 - Codebase pensado también como plantilla reutilizable para futuros clientes (repo privado `tienda-base` separado); por eso categorías, moneda, locale y zonas de envío están des-hardcodeadas y viven en `site_content` / tabla `shipping_rates`.
 - Vendedora usa el panel admin para: productos (con reordenamiento drag-and-drop), stock, pedidos (cancelar con reembolso automático + restock), zonas de envío, contenido legal (términos/privacidad editables), consentimiento de analítica, y chat con clientes por pedido.
