@@ -4,9 +4,13 @@ name: Backup de la base de datos
 # El volcado se sube como artifact del workflow (privado, retención 90 días),
 # NO se commitea al repo para no dejar datos de clientes en el historial.
 #
-# Requiere el secret SUPABASE_DB_URL:
-#   Supabase -> Project Settings -> Database -> Connection string -> URI
-#   (usa la de "Session pooler" o la conexión directa; incluye la contraseña).
+# Requiere el secret SUPABASE_DB_URL. IMPORTANTE: usa la cadena del
+# "Session pooler" (aws-...pooler.supabase.com:5432, usuario postgres.<ref>),
+# NO la conexión directa (db.<ref>.supabase.co) -- esa es IPv6 y los runners
+# de GitHub son IPv4, no conecta. Formato:
+#   postgresql://postgres.<ref>:<PASSWORD>@aws-0-<region>.pooler.supabase.com:5432/postgres
+# Si el password tiene símbolos (@ # / : ...), cámbialo a solo letras y números
+# en Supabase -> Settings -> Database -> Reset database password.
 on:
   schedule:
     - cron: '17 6 * * *' # 06:17 UTC (~02:17 Chile) todos los días
@@ -19,12 +23,13 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
-      - name: Instalar cliente de PostgreSQL 16
+      - name: Instalar cliente de PostgreSQL 17
         run: |
           sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
           sudo apt-get update
-          sudo apt-get install -y postgresql-client-16
+          sudo apt-get install -y postgresql-client-17
+          pg_dump --version
 
       - name: Volcar la base
         env:
@@ -37,7 +42,10 @@ jobs:
           stamp=$(date -u +%Y%m%d-%H%M)
           mkdir -p backup
           # -Fc = formato comprimido, restaurable con pg_restore.
-          pg_dump --no-owner --no-privileges -Fc "$SUPABASE_DB_URL" > "backup/supabase-$stamp.dump"
+          # --schema=public: solo los datos de la tienda (evita esquemas internos
+          # de Supabase que el rol del pooler no puede leer entero).
+          PGCONNECT_TIMEOUT=15 pg_dump --no-owner --no-privileges --schema=public -Fc \
+            "$SUPABASE_DB_URL" > "backup/supabase-$stamp.dump"
           ls -lh backup/
 
       - name: Subir el respaldo como artifact
