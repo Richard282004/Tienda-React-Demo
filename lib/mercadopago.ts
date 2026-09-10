@@ -16,11 +16,29 @@ export async function createMercadoPagoPreference(opts: {
   currency?: string;
 }) {
   const { accessToken, orderId, items, shippingCost, discountAmount = 0, payerEmail, siteUrl, currency = 'CLP' } = opts;
+  // Mercado Pago rechaza (o deja el botón de pagar sin activarse) si algún
+  // item.unit_price es negativo, así que el descuento no puede viajar como
+  // una línea "Descuento" en negativo -- hay que repartirlo entre los
+  // productos, prorrateado según su peso en el subtotal, y nunca dejar un
+  // item en menos de 0.
+  const subtotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+  const discount = Math.max(0, Math.min(discountAmount, subtotal));
+  let remainingDiscount = discount;
+  const discountedItems = items.map((item, index) => {
+    const lineTotal = item.unit_price * item.quantity;
+    const isLast = index === items.length - 1;
+    const lineDiscount = isLast ? remainingDiscount : Math.min(remainingDiscount, subtotal > 0 ? Math.round((lineTotal / subtotal) * discount) : 0);
+    remainingDiscount -= lineDiscount;
+    const discountedLineTotal = Math.max(0, lineTotal - lineDiscount);
+    // unit_price recalculado desde el total de la línea ya con descuento para
+    // no perder centavos al dividir por quantity.
+    const unitPrice = item.quantity > 0 ? discountedLineTotal / item.quantity : discountedLineTotal;
+    return { title: item.title, quantity: item.quantity, unit_price: unitPrice, currency_id: currency };
+  });
   const body = {
     items: [
-      ...items.map((item) => ({ title: item.title, quantity: item.quantity, unit_price: item.unit_price, currency_id: currency })),
+      ...discountedItems,
       ...(shippingCost > 0 ? [{ title: 'Envío', quantity: 1, unit_price: shippingCost, currency_id: currency }] : []),
-      ...(discountAmount > 0 ? [{ title: 'Descuento', quantity: 1, unit_price: -discountAmount, currency_id: currency }] : []),
     ],
     payer: { email: payerEmail },
     external_reference: orderId,
