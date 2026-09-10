@@ -1,8 +1,9 @@
 name: Health check
 
-# Monitorea la tienda en producción. Si /api/health o la portada fallan,
-# abre (o actualiza) un issue; cuando vuelve, lo cierra. Opcional: si defines
-# el secret ALERT_WEBHOOK_URL (Slack/Discord), también manda un aviso ahí.
+# Monitorea la tienda en producción. Si /api/health o la portada fallan:
+#  - abre (o comenta) un issue con label "monitor"; lo cierra cuando vuelve
+#  - avisa por Telegram (secrets TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID)
+#  - opcional: webhook Slack/Discord (secret ALERT_WEBHOOK_URL)
 on:
   schedule:
     - cron: '*/15 * * * *' # cada 15 minutos
@@ -21,6 +22,8 @@ jobs:
     env:
       SITE_URL: ${{ vars.SITE_URL || 'https://tienda-react-demo.richardlagos2.workers.dev' }}
       ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
       - name: Probar /api/health y la portada
         id: probe
@@ -43,14 +46,8 @@ jobs:
             echo "status=up" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Avisar por webhook (si está configurado)
-        if: steps.probe.outputs.status == 'down' && env.ALERT_WEBHOOK_URL != ''
-        run: |
-          curl -sS -X POST -H 'Content-Type: application/json' \
-            -d "{\"text\":\"🔴 Tienda caída: ${{ steps.probe.outputs.detail }} — $SITE_URL\"}" \
-            "$ALERT_WEBHOOK_URL" || true
-
       - name: Abrir / cerrar issue según el estado
+        id: issue
         uses: actions/github-script@v7
         env:
           PROBE_STATUS: ${{ steps.probe.outputs.status }}
@@ -70,10 +67,39 @@ jobs:
               const body = `El chequeo automático falló: \`${detail}\`\n\nHora: ${new Date().toISOString()}`;
               if (open) {
                 await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: open.number, body });
+                core.setOutput('event', 'still-down');
               } else {
                 await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['monitor'] });
+                core.setOutput('event', 'went-down');
               }
             } else if (open) {
               await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: open.number, body: `Recuperada ✅ ${new Date().toISOString()}` });
               await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: open.number, state: 'closed' });
+              core.setOutput('event', 'recovered');
+            } else {
+              core.setOutput('event', 'ok');
             }
+
+      - name: Avisar por Telegram y webhook
+        if: steps.issue.outputs.event == 'went-down' || steps.issue.outputs.event == 'recovered'
+        env:
+          EVENT: ${{ steps.issue.outputs.event }}
+          DETAIL: ${{ steps.probe.outputs.detail }}
+        run: |
+          if [ "$EVENT" = "recovered" ]; then
+            MSG="✅ MILUÉ LOOP: la tienda volvió a responder — $SITE_URL"
+          else
+            MSG="🔴 MILUÉ LOOP: tienda caída ($DETAIL) — $SITE_URL"
+          fi
+
+          if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+            curl -sS --max-time 15 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${MSG}" \
+              --data "disable_web_page_preview=true" || true
+          fi
+
+          if [ -n "$ALERT_WEBHOOK_URL" ]; then
+            curl -sS --max-time 15 -X POST -H 'Content-Type: application/json' \
+              -d "{\"text\":\"${MSG}\"}" "$ALERT_WEBHOOK_URL" || true
+          fi

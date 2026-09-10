@@ -15,6 +15,9 @@ on:
 jobs:
   dump:
     runs-on: ubuntu-latest
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
     steps:
       - name: Instalar cliente de PostgreSQL 16
         run: |
@@ -38,9 +41,24 @@ jobs:
           ls -lh backup/
 
       - name: Subir el respaldo como artifact
+        id: upload
         uses: actions/upload-artifact@v4
         with:
           name: supabase-backup
           path: backup/*.dump
           retention-days: 90
           if-no-files-found: error
+
+      - name: Avisar por Telegram
+        if: always() && env.TELEGRAM_BOT_TOKEN != ''
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ "$JOB_STATUS" = "success" ]; then
+            MSG="💾 MILUÉ LOOP: backup de la base OK (artifact 'supabase-backup')."
+          else
+            MSG="⚠️ MILUÉ LOOP: el backup diario de la base FALLÓ. Revisa el workflow en GitHub."
+          fi
+          curl -sS --max-time 15 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MSG}" || true
