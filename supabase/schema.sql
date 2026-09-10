@@ -257,6 +257,9 @@ alter table public.products add column if not exists stock integer;
 alter table public.products drop constraint if exists products_type_check;
 alter table public.orders add column if not exists discount_code text;
 alter table public.orders add column if not exists discount_amount integer not null default 0 check (discount_amount >= 0);
+-- Marca de tiempo del correo "tu pedido quedó sin pagar" (carrito abandonado),
+-- para no enviarlo más de una vez por pedido.
+alter table public.orders add column if not exists abandoned_reminded_at timestamptz;
 
 -- ── Stock: reserva atómica al crear el pedido, devolución si se cancela ────
 

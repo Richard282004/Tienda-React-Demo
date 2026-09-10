@@ -5,8 +5,6 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Heart,
   LockKeyhole,
   Mail,
@@ -32,7 +30,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { defaultProducts, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
-import { type Faq, type ProductImage, type Review, type ShowcaseItem } from '@/lib/orders';
+import { type Faq, type Review, type ShowcaseItem } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 
@@ -93,10 +91,7 @@ export default function Home() {
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
-  const [productImages, setProductImages] = useState<Record<string, ProductImage[]>>({});
   const [reviews, setReviews] = useState<Record<string, Review[]>>({});
-  const [galleryProduct, setGalleryProduct] = useState<Product | null>(null);
-  const [galleryIndex, setGalleryIndex] = useState(0);
   const [reviewsProduct, setReviewsProduct] = useState<Product | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
@@ -148,10 +143,9 @@ export default function Home() {
     };
     const loadStore = async () => {
       try {
-        const [catalog, settings, gallery, reviewRows, showcaseRows, faqRows] = await Promise.all([
+        const [catalog, settings, reviewRows, showcaseRows, faqRows] = await Promise.all([
           client.from('products').select('*').eq('active', true).order('sort_order'),
           client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
-          client.from('product_images').select('*').order('sort_order'),
           client.from('reviews').select('*').order('created_at', { ascending: false }),
           client.from('showcase_items').select('*').eq('active', true).order('sort_order'),
           client.from('faqs').select('*').eq('active', true).order('sort_order'),
@@ -162,9 +156,6 @@ export default function Home() {
         const available = new Set((catalog.data ?? []).map((product) => product.id));
         setCart((current) => current.filter((id) => available.has(id)));
         if (settings.data?.value) setContent({ ...defaultStoreContent, ...(settings.data.value as Partial<StoreContent>) });
-        const imagesByProduct: Record<string, ProductImage[]> = {};
-        for (const image of (gallery.data ?? []) as ProductImage[]) (imagesByProduct[image.product_id] ??= []).push(image);
-        setProductImages(imagesByProduct);
         const reviewsByProduct: Record<string, Review[]> = {};
         for (const review of (reviewRows.data ?? []) as Review[]) (reviewsByProduct[review.product_id] ??= []).push(review);
         setReviews(reviewsByProduct);
@@ -328,9 +319,6 @@ export default function Home() {
     setReviewMessage('¡Gracias por tu reseña!');
   };
 
-  const openGallery = (product: Product, index = 0) => { setGalleryProduct(product); setGalleryIndex(index); };
-  const galleryImages = galleryProduct ? [galleryProduct.image_url, ...(productImages[galleryProduct.id] ?? []).map((image) => image.image_url)].filter(Boolean) as string[] : [];
-
   return (
     <main className="site-shell">
       <a className="skip-link" href="#tienda">Saltar a la colección</a>
@@ -469,20 +457,6 @@ export default function Home() {
 
       {cart.length > 0 && scrolledPastHeader && <button type="button" className="cart-fab" onClick={() => { window.location.href = '/carrito'; }} aria-label={`Abrir bolsita, ${cart.length} productos`}><ShoppingBag size={22} /><span key={cart.length} className="cart-fab-badge">{cart.length}</span></button>}
       {content.whatsapp && <a className="whatsapp-fab" href={`https://wa.me/${content.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" aria-label="Escríbenos por WhatsApp"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.13-2.9-7C17.18 3.03 14.69 2 12.04 2Zm0 18.12h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.14.82.84-3.06-.2-.31a8.19 8.19 0 0 1-1.26-4.33c0-4.53 3.69-8.22 8.23-8.22 2.2 0 4.26.86 5.82 2.41a8.16 8.16 0 0 1 2.41 5.82c0 4.53-3.69 8.2-8.2 8.2Zm4.51-6.15c-.25-.12-1.46-.72-1.68-.8-.23-.08-.39-.12-.56.12-.16.25-.64.8-.78.96-.14.16-.29.18-.53.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.15.16-.25.25-.41.08-.16.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.83-.2-.48-.4-.42-.56-.42-.14 0-.31-.02-.47-.02s-.43.06-.66.31c-.23.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.16 1.75 2.67 4.24 3.74.59.25 1.05.4 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.46-.6 1.66-1.18.21-.58.21-1.07.14-1.18-.06-.1-.22-.16-.47-.28Z" /></svg></a>}
-
-      <Dialog open={!!galleryProduct} onOpenChange={(open) => !open && setGalleryProduct(null)}>
-        <DialogContent className="gallery-dialog">
-          <DialogHeader><DialogTitle>{galleryProduct?.name}</DialogTitle><DialogDescription>Fotos del producto</DialogDescription></DialogHeader>
-          {galleryProduct && <div className="gallery-viewer">
-            <img src={galleryImages[galleryIndex]} alt={galleryProduct.name} />
-            {galleryImages.length > 1 && <>
-              <button className="gallery-nav prev" onClick={() => setGalleryIndex((index) => (index - 1 + galleryImages.length) % galleryImages.length)} aria-label="Foto anterior"><ChevronLeft size={20} /></button>
-              <button className="gallery-nav next" onClick={() => setGalleryIndex((index) => (index + 1) % galleryImages.length)} aria-label="Foto siguiente"><ChevronRight size={20} /></button>
-              <div className="gallery-dots">{galleryImages.map((_, index) => <span key={index} className={index === galleryIndex ? 'active' : ''} />)}</div>
-            </>}
-          </div>}
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={!!reviewsProduct} onOpenChange={(open) => !open && setReviewsProduct(null)}>
         <DialogContent className="reviews-dialog">

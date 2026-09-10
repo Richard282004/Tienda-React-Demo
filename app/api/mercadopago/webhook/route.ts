@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { sendNewOrderAdminEmail, sendOrderStatusEmail } from "@/lib/email";
 import { fetchMercadoPagoPayment } from "@/lib/mercadopago";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const paymentStatusToOrderStatus: Record<string, "paid" | "cancelled" | "pending"> = {
@@ -15,6 +16,13 @@ const paymentStatusToOrderStatus: Record<string, "paid" | "cancelled" | "pending
 };
 
 export async function POST(request: Request) {
+  // Mercado Pago reintenta de forma legítima, así que el tope es holgado; solo
+  // corta una avalancha de notificaciones falsas que nos harían consultar su
+  // API una y otra vez.
+  if (!rateLimit(`mp-webhook:${clientIp(request)}`, 120, 60).allowed) {
+    return NextResponse.json({ ok: false }, { status: 429 });
+  }
+
   const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
   const mpAccessToken = env.MP_ACCESS_TOKEN as string | undefined;

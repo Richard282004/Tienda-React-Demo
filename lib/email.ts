@@ -116,6 +116,29 @@ export async function sendOrderChatMessageEmail(opts: {
   await sendEmail(opts.apiKey, from, opts.to, subject, html);
 }
 
+export async function sendAbandonedCartEmail(opts: {
+  apiKey: string;
+  to: string;
+  orderId: string;
+  items: { name: string; quantity: number }[];
+  storeUrl: string;
+  brandName?: string;
+  fromEmail?: string;
+}) {
+  const brandName = opts.brandName || 'Tu tienda';
+  const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
+  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name}</li>`).join('');
+  const html = wrap(
+    brandName,
+    '¿Se te quedó algo en la bolsita?',
+    `<p>Empezaste un pedido pero no alcanzamos a recibir el pago, así que liberamos el stock que tenías reservado.</p>
+     <ul>${itemsHtml}</ul>
+     <p>Si todavía lo quieres, está a un clic:</p>
+     <p><a href="${opts.storeUrl}/#tienda" style="display:inline-block; background:#5c2640; color:#fff; padding:12px 22px; border-radius:999px; text-decoration:none;">Volver a la tienda</a></p>`,
+  );
+  await sendEmail(opts.apiKey, from, opts.to, `¿Se te quedó algo? — ${brandName}`, html);
+}
+
 export async function sendOrderStatusEmail(opts: { apiKey: string; to: string; orderId: string; status: string; trackingNumber?: string | null; brandName?: string; fromEmail?: string }) {
   const copy = statusCopy[opts.status];
   if (!copy) return;

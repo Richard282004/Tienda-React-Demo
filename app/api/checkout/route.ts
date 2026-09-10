@@ -7,9 +7,20 @@ import {
 } from "@/lib/checkout-validation";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 import { createMercadoPagoPreference } from "@/lib/mercadopago";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(request: Request) {
+  // Crear pedido reserva stock y llama a Mercado Pago: máx. 10 intentos por
+  // minuto por IP es de sobra para una persona comprando y frena bots.
+  const limit = rateLimit(`checkout:${clientIp(request)}`, 10, 60);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Demasiados intentos seguidos. Espera un momento y vuelve a intentarlo." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
   const supabaseUrl = env.VITE_SUPABASE_URL;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
   const mpAccessToken = env.MP_ACCESS_TOKEN;
