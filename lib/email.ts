@@ -92,6 +92,30 @@ export async function sendNewOrderAdminEmail(opts: {
   await sendEmail(opts.apiKey, from, opts.to, `¡Nueva venta! Pedido #${opts.orderId.slice(0, 8)} — ${brandName}`, html);
 }
 
+export async function sendOrderChatMessageEmail(opts: {
+  apiKey: string;
+  to: string;
+  orderId: string;
+  senderRole: 'admin' | 'customer';
+  body: string;
+  brandName?: string;
+  fromEmail?: string;
+}) {
+  const brandName = opts.brandName || 'Tu tienda';
+  const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
+  const senderLabel = opts.senderRole === 'admin' ? brandName : 'Un cliente';
+  const whereToReply = opts.senderRole === 'admin' ? 'tu cuenta en la tienda' : 'el panel de administración';
+  const html = wrap(
+    brandName,
+    'Nuevo mensaje sobre tu pedido',
+    `<p>${senderLabel} te escribió sobre el pedido <strong>#${opts.orderId.slice(0, 8)}</strong>:</p>
+     <p style="background:#f6efeb; border-radius:12px; padding:14px 16px; margin:12px 0;">${opts.body.replace(/</g, '&lt;')}</p>
+     <p>Responde desde ${whereToReply}.</p>`,
+  );
+  const subject = opts.senderRole === 'admin' ? `Tienes un mensaje sobre tu pedido #${opts.orderId.slice(0, 8)} — ${brandName}` : `Nuevo mensaje de un cliente — Pedido #${opts.orderId.slice(0, 8)}`;
+  await sendEmail(opts.apiKey, from, opts.to, subject, html);
+}
+
 export async function sendOrderStatusEmail(opts: { apiKey: string; to: string; orderId: string; status: string; trackingNumber?: string | null; brandName?: string; fromEmail?: string }) {
   const copy = statusCopy[opts.status];
   if (!copy) return;

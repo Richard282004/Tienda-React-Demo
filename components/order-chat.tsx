@@ -47,9 +47,19 @@ export function OrderChat({ orderId, senderRole, currentUserId }: Props) {
     event.preventDefault();
     if (!supabase || !text.trim()) return;
     setSending(true);
-    const { error } = await supabase.from('order_messages').insert({ order_id: orderId, sender_id: currentUserId, sender_role: senderRole, body: text.trim() });
+    const body = text.trim();
+    const { error } = await supabase.from('order_messages').insert({ order_id: orderId, sender_id: currentUserId, sender_role: senderRole, body });
     setSending(false);
-    if (!error) setText('');
+    if (!error) {
+      setText('');
+      // Aviso por correo es un complemento del chat en vivo; si falla, el
+      // mensaje ya quedó guardado y visible igual.
+      fetch('/api/order-messages/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, senderRole, body }),
+      }).catch(() => {});
+    }
   };
 
   return (
@@ -63,7 +73,7 @@ export function OrderChat({ orderId, senderRole, currentUserId }: Props) {
             {messages.length === 0 && <p className="order-chat-empty">Sin mensajes todavía.</p>}
             {messages.map((message) => (
               <div key={message.id} className={`order-chat-bubble ${message.sender_id === currentUserId ? 'mine' : ''}`}>
-                <span className="order-chat-role">{message.sender_role === 'admin' ? 'Tienda' : 'Clienta'}</span>
+                <span className="order-chat-role">{message.sender_role === 'admin' ? 'Tienda' : 'Cliente'}</span>
                 <p>{message.body}</p>
               </div>
             ))}
