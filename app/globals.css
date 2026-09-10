@@ -441,3 +441,46 @@ h2 { font-size: clamp(34px, 3.6vw, 50px); line-height: 1.13; }
 
 .password-hint { display: block; margin-top: 5px; color: #8b747c; font-size: 11px; font-weight: 400; }
 .field-required { display: block; margin-top: -1px; color: #a4919a; font-size: 11px; font-weight: 400; }
+
+/* Cabecera en móvil: cuenta como ícono fijo junto a búsqueda y bolsita;
+   el menú de secciones pasa a ser un panel lateral deslizante. */
+@keyframes nav-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 900px) {
+  .account-icon { display: inline-grid !important; }
+  .mobile-account { display: none !important; }
+  .header-actions .icon-button.bag-button { display: none !important; } /* Favoritos vive dentro del menú en móvil */
+
+  .nav-overlay { position: fixed; inset: 0; z-index: 14; background: rgba(53,31,44,.38); backdrop-filter: blur(2px); animation: nav-fade .2s ease-out; }
+  /* .site-header trae z-index: 5 de base, lo que atrapa el panel y sus botones
+     por debajo del overlay -- se sube por encima, y dentro de él los íconos
+     (incluido el ✕) quedan sobre el panel. */
+  .site-header { z-index: 20; }
+  .header-actions { position: relative; z-index: 16; }
+
+  .main-nav {
+    display: flex !important;
+    position: fixed;
+    inset: 0 0 0 auto;
+    width: min(320px, 82vw);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+    padding: 82px 22px 28px;
+    background: var(--cream);
+    border: 0;
+    box-shadow: -18px 0 40px rgba(53,31,44,.16);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform .28s var(--ease-out), visibility .28s;
+    z-index: 15;
+    overflow-y: auto;
+  }
+  .main-nav.open { transform: translateX(0); visibility: visible; }
+  .main-nav a { padding: 16px 2px; border-bottom: 1px solid #ece0da; font-size: 15px; color: var(--ink); }
+  .main-nav a::after { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .main-nav { transition: none; }
+  .nav-overlay { animation: none; }
+}

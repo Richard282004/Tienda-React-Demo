@@ -71,6 +71,11 @@ export default function Home() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
   useEffect(() => {
+    // Bloquea el scroll del fondo mientras el menú lateral está abierto.
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menuOpen]);
+  useEffect(() => {
     // Aprovecha cada visita para liberar el stock de pedidos abandonados
     // (pending sin pago hace más de 10 min), sin depender de un cron.
     fetch('/api/orders/expire', { method: 'POST' }).catch(() => {});
@@ -345,7 +350,6 @@ export default function Home() {
           <span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span>
         </a>
         <nav id="main-navigation" className={`main-nav ${menuOpen ? 'open' : ''}`} aria-label="Navegación principal">
-          <button className="mobile-account" onClick={() => { setMenuOpen(false); openAccount('login'); }}><UserRound size={18} /> {sessionEmail ? 'Mi cuenta' : 'Iniciar sesión / Crear cuenta'}</button>
           <a href="#inicio" onClick={() => setMenuOpen(false)}>Inicio</a>
           <a href="#tienda" onClick={() => setMenuOpen(false)}>Tienda</a>
           <a href="#nosotros" onClick={() => setMenuOpen(false)}>Sobre nosotros</a>
@@ -359,6 +363,7 @@ export default function Home() {
           <Button aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"} aria-expanded={menuOpen} aria-controls="main-navigation" variant="ghost" size="icon" className="menu-button" onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={21} /> : <Menu size={21} />}</Button>
         </div>
       </header>
+      {menuOpen && <div className="nav-overlay" onClick={() => setMenuOpen(false)} aria-hidden="true" />}
 
       {searchOpen && (
         <>
