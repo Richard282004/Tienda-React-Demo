@@ -189,19 +189,29 @@ export async function sendWinbackEmail(opts: {
 }) {
   const brandName = opts.brandName || 'Tu tienda';
   const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
-  const hi = opts.customerName ? `Hola ${opts.customerName.split(' ')[0]},` : 'Hola,';
+  const hi = opts.customerName ? `Hola, ${opts.customerName.split(' ')[0]}:` : 'Hola:';
   const codeBlock = opts.discountCode
-    ? `<p>Para animarte, usa el código <strong>${opts.discountCode}</strong> en tu próxima compra.</p>`
+    ? `<p style="background:#f6efeb; border-radius:12px; padding:14px 16px; margin:14px 0;">
+         Y como te extrañamos, tu próxima compra lleva un descuento con el código
+         <strong style="letter-spacing:.04em;">${opts.discountCode}</strong>.
+         Lo escribes en el carrito antes de pagar.
+       </p>`
     : '';
   const html = wrap(
     brandName,
-    'Te tenemos algo nuevo',
-    `<p>${hi} ha pasado un tiempo desde tu última compra en ${brandName} y queríamos saludarte.</p>
-     <p>Seguimos tejiendo amiguitos nuevos, puntada por puntada.</p>
+    'Hace tiempo que no te vemos',
+    `<p>${hi}</p>
+     <p>Pasó un tiempo desde que llegó a tus manos algo tejido acá, y quisimos escribirte para saludarte.</p>
+     <p>Seguimos en lo mismo de siempre: hacer amiguitos de crochet a mano, puntada por puntada, con lana suave y mucho cariño. Estas semanas sumamos personajes y colores nuevos que creemos que te van a gustar.</p>
      ${codeBlock}
-     <p><a href="${opts.storeUrl}/#tienda" style="display:inline-block; background:#5c2640; color:#fff; padding:12px 22px; border-radius:999px; text-decoration:none;">Ver la colección</a></p>`,
+     <p style="margin-top:18px;">
+       <a href="${opts.storeUrl}/#tienda" style="display:inline-block; background:#5c2640; color:#fff; padding:13px 24px; border-radius:999px; text-decoration:none; font-weight:700;">Ver lo nuevo</a>
+     </p>
+     <p style="margin-top:22px; color:#75646e; font-size:13px;">
+       Si tienes una idea o un personaje en mente, respóndenos este correo: los pedidos especiales también los tejemos.
+     </p>`,
   );
-  await sendEmail(opts.apiKey, from, opts.to, `Te extrañamos — ${brandName}`, html);
+  await sendEmail(opts.apiKey, from, opts.to, `Te tejimos cosas nuevas — ${brandName}`, html);
 }
 
 export async function sendOrderStatusEmail(opts: { apiKey: string; to: string; orderId: string; status: string; trackingNumber?: string | null; brandName?: string; fromEmail?: string }) {
