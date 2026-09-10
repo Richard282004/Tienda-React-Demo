@@ -166,3 +166,7 @@
 .brand-asset-upload input { display: none; }
 .brand-asset-clear { width: fit-content; border: 0; background: none; padding: 0; color: #9f5367; font-size: 11px; font-weight: 600; text-decoration: underline; cursor: pointer; }
 @media (max-width: 620px) { .brand-asset-row { grid-template-columns: 1fr; } }
+
+.order-card-transfer-confirm { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 4px; padding: 12px 14px; border: 1px solid #e8cf9a; border-radius: 12px; background: #fdf7ec; }
+.order-card-transfer-confirm p { margin: 0; font-size: 12.5px; color: #7a5a1e; line-height: 1.5; }
+@media (max-width: 620px) { .order-card-transfer-confirm { flex-direction: column; align-items: stretch; } }

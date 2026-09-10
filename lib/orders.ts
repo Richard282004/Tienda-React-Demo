@@ -27,6 +27,7 @@ export type Order = {
   discount_amount: number;
   total: number;
   status: OrderStatus;
+  payment_method?: 'mercadopago' | 'transfer';
   tracking_number: string | null;
   mp_preference_id: string | null;
   mp_payment_id: string | null;

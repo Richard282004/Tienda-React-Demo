@@ -17,6 +17,7 @@ export default function ConfirmacionPage() {
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
 
   const completed = !!order && ["paid", "shipped", "delivered"].includes(order.status);
+  const awaitingTransfer = !!order && order.status === "pending" && order.payment_method === "transfer";
 
   useEffect(() => {
     if (!supabase) return;
@@ -87,7 +88,9 @@ export default function ConfirmacionPage() {
                 ? "¡Gracias por tu compra!"
                 : order.status === "cancelled"
                   ? "El pago no se completó"
-                  : "Tu pago está en proceso"}
+                  : awaitingTransfer
+                    ? "Falta tu transferencia"
+                    : "Tu pago está en proceso"}
             </h1>
             <p className="confirmation-status">
               Estado: <strong>{orderStatusLabel[order.status]}</strong>
@@ -118,6 +121,19 @@ export default function ConfirmacionPage() {
                 </li>
               ))}
             </ul>
+            {awaitingTransfer && content.transferDetails?.trim() && (
+              <div className="confirmation-transfer">
+                <p className="confirmation-transfer-title">Transfiere {formatPrice(order.total)} a:</p>
+                <pre className="confirmation-transfer-details">{content.transferDetails.trim()}</pre>
+                <p className="confirmation-transfer-note">
+                  Después de transferir, envíanos el comprobante por WhatsApp
+                  {content.whatsapp ? (
+                    <> (<a href={`https://wa.me/${content.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">escribir</a>)</>
+                  ) : null}{" "}
+                  o respondiendo el correo de tu pedido. Reservamos tu pedido mientras confirmamos el pago.
+                </p>
+              </div>
+            )}
           </>
         )}
         {!isSupabaseConfigured && (

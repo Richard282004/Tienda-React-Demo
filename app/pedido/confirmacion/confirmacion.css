@@ -12,3 +12,9 @@
 .confirmation-items { display: grid; gap: 8px; margin: 0 0 24px; padding: 0; list-style: none; text-align: left; }
 .confirmation-items li { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #5c454c; }
 .confirmation-back { display: inline-flex; color: #b75874; font-size: 13px; font-weight: 700; }
+
+.confirmation-transfer { width: 100%; margin-top: 18px; padding: 16px 18px; border: 1px solid #e8cf9a; border-radius: 14px; background: #fdf7ec; text-align: left; }
+.confirmation-transfer-title { margin: 0 0 8px; font-weight: 700; color: #7a5a1e; font-size: 14px; }
+.confirmation-transfer-details { margin: 0; padding: 12px 14px; border-radius: 10px; background: #fffaf5; border: 1px solid #ece0da; font-family: var(--font-geist-mono, monospace); font-size: 13px; line-height: 1.7; white-space: pre-wrap; color: #351f2c; }
+.confirmation-transfer-note { margin: 10px 0 0; font-size: 12.5px; line-height: 1.6; color: #75646e; }
+.confirmation-transfer-note a { color: #a74060; font-weight: 700; }

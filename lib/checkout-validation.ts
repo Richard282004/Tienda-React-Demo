@@ -8,6 +8,7 @@ export type CheckoutPayload = {
   address: string;
   addressExtra?: string;
   discountCode?: string;
+  paymentMethod: "mercadopago" | "transfer";
 };
 
 export function parseCheckoutPayload(value: unknown): CheckoutPayload {
@@ -50,8 +51,10 @@ export function parseCheckoutPayload(value: unknown): CheckoutPayload {
   const customerEmail = field("customerEmail", 254).toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail))
     throw new Error("Ingresa un correo válido.");
+  const paymentMethod = record.paymentMethod === "transfer" ? "transfer" : "mercadopago";
   return {
     items: [...quantities].map(([productId, quantity]) => ({ productId, quantity })),
+    paymentMethod,
     customerName: field("customerName", 120),
     customerEmail,
     customerPhone: field("customerPhone", 40),

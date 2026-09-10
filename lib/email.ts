@@ -82,6 +82,39 @@ export async function sendOrderConfirmationEmail(opts: {
   await sendEmail(opts.apiKey, from, opts.to, `Pedido #${opts.orderId.slice(0, 8)} recibido — ${brandName}`, html);
 }
 
+export async function sendTransferInstructionsEmail(opts: {
+  apiKey: string;
+  to: string;
+  orderId: string;
+  items: { name: string; unitPrice: number; quantity: number }[];
+  total: number;
+  transferDetails: string;
+  holdHours: number;
+  storeUrl: string;
+  brandName?: string;
+  fromEmail?: string;
+  currency?: string;
+  locale?: string;
+}) {
+  const brandName = opts.brandName || 'Tu tienda';
+  const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
+  const price = (value: number) => formatPrice(value, opts.currency, opts.locale);
+  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name} — ${price(item.unitPrice * item.quantity)}</li>`).join('');
+  const detailsHtml = opts.transferDetails.replace(/</g, '&lt;').replace(/\n/g, '<br>');
+  const html = wrap(
+    brandName,
+    'Recibimos tu pedido — falta la transferencia',
+    `<p>Tu pedido <strong>#${opts.orderId.slice(0, 8)}</strong> quedó reservado. Para confirmarlo, transfiere el total:</p>
+     <ul>${itemsHtml}</ul>
+     <p><strong>Total a transferir: ${price(opts.total)}</strong></p>
+     <p style="background:#f6efeb; border-radius:12px; padding:14px 16px; margin:14px 0; line-height:1.7;">${detailsHtml}</p>
+     <p>Después de transferir, <strong>envíanos el comprobante</strong> respondiendo este correo o por el chat de tu pedido:
+       <a href="${opts.storeUrl}/pedido/confirmacion?order=${opts.orderId}">ver mi pedido</a>.</p>
+     <p style="color:#75646e; font-size:13px;">Guardamos tu reserva por ${opts.holdHours} horas. Si no recibimos la transferencia en ese plazo, el pedido se libera.</p>`,
+  );
+  await sendEmail(opts.apiKey, from, opts.to, `Transfiere para confirmar tu pedido #${opts.orderId.slice(0, 8)} — ${brandName}`, html);
+}
+
 const statusCopy: Record<string, { subject: string; title: string; body: (brandName: string) => string }> = {
   paid: { subject: 'Tu pago fue confirmado', title: '¡Pago confirmado!', body: () => 'Ya recibimos tu pago. Estamos preparando tu pedido para despacharlo pronto.' },
   shipped: { subject: 'Tu pedido va en camino', title: 'Tu pedido fue despachado', body: () => 'Tu pedido ya salió de nuestro taller y va en camino.' },
@@ -106,21 +139,28 @@ export async function sendNewOrderAdminEmail(opts: {
   fromEmail?: string;
   currency?: string;
   locale?: string;
+  pendingTransfer?: boolean;
 }) {
   const brandName = opts.brandName || 'Tu tienda';
   const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
   const price = (value: number) => formatPrice(value, opts.currency, opts.locale);
   const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name} — ${price(item.unitPrice * item.quantity)}</li>`).join('');
   const addressLine = [opts.address, opts.addressExtra].filter(Boolean).join(', ');
+  const lead = opts.pendingTransfer
+    ? `<p>Nuevo pedido <strong>por transferencia</strong> #${opts.orderId.slice(0, 8)} — <strong>pendiente de pago</strong>. Confírmalo en Admin → Pedidos cuando llegue la plata.</p>`
+    : `<p>Pago confirmado del pedido <strong>#${opts.orderId.slice(0, 8)}</strong>.</p>`;
   const html = wrap(
     brandName,
-    '¡Nueva venta!',
-    `<p>Pago confirmado del pedido <strong>#${opts.orderId.slice(0, 8)}</strong>.</p>
+    opts.pendingTransfer ? 'Nuevo pedido por transferencia' : '¡Nueva venta!',
+    `${lead}
      <ul>${itemsHtml}</ul>
      <p><strong>Total: ${price(opts.total)}</strong></p>
      <p><strong>${opts.customerName}</strong><br>${opts.customerEmail} · ${opts.customerPhone}<br>${opts.comuna}, ${opts.region}${addressLine ? `<br>${addressLine}` : ''}</p>`,
   );
-  await sendEmail(opts.apiKey, from, opts.to, `¡Nueva venta! Pedido #${opts.orderId.slice(0, 8)} — ${brandName}`, html);
+  const subject = opts.pendingTransfer
+    ? `Nuevo pedido por transferencia #${opts.orderId.slice(0, 8)} — ${brandName}`
+    : `¡Nueva venta! Pedido #${opts.orderId.slice(0, 8)} — ${brandName}`;
+  await sendEmail(opts.apiKey, from, opts.to, subject, html);
 }
 
 export async function sendOrderChatMessageEmail(opts: {

@@ -97,6 +97,9 @@ export default function CarritoPage() {
   const shippingZones = useMemo(() => shippingRates.filter((rate) => rate.requires_address ?? true), [shippingRates]);
   const pickupZones = useMemo(() => shippingRates.filter((rate) => !(rate.requires_address ?? true)), [shippingRates]);
   const [deliveryMethod, setDeliveryMethod] = useState<'shipping' | 'pickup'>('shipping');
+  const transferAvailable = Boolean(content.transferEnabled && content.transferDetails?.trim());
+  const [paymentMethod, setPaymentMethod] = useState<'mercadopago' | 'transfer'>('mercadopago');
+  useEffect(() => { if (!transferAvailable) setPaymentMethod('mercadopago'); }, [transferAvailable]);
   useEffect(() => {
     if (shipping.region && pickupZones.some((rate) => rate.region === shipping.region)) setDeliveryMethod('pickup');
   }, [shipping.region, pickupZones]);
@@ -163,6 +166,7 @@ export default function CarritoPage() {
           address: shipping.address,
           addressExtra: shipping.addressExtra,
           discountCode: appliedDiscount?.code,
+          paymentMethod,
         }),
       });
       const data = (await response.json()) as { initPoint?: string; error?: string };
@@ -284,9 +288,21 @@ export default function CarritoPage() {
                   <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
                 </>
               )}
+              {transferAvailable && (
+                <div className="cart-page-form" style={{ marginTop: 4, paddingTop: 0, borderTop: 0 }}>
+                  <p className="cart-page-form-heading">Método de pago</p>
+                  <div className="delivery-method-tabs" role="group" aria-label="Método de pago">
+                    <button type="button" className={paymentMethod === 'mercadopago' ? 'active' : ''} onClick={() => setPaymentMethod('mercadopago')}>Tarjeta / Mercado Pago</button>
+                    <button type="button" className={paymentMethod === 'transfer' ? 'active' : ''} onClick={() => setPaymentMethod('transfer')}>Transferencia bancaria</button>
+                  </div>
+                  {paymentMethod === 'transfer' && (
+                    <p className="cart-page-pickup-note">Al confirmar te mostramos los datos para transferir. El pedido se reserva y se despacha cuando confirmemos el pago (revisamos las transferencias a diario).</p>
+                  )}
+                </div>
+              )}
               {checkoutError && <p className="account-message">{checkoutError}</p>}
               {!isSupabaseConfigured && <p className="account-message">El pago no está disponible por el momento.</p>}
-              <Button disabled={checkoutBusy || !shippingComplete || shippingCost === null || cartProducts.length === 0} type="submit" className="primary-button cart-page-pay">{checkoutBusy ? 'Redirigiendo a Mercado Pago…' : 'Ir a pagar'} <ArrowRight size={16} /></Button>
+              <Button disabled={checkoutBusy || !shippingComplete || shippingCost === null || cartProducts.length === 0} type="submit" className="primary-button cart-page-pay">{checkoutBusy ? (paymentMethod === 'transfer' ? 'Creando tu pedido…' : 'Redirigiendo a Mercado Pago…') : paymentMethod === 'transfer' ? 'Confirmar pedido' : 'Ir a pagar'} <ArrowRight size={16} /></Button>
             </form>
           </aside>
         </div>

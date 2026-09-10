@@ -5,7 +5,7 @@ import {
   parseCheckoutPayload,
   type CheckoutPayload,
 } from "@/lib/checkout-validation";
-import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderConfirmationEmail } from "@/lib/email";
+import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderConfirmationEmail, sendTransferInstructionsEmail } from "@/lib/email";
 import { createMercadoPagoPreference } from "@/lib/mercadopago";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -72,7 +72,11 @@ export async function POST(request: Request) {
       /* No crítico: si falla, el checkout sigue con el stock disponible actual. */
     }
     const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
-    const storeSettings = (settings?.value ?? {}) as { brandName?: string; currency?: string; locale?: string; orderNotifyEmail?: string; lowStockThreshold?: number };
+    const storeSettings = (settings?.value ?? {}) as { brandName?: string; currency?: string; locale?: string; orderNotifyEmail?: string; lowStockThreshold?: number; transferEnabled?: boolean; transferDetails?: string; transferHoldHours?: number };
+    const isTransfer = payload.paymentMethod === "transfer";
+    if (isTransfer && !(storeSettings.transferEnabled && storeSettings.transferDetails?.trim())) {
+      return NextResponse.json({ error: "El pago por transferencia no está disponible en este momento." }, { status: 400 });
+    }
     const brandName = storeSettings.brandName || "Tu tienda";
     const currency = storeSettings.currency || "CLP";
     const locale = storeSettings.locale || "es-CL";
@@ -199,6 +203,7 @@ export async function POST(request: Request) {
         discount_amount: discountAmount,
         total,
         status: isFreeOrder ? "paid" : "pending",
+        payment_method: isTransfer ? "transfer" : "mercadopago",
       })
       .select("id")
       .single();
@@ -244,6 +249,34 @@ export async function POST(request: Request) {
         }
       }
       return NextResponse.json({ orderId: order.id, initPoint: `${new URL(request.url).origin}/pedido/confirmacion?order=${order.id}` });
+    }
+
+    if (isTransfer) {
+      const siteUrl = new URL(request.url).origin;
+      const emailApiKey = env.BREVO_API_KEY;
+      if (emailApiKey) {
+        try {
+          await sendTransferInstructionsEmail({
+            apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id,
+            items: orderItems, total,
+            transferDetails: storeSettings.transferDetails!.trim(),
+            holdHours: typeof storeSettings.transferHoldHours === "number" && storeSettings.transferHoldHours > 0 ? storeSettings.transferHoldHours : 48,
+            storeUrl: siteUrl, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale,
+          });
+          const adminEmails = parseEmailList(storeSettings.orderNotifyEmail);
+          if (adminEmails.length) {
+            await sendNewOrderAdminEmail({
+              apiKey: emailApiKey, to: adminEmails, orderId: order.id,
+              customerName: payload.customerName, customerEmail: payload.customerEmail, customerPhone: payload.customerPhone,
+              region: payload.region, comuna: payload.comuna, address: payload.address, addressExtra: payload.addressExtra || null,
+              items: orderItems, total, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale, pendingTransfer: true,
+            });
+          }
+        } catch {
+          /* El correo es un complemento: el pedido ya quedó creado. */
+        }
+      }
+      return NextResponse.json({ orderId: order.id, initPoint: `${siteUrl}/pedido/confirmacion?order=${order.id}` });
     }
 
     try {

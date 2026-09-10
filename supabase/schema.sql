@@ -237,12 +237,12 @@ for update to authenticated using (public.is_admin()) with check (public.is_admi
 -- mínimo (sin correo, teléfono ni dirección) para cualquiera con el UUID del
 -- pedido, sin abrir la tabla completa a usuarios anónimos.
 create or replace function public.get_order_public(order_id uuid)
-returns table (id uuid, status text, region text, comuna text, items jsonb, subtotal integer, shipping_cost integer, total integer)
+returns table (id uuid, status text, region text, comuna text, items jsonb, subtotal integer, shipping_cost integer, total integer, payment_method text)
 language sql
 stable
 security definer set search_path = public
 as $$
-  select id, status, region, comuna, items, subtotal, shipping_cost, total
+  select id, status, region, comuna, items, subtotal, shipping_cost, total, payment_method
   from public.orders
   where id = order_id;
 $$;
@@ -263,6 +263,10 @@ alter table public.orders add column if not exists abandoned_reminded_at timesta
 -- Marca de tiempo del correo "vuelve" (win-back a clientes que compraron y no
 -- volvieron), para no repetirlo.
 alter table public.orders add column if not exists winback_sent_at timestamptz;
+-- Método de pago del pedido. 'transfer' = transferencia bancaria (pago manual,
+-- lo confirma la administradora); 'mercadopago' = pasarela.
+alter table public.orders add column if not exists payment_method text not null default 'mercadopago'
+  check (payment_method in ('mercadopago', 'transfer'));
 
 -- ── Stock: reserva atómica al crear el pedido, devolución si se cancela ────
 
@@ -322,8 +326,13 @@ declare
   expired_count integer := 0;
 begin
   for order_row in
+    -- Solo los de Mercado Pago: si en 10 min no confirmó el pago, se cae.
+    -- Los de transferencia los gestiona la administradora a mano (tiene días
+    -- para llegar la plata), así que no se tocan acá.
     select id, items from public.orders
-    where status = 'pending' and created_at < now() - interval '10 minutes'
+    where status = 'pending'
+      and payment_method = 'mercadopago'
+      and created_at < now() - interval '10 minutes'
     for update skip locked
   loop
     perform public.restore_order_stock(order_row.items);

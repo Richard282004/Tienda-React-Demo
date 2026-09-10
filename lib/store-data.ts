@@ -54,6 +54,9 @@ export type StoreContent = {
   logoUrl?: string;
   faviconUrl?: string;
   winbackCode?: string;
+  transferEnabled?: boolean;
+  transferDetails?: string;
+  transferHoldHours?: number;
 };
 
 export const defaultProducts: Product[] = [
