@@ -4,16 +4,25 @@ import { formatPrice } from './currency';
 
 const DEFAULT_FROM = 'onboarding@resend.dev';
 
-async function sendEmail(apiKey: string, from: string, to: string, subject: string, html: string) {
+async function sendEmail(apiKey: string, from: string, to: string | string[], subject: string, html: string) {
+  const recipients = Array.isArray(to) ? to : [to];
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ from, to, subject, html }),
+    body: JSON.stringify({ from, to: recipients, subject, html }),
   });
   if (!response.ok) {
     const body = await response.text().catch(() => '');
     throw new Error(`Resend error ${response.status}: ${body}`);
   }
+}
+
+// "correo1@x.cl, correo2@y.cl" o uno por línea -> lista limpia de direcciones.
+export function parseEmailList(value: string | null | undefined): string[] {
+  return (value ?? '')
+    .split(/[\s,;]+/)
+    .map((item) => item.trim())
+    .filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item));
 }
 
 const wrap = (brandName: string, title: string, body: string) => `
@@ -60,7 +69,7 @@ const statusCopy: Record<string, { subject: string; title: string; body: (brandN
 
 export async function sendNewOrderAdminEmail(opts: {
   apiKey: string;
-  to: string;
+  to: string | string[];
   orderId: string;
   customerName: string;
   customerEmail: string;
@@ -94,7 +103,7 @@ export async function sendNewOrderAdminEmail(opts: {
 
 export async function sendOrderChatMessageEmail(opts: {
   apiKey: string;
-  to: string;
+  to: string | string[];
   orderId: string;
   senderRole: 'admin' | 'customer';
   body: string;
@@ -137,6 +146,29 @@ export async function sendAbandonedCartEmail(opts: {
      <p><a href="${opts.storeUrl}/#tienda" style="display:inline-block; background:#5c2640; color:#fff; padding:12px 22px; border-radius:999px; text-decoration:none;">Volver a la tienda</a></p>`,
   );
   await sendEmail(opts.apiKey, from, opts.to, `¿Se te quedó algo? — ${brandName}`, html);
+}
+
+export async function sendLowStockAdminEmail(opts: {
+  apiKey: string;
+  to: string | string[];
+  products: { name: string; stock: number }[];
+  threshold: number;
+  brandName?: string;
+  fromEmail?: string;
+}) {
+  const brandName = opts.brandName || 'Tu tienda';
+  const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
+  const rows = opts.products
+    .map((product) => `<li><strong>${product.name}</strong> — ${product.stock === 0 ? 'sin stock' : `quedan ${product.stock}`}</li>`)
+    .join('');
+  const html = wrap(
+    brandName,
+    'Stock bajo en la tienda',
+    `<p>Tras la última venta, estos productos quedaron con ${opts.threshold} unidades o menos:</p>
+     <ul>${rows}</ul>
+     <p>Repón el stock desde Admin → Productos para no quedar en cero.</p>`,
+  );
+  await sendEmail(opts.apiKey, from, opts.to, `Stock bajo — ${brandName}`, html);
 }
 
 export async function sendOrderStatusEmail(opts: { apiKey: string; to: string; orderId: string; status: string; trackingNumber?: string | null; brandName?: string; fromEmail?: string }) {

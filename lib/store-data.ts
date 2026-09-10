@@ -50,6 +50,7 @@ export type StoreContent = {
   termsContent?: string;
   privacyContent?: string;
   orderNotifyEmail?: string;
+  lowStockThreshold?: number;
 };
 
 export const defaultProducts: Product[] = [

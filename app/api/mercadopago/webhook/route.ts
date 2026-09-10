@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 
-import { sendNewOrderAdminEmail, sendOrderStatusEmail } from "@/lib/email";
+import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderStatusEmail } from "@/lib/email";
 import { fetchMercadoPagoPayment } from "@/lib/mercadopago";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -65,14 +65,15 @@ export async function POST(request: Request) {
     if (resendApiKey && existingOrder && existingOrder.status !== orderStatus) {
       try {
         const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
-        const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; currency?: string; locale?: string } | undefined;
+        const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; currency?: string; locale?: string; lowStockThreshold?: number } | undefined;
         const brandName = store?.brandName || "Tu tienda";
         const fromEmail = env.RESEND_FROM_EMAIL as string | undefined;
+        const adminEmails = parseEmailList(store?.orderNotifyEmail);
         await sendOrderStatusEmail({ apiKey: resendApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, brandName, fromEmail });
-        if (orderStatus === "paid" && store?.orderNotifyEmail) {
+        if (orderStatus === "paid" && adminEmails.length) {
           await sendNewOrderAdminEmail({
             apiKey: resendApiKey,
-            to: store.orderNotifyEmail,
+            to: adminEmails,
             orderId: payment.external_reference,
             customerName: existingOrder.customer_name,
             customerEmail: existingOrder.customer_email,
@@ -88,6 +89,18 @@ export async function POST(request: Request) {
             currency: store?.currency,
             locale: store?.locale,
           });
+
+          // Aviso de stock bajo: tras confirmar la venta, revisa las unidades
+          // que quedan de los productos comprados.
+          const threshold = typeof store?.lowStockThreshold === "number" && store.lowStockThreshold >= 0 ? store.lowStockThreshold : 5;
+          const productIds = [...new Set(((existingOrder.items ?? []) as { productId: string }[]).map((item) => item.productId).filter(Boolean))];
+          if (productIds.length) {
+            const { data: stockRows } = await supabase.from("products").select("name, stock").in("id", productIds);
+            const low = (stockRows ?? []).filter((row): row is { name: string; stock: number } => typeof row.stock === "number" && row.stock <= threshold);
+            if (low.length) {
+              await sendLowStockAdminEmail({ apiKey: resendApiKey, to: adminEmails, products: low, threshold, brandName, fromEmail });
+            }
+          }
         }
       } catch {
         /* El correo es un complemento: si falla, el estado del pedido ya quedó guardado. */

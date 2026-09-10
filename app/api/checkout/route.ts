@@ -5,7 +5,7 @@ import {
   parseCheckoutPayload,
   type CheckoutPayload,
 } from "@/lib/checkout-validation";
-import { sendOrderConfirmationEmail } from "@/lib/email";
+import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderConfirmationEmail } from "@/lib/email";
 import { createMercadoPagoPreference } from "@/lib/mercadopago";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       /* No crítico: si falla, el checkout sigue con el stock disponible actual. */
     }
     const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
-    const storeSettings = (settings?.value ?? {}) as { brandName?: string; currency?: string; locale?: string };
+    const storeSettings = (settings?.value ?? {}) as { brandName?: string; currency?: string; locale?: string; orderNotifyEmail?: string; lowStockThreshold?: number };
     const brandName = storeSettings.brandName || "Tu tienda";
     const currency = storeSettings.currency || "CLP";
     const locale = storeSettings.locale || "es-CL";
@@ -224,6 +224,21 @@ export async function POST(request: Request) {
       if (resendApiKey) {
         try {
           await sendOrderConfirmationEmail({ apiKey: resendApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, fromEmail: env.RESEND_FROM_EMAIL });
+          // Pedido gratis (100% descuento): no pasa por el webhook de Mercado
+          // Pago, así que el aviso al admin y el de stock bajo van desde aquí.
+          const adminEmails = parseEmailList(storeSettings.orderNotifyEmail);
+          if (adminEmails.length) {
+            await sendNewOrderAdminEmail({
+              apiKey: resendApiKey, to: adminEmails, orderId: order.id,
+              customerName: payload.customerName, customerEmail: payload.customerEmail, customerPhone: payload.customerPhone,
+              region: payload.region, comuna: payload.comuna, address: payload.address, addressExtra: payload.addressExtra || null,
+              items: orderItems, total, brandName, fromEmail: env.RESEND_FROM_EMAIL, currency, locale,
+            });
+            const threshold = typeof storeSettings.lowStockThreshold === "number" ? storeSettings.lowStockThreshold : 5;
+            const { data: stockRows } = await supabase.from("products").select("name, stock").in("id", orderItems.map((item) => item.productId));
+            const low = (stockRows ?? []).filter((row): row is { name: string; stock: number } => typeof row.stock === "number" && row.stock <= threshold);
+            if (low.length) await sendLowStockAdminEmail({ apiKey: resendApiKey, to: adminEmails, products: low, threshold, brandName, fromEmail: env.RESEND_FROM_EMAIL });
+          }
         } catch {
           /* El correo es un complemento: si falla, el pedido sigue su curso normal. */
         }

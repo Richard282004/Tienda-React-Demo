@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 
-import { sendOrderChatMessageEmail } from "@/lib/email";
+import { parseEmailList, sendOrderChatMessageEmail } from "@/lib/email";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 // El mensaje ya se guardó (insert directo desde el cliente vía Supabase, para
@@ -26,9 +26,11 @@ export async function POST(request: Request) {
     const store = settings?.value as { brandName?: string; orderNotifyEmail?: string } | undefined;
     const brandName = store?.brandName || "Tu tienda";
     const fromEmail = env.RESEND_FROM_EMAIL;
-    // Cliente escribe -> avisa a la tienda; tienda escribe -> avisa al cliente.
-    const to = payload.senderRole === "customer" ? store?.orderNotifyEmail : order.customer_email;
-    if (!to) return NextResponse.json({ ok: true }); // sin correo admin configurado: nada que avisar
+    // Cliente escribe -> avisa a la tienda (uno o varios correos); tienda
+    // escribe -> avisa al cliente.
+    const to: string | string[] =
+      payload.senderRole === "customer" ? parseEmailList(store?.orderNotifyEmail) : order.customer_email;
+    if (!to || (Array.isArray(to) && !to.length)) return NextResponse.json({ ok: true }); // sin destino: nada que avisar
 
     await sendOrderChatMessageEmail({
       apiKey: resendApiKey,
