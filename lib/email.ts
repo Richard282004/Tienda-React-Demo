@@ -1,28 +1,35 @@
 // Envío de correos transaccionales vía la API REST de Resend (sin SDK, para
 // que corra bien en el runtime de Cloudflare Workers).
 import { formatPrice } from './currency';
+import { parseEmailList } from './email-list';
+
+export { parseEmailList };
 
 const DEFAULT_FROM = 'onboarding@resend.dev';
 
 async function sendEmail(apiKey: string, from: string, to: string | string[], subject: string, html: string) {
   const recipients = Array.isArray(to) ? to : [to];
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ from, to: recipients, subject, html }),
-  });
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    throw new Error(`Resend error ${response.status}: ${body}`);
+  const payload = JSON.stringify({ from, to: recipients, subject, html });
+  // Un reintento ante fallos transitorios de Resend (429 / 5xx / red caída):
+  // los correos salen desde rutas "fire-and-forget", así que sin esto un
+  // hipo momentáneo pierde el aviso para siempre.
+  let lastError = '';
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 600));
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: payload,
+      });
+      if (response.ok) return;
+      lastError = `Resend error ${response.status}: ${await response.text().catch(() => '')}`;
+      if (response.status !== 429 && response.status < 500) break; // 4xx real: reintentar no ayuda
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : 'fallo de red al enviar el correo';
+    }
   }
-}
-
-// "correo1@x.cl, correo2@y.cl" o uno por línea -> lista limpia de direcciones.
-export function parseEmailList(value: string | null | undefined): string[] {
-  return (value ?? '')
-    .split(/[\s,;]+/)
-    .map((item) => item.trim())
-    .filter((item) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item));
+  throw new Error(lastError || 'no se pudo enviar el correo');
 }
 
 const wrap = (brandName: string, title: string, body: string) => `

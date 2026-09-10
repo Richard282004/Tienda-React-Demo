@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const product = await fetchProduct(id);
   if (!product) return { title: 'Producto no encontrado' };
   const description = product.description?.trim() || `${product.name} — tejido a mano en crochet. Envíos a todo Chile.`;
-  const image = product.image_url || `${SITE_URL}/lumina-hero.jpg`;
+  const image = product.image_url || `${SITE_URL}/og-image.jpg`;
   return {
     title: product.name,
     description,

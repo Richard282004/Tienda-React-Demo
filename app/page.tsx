@@ -269,6 +269,25 @@ export default function Home() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!supabase) { setAccountMessage('El acceso a cuentas no está disponible por el momento.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail.trim())) {
+      setAccountMessage('Escribe tu correo arriba y te enviamos un enlace para crear una contraseña nueva.');
+      return;
+    }
+    setAccountBusy(true);
+    setAccountMessage('');
+    const { error } = await supabase.auth.resetPasswordForEmail(accountEmail.trim(), {
+      redirectTo: `${window.location.origin}/restablecer`,
+    });
+    setAccountBusy(false);
+    setAccountMessage(
+      error
+        ? 'No pudimos enviar el correo. Inténtalo de nuevo en unos minutos.'
+        : 'Te enviamos un enlace a tu correo para crear una contraseña nueva.',
+    );
+  };
+
   const handleGoogleLogin = async () => {
     if (!supabase) { setAccountMessage('El acceso a cuentas no está disponible por el momento.'); return; }
     if (accountBusy) return;
@@ -490,6 +509,7 @@ export default function Home() {
               <label>Contraseña<div className="input-with-icon"><LockKeyhole size={17} /><Input required minLength={8} type="password" value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} placeholder="••••••••" autoComplete={accountMode === 'login' ? 'current-password' : 'new-password'} /></div>
                 {accountMode === 'register' && <small className="password-hint">{accountPassword ? (passwordIssues.length ? `Falta: ${passwordIssues.join(', ')}.` : '✓ Contraseña segura') : 'Mínimo 8 caracteres, una mayúscula, un número y un símbolo (@, #, !...).'}</small>}
               </label>
+              {accountMode === 'login' && <button type="button" className="account-forgot" onClick={handleForgotPassword} disabled={accountBusy || !isSupabaseConfigured}>¿Olvidaste tu contraseña?</button>}
               {accountMessage && <p className="account-message">{accountMessage}</p>}
               <Button disabled={accountBusy || !isSupabaseConfigured} type="submit" className="primary-button account-submit">{accountBusy ? 'Procesando...' : accountMode === 'login' ? 'Iniciar sesión' : 'Registrarme'} <ArrowRight size={16} /></Button>
             </form>
