@@ -53,6 +53,7 @@ export type StoreContent = {
   lowStockThreshold?: number;
   logoUrl?: string;
   faviconUrl?: string;
+  winbackCode?: string;
 };
 
 export const defaultProducts: Product[] = [

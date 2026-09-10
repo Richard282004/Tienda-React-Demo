@@ -1,0 +1,31 @@
+name: Correo "vuelve" (win-back)
+
+# Una vez al día llama al endpoint que manda el correo "te extrañamos" a
+# clientes que compraron hace 30-120 días y no han vuelto.
+#
+# Requiere:
+#   - variable  SITE_URL       (opcional; por defecto la URL .workers.dev)
+#   - secret    CRON_SECRET    (el mismo valor que en las variables del Worker)
+on:
+  schedule:
+    - cron: '30 14 * * 2' # martes 14:30 UTC (~10:30 Chile), 1 vez por semana
+  workflow_dispatch: {}
+
+jobs:
+  winback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar el envío
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://tienda-react-demo.richardlagos2.workers.dev' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Falta el secret CRON_SECRET."
+            exit 1
+          fi
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' -X POST \
+            -A "MilueLoop-Cron" -H "x-cron-secret: $CRON_SECRET" --max-time 60 \
+            "$SITE_URL/api/marketing/winback")
+          echo "HTTP $code — $(cat /tmp/out.json)"
+          [ "$code" = "200" ]

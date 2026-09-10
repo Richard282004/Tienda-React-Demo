@@ -1,0 +1,79 @@
+name: Health check
+
+# Monitorea la tienda en producción. Si /api/health o la portada fallan,
+# abre (o actualiza) un issue; cuando vuelve, lo cierra. Opcional: si defines
+# el secret ALERT_WEBHOOK_URL (Slack/Discord), también manda un aviso ahí.
+on:
+  schedule:
+    - cron: '*/15 * * * *' # cada 15 minutos
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+concurrency:
+  group: healthcheck
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SITE_URL: ${{ vars.SITE_URL || 'https://tienda-react-demo.richardlagos2.workers.dev' }}
+      ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+    steps:
+      - name: Probar /api/health y la portada
+        id: probe
+        run: |
+          set +e
+          fail=""
+
+          health_code=$(curl -sS -A "MilueLoop-Monitor" -o /tmp/health.json -w '%{http_code}' --max-time 20 "$SITE_URL/api/health")
+          echo "health: $health_code $(cat /tmp/health.json)"
+          [ "$health_code" = "200" ] || fail="$fail health($health_code)"
+
+          home_code=$(curl -sS -A "MilueLoop-Monitor" -o /dev/null -w '%{http_code}' --max-time 20 "$SITE_URL/")
+          echo "home: $home_code"
+          [ "$home_code" = "200" ] || fail="$fail home($home_code)"
+
+          if [ -n "$fail" ]; then
+            echo "status=down" >> "$GITHUB_OUTPUT"
+            echo "detail=$fail" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=up" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Avisar por webhook (si está configurado)
+        if: steps.probe.outputs.status == 'down' && env.ALERT_WEBHOOK_URL != ''
+        run: |
+          curl -sS -X POST -H 'Content-Type: application/json' \
+            -d "{\"text\":\"🔴 Tienda caída: ${{ steps.probe.outputs.detail }} — $SITE_URL\"}" \
+            "$ALERT_WEBHOOK_URL" || true
+
+      - name: Abrir / cerrar issue según el estado
+        uses: actions/github-script@v7
+        env:
+          PROBE_STATUS: ${{ steps.probe.outputs.status }}
+          PROBE_DETAIL: ${{ steps.probe.outputs.detail }}
+        with:
+          script: |
+            const status = process.env.PROBE_STATUS;
+            const detail = process.env.PROBE_DETAIL || '';
+            const title = 'Tienda caída (health check)';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'monitor',
+            });
+            const open = issues.find(i => i.title === title);
+
+            if (status === 'down') {
+              const body = `El chequeo automático falló: \`${detail}\`\n\nHora: ${new Date().toISOString()}`;
+              if (open) {
+                await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: open.number, body });
+              } else {
+                await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['monitor'] });
+              }
+            } else if (open) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: open.number, body: `Recuperada ✅ ${new Date().toISOString()}` });
+              await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: open.number, state: 'closed' });
+            }

@@ -7,5 +7,7 @@ declare namespace Cloudflare {
     MP_ACCESS_TOKEN?: string;
     RESEND_API_KEY?: string;
     RESEND_FROM_EMAIL?: string;
+    VITE_SUPABASE_PUBLISHABLE_KEY?: string;
+    CRON_SECRET?: string;
   }
 }

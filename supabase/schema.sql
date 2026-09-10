@@ -260,6 +260,9 @@ alter table public.orders add column if not exists discount_amount integer not n
 -- Marca de tiempo del correo "tu pedido quedó sin pagar" (carrito abandonado),
 -- para no enviarlo más de una vez por pedido.
 alter table public.orders add column if not exists abandoned_reminded_at timestamptz;
+-- Marca de tiempo del correo "vuelve" (win-back a clientes que compraron y no
+-- volvieron), para no repetirlo.
+alter table public.orders add column if not exists winback_sent_at timestamptz;
 
 -- ── Stock: reserva atómica al crear el pedido, devolución si se cancela ────
 

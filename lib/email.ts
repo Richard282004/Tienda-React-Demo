@@ -178,6 +178,32 @@ export async function sendLowStockAdminEmail(opts: {
   await sendEmail(opts.apiKey, from, opts.to, `Stock bajo — ${brandName}`, html);
 }
 
+export async function sendWinbackEmail(opts: {
+  apiKey: string;
+  to: string;
+  customerName?: string;
+  storeUrl: string;
+  discountCode?: string;
+  brandName?: string;
+  fromEmail?: string;
+}) {
+  const brandName = opts.brandName || 'Tu tienda';
+  const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
+  const hi = opts.customerName ? `Hola ${opts.customerName.split(' ')[0]},` : 'Hola,';
+  const codeBlock = opts.discountCode
+    ? `<p>Para animarte, usa el código <strong>${opts.discountCode}</strong> en tu próxima compra.</p>`
+    : '';
+  const html = wrap(
+    brandName,
+    'Te tenemos algo nuevo',
+    `<p>${hi} ha pasado un tiempo desde tu última compra en ${brandName} y queríamos saludarte.</p>
+     <p>Seguimos tejiendo amiguitos nuevos, puntada por puntada.</p>
+     ${codeBlock}
+     <p><a href="${opts.storeUrl}/#tienda" style="display:inline-block; background:#5c2640; color:#fff; padding:12px 22px; border-radius:999px; text-decoration:none;">Ver la colección</a></p>`,
+  );
+  await sendEmail(opts.apiKey, from, opts.to, `Te extrañamos — ${brandName}`, html);
+}
+
 export async function sendOrderStatusEmail(opts: { apiKey: string; to: string; orderId: string; status: string; trackingNumber?: string | null; brandName?: string; fromEmail?: string }) {
   const copy = statusCopy[opts.status];
   if (!copy) return;
