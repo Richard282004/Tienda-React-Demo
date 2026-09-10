@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Check, Clock, DollarSign, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, Package, PackagePlus, Pencil, Save, ShieldCheck, Star, Tag, Trash2, Truck, Upload, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,28 @@ const emptyDiscount = { code: '', type: 'percent' as 'percent' | 'fixed', value:
 export default function AdminPage() {
   const [state, setState] = useState<AdminState>('loading');
   const [activeTab, setActiveTab] = useState('products');
+  // Cambiar de pestaña no debe mover el scroll vertical de la página. El
+  // navegador (y Base UI) llevan el botón/panel recién activo a la vista, lo
+  // que en móvil arrastra la página hacia abajo pestaña tras pestaña. Se
+  // guarda la posición al cambiar y se restaura tras el re-render.
+  const keepScrollY = useRef<number | null>(null);
+  const selectTab = (value: string) => {
+    keepScrollY.current = window.scrollY;
+    setActiveTab(value);
+  };
+  useLayoutEffect(() => {
+    const y = keepScrollY.current;
+    if (y == null) return;
+    keepScrollY.current = null;
+    // El navegador puede llevar el foco al panel/botón nuevo en frames
+    // posteriores, así que se reafirma la posición varias veces.
+    const restore = () => window.scrollTo({ top: y });
+    restore();
+    requestAnimationFrame(restore);
+    requestAnimationFrame(() => requestAnimationFrame(restore));
+    const timer = window.setTimeout(restore, 60);
+    return () => window.clearTimeout(timer);
+  }, [activeTab]);
   const [products, setProducts] = useState<Product[]>([]);
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
@@ -456,12 +478,12 @@ export default function AdminPage() {
     <header className="admin-header"><div><p className="admin-kicker">{content.brandName} · Panel privado</p><h1>Administración de la tienda</h1></div><div><a href="/">Ver tienda ↗</a><Button variant="outline" onClick={logout}><LogOut size={16} /> Salir</Button></div></header>
     {message && <div className="admin-message success"><Check size={16} /> {message}</div>}
     <div className="stat-cards">
-      <button type="button" className="stat-card" onClick={() => setActiveTab('orders')}><div className="stat-icon revenue"><DollarSign size={18} /></div><div><span>Ventas este mes</span><strong>{formatPrice(revenueThisMonth)}</strong></div></button>
-      <button type="button" className="stat-card" onClick={() => setActiveTab('orders')}><div className="stat-icon orders"><Clock size={18} /></div><div><span>Por despachar</span><strong>{pendingShipmentCount}</strong></div></button>
-      <button type="button" className="stat-card" onClick={() => setActiveTab('products')}><div className="stat-icon stock"><AlertTriangle size={18} /></div><div><span>Stock bajo</span><strong>{lowStockCount}</strong></div></button>
-      <button type="button" className="stat-card" onClick={() => setActiveTab('products')}><div className="stat-icon products"><Package size={18} /></div><div><span>Productos activos</span><strong>{products.filter((product) => product.active !== false).length}</strong></div></button>
+      <button type="button" className="stat-card" onClick={() => selectTab('orders')}><div className="stat-icon revenue"><DollarSign size={18} /></div><div><span>Ventas este mes</span><strong>{formatPrice(revenueThisMonth)}</strong></div></button>
+      <button type="button" className="stat-card" onClick={() => selectTab('orders')}><div className="stat-icon orders"><Clock size={18} /></div><div><span>Por despachar</span><strong>{pendingShipmentCount}</strong></div></button>
+      <button type="button" className="stat-card" onClick={() => selectTab('products')}><div className="stat-icon stock"><AlertTriangle size={18} /></div><div><span>Stock bajo</span><strong>{lowStockCount}</strong></div></button>
+      <button type="button" className="stat-card" onClick={() => selectTab('products')}><div className="stat-icon products"><Package size={18} /></div><div><span>Productos activos</span><strong>{products.filter((product) => product.active !== false).length}</strong></div></button>
     </div>
-    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as string)} className="admin-tabs" orientation="vertical">
+    <Tabs value={activeTab} onValueChange={(value) => selectTab(value as string)} className="admin-tabs" orientation="vertical">
       <TabsList className="admin-tabs-list">
         <TabsTrigger value="products"><Package size={17} /> Productos</TabsTrigger>
         <TabsTrigger value="orders"><Truck size={17} /> Pedidos</TabsTrigger>
