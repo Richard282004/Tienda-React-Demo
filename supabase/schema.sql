@@ -207,12 +207,18 @@ create table if not exists public.orders (
   discount_amount integer not null default 0 check (discount_amount >= 0),
   total integer not null check (total >= 0),
   status text not null default 'pending' check (status in ('pending', 'paid', 'shipped', 'delivered', 'cancelled')),
+  payment_method text not null default 'mercadopago' check (payment_method in ('mercadopago', 'transfer')),
   tracking_number text,
   mp_preference_id text,
   mp_payment_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Migraciones sobre orders que deben correr ANTES de las funciones de abajo
+-- (get_order_public / expire_stale_orders las referencian).
+alter table public.orders add column if not exists payment_method text not null default 'mercadopago'
+  check (payment_method in ('mercadopago', 'transfer'));
 
 create index if not exists orders_created_at_idx on public.orders (created_at desc);
 create index if not exists orders_mp_preference_idx on public.orders (mp_preference_id);
@@ -265,10 +271,6 @@ alter table public.orders add column if not exists abandoned_reminded_at timesta
 -- Marca de tiempo del correo "vuelve" (win-back a clientes que compraron y no
 -- volvieron), para no repetirlo.
 alter table public.orders add column if not exists winback_sent_at timestamptz;
--- Método de pago del pedido. 'transfer' = transferencia bancaria (pago manual,
--- lo confirma la administradora); 'mercadopago' = pasarela.
-alter table public.orders add column if not exists payment_method text not null default 'mercadopago'
-  check (payment_method in ('mercadopago', 'transfer'));
 
 -- ── Stock: reserva atómica al crear el pedido, devolución si se cancela ────
 
