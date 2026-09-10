@@ -1,10 +1,14 @@
 import type { MetadataRoute } from 'next';
-
-const siteUrl = 'https://tienda-react-demo.richardlagos2.workers.dev';
+import { SITE_URL } from '@/lib/site-url';
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [{ userAgent: '*', allow: '/', disallow: ['/admin', '/api/'] }],
-    sitemap: `${siteUrl}/sitemap.xml`,
+    rules: {
+      userAgent: '*',
+      allow: '/',
+      // Zonas privadas o sin valor para buscadores.
+      disallow: ['/admin', '/api/', '/mi-cuenta', '/pedido/'],
+    },
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }
