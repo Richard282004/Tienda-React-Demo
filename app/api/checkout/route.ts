@@ -51,9 +51,9 @@ export async function POST(request: Request) {
   }
   try {
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
-    // Si la cliente tiene sesión iniciada, el pedido queda vinculado a su
+    // Si el cliente tiene sesión iniciada, el pedido queda vinculado a su
     // cuenta para que aparezca en "Mis pedidos". Sin token, el pedido igual
-    // se crea normalmente (compra como invitada).
+    // se crea normalmente (compra como invitado).
     let userId: string | null = null;
     const authHeader = request.headers.get("authorization");
     if (authHeader?.startsWith("Bearer ")) {
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
         const { data: userData } = await supabase.auth.getUser(authHeader.slice(7));
         userId = userData.user?.id ?? null;
       } catch {
-        /* Token inválido o expirado: el pedido sigue como compra de invitada. */
+        /* Token inválido o expirado: el pedido sigue como compra de invitado. */
       }
     }
     // Libera primero el stock de pedidos abandonados (pending sin pago hace
