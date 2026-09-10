@@ -236,6 +236,8 @@ for update to authenticated using (public.is_admin()) with check (public.is_admi
 -- Función pública de solo lectura para la página de confirmación: expone lo
 -- mínimo (sin correo, teléfono ni dirección) para cualquiera con el UUID del
 -- pedido, sin abrir la tabla completa a usuarios anónimos.
+-- DROP previo: Postgres no deja cambiar el tipo de retorno con create or replace.
+drop function if exists public.get_order_public(uuid);
 create or replace function public.get_order_public(order_id uuid)
 returns table (id uuid, status text, region text, comuna text, items jsonb, subtotal integer, shipping_cost integer, total integer, payment_method text)
 language sql
