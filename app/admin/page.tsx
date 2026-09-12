@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, BarChart3, Check, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, Package, PackagePlus, Pencil, Save, ShieldCheck, Star, Tag, Trash2, Truck, Upload, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, BarChart3, Check, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -567,10 +567,10 @@ export default function AdminPage() {
                   </div>
                 )}
                 <div className="order-card-body">
-                  <div><span>Cliente</span><p>{order.customer_name} · {order.customer_email} · {order.customer_phone}{order.customer_rut ? ` · RUT ${order.customer_rut}` : ''}</p></div>
-                  <div><span>Dirección</span><p>{order.address}{order.address_extra ? `, ${order.address_extra}` : ''}, {order.comuna}, {order.region}</p></div>
-                  <div><span>Productos</span><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}>{item.quantity}× {item.name} — {formatPrice(item.unitPrice * item.quantity)}</li>)}</ul></div>
-                  <div><span>Total</span><p><strong>{formatPrice(order.total)}</strong> (envío {formatPrice(order.shipping_cost)})</p></div>
+                  <div className="order-card-row"><span><User size={14} /> Cliente</span><p>{order.customer_name} · {order.customer_email} · {order.customer_phone}{order.customer_rut ? ` · RUT ${order.customer_rut}` : ''}</p></div>
+                  <div className="order-card-row"><span><MapPin size={14} /> Dirección</span><p>{order.address}{order.address_extra ? `, ${order.address_extra}` : ''}, {order.comuna}, {order.region}</p></div>
+                  <div className="order-card-row"><span><ShoppingBag size={14} /> Productos</span><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}>{item.quantity}× {item.name} — {formatPrice(item.unitPrice * item.quantity)}</li>)}</ul></div>
+                  <div className="order-card-row order-card-total"><span><DollarSign size={14} /> Total</span><p><strong>{formatPrice(order.total)}</strong> <em>(envío {formatPrice(order.shipping_cost)})</em></p></div>
                 </div>
                 <div className="order-card-actions">
                   <label>Estado<NativeSelect className="admin-select" value={order.status} onChange={(event) => void updateOrder(order.id, { status: event.target.value as OrderStatus })}>
