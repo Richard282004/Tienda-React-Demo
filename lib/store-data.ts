@@ -53,6 +53,11 @@ export type StoreContent = {
   lowStockThreshold?: number;
   logoUrl?: string;
   hideBrandText?: boolean;
+  logoHeight?: number;
+  logoWidth?: number;
+  logoPositionX?: number;
+  logoPositionY?: number;
+  logoZoom?: number;
   faviconUrl?: string;
   winbackCode?: string;
   transferEnabled?: boolean;
