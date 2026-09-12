@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Plus } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Plus, ShoppingBag, Store, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ProductArtwork } from '@/components/product-artwork';
@@ -24,6 +24,7 @@ export default function ProductoPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [cartCount, setCartCount] = useState(0);
   const [notice, setNotice] = useState('');
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
 
@@ -31,6 +32,8 @@ export default function ProductoPage() {
     try {
       const liked = JSON.parse(localStorage.getItem('lumina-favorites') ?? '[]');
       if (Array.isArray(liked)) setFavorites(liked.filter((item): item is string => typeof item === 'string'));
+      const bag = JSON.parse(localStorage.getItem('lumina-bag') ?? '[]');
+      if (Array.isArray(bag)) setCartCount(bag.length);
     } catch { /* sin acceso a localStorage */ }
   }, []);
 
@@ -80,7 +83,9 @@ export default function ProductoPage() {
     try {
       const saved = JSON.parse(localStorage.getItem('lumina-bag') ?? '[]');
       const cart = Array.isArray(saved) ? saved : [];
-      localStorage.setItem('lumina-bag', JSON.stringify([...cart, product.id]));
+      const next = [...cart, product.id];
+      localStorage.setItem('lumina-bag', JSON.stringify(next));
+      setCartCount(next.length);
     } catch { /* no crítico */ }
     setNotice('Agregado a tu bolsita');
     window.setTimeout(() => setNotice(''), 2200);
@@ -133,6 +138,10 @@ export default function ProductoPage() {
           )}
         </a>
         <a href="/#tienda" className="cart-page-back"><ArrowLeft size={16} /> Volver a la tienda</a>
+        <div className="header-actions producto-header-actions">
+          <Button aria-label="Mi cuenta" variant="ghost" size="icon" className="icon-button account-icon" onClick={() => { window.location.href = '/?account=1'; }}><UserRound size={19} /></Button>
+          <Button aria-label={`Abrir bolsita, ${cartCount} productos`} variant="ghost" size="icon" className="icon-button bag-button" onClick={() => { window.location.href = '/carrito'; }}><ShoppingBag size={19} />{cartCount > 0 && <span key={cartCount} className="bag-badge">{cartCount}</span>}</Button>
+        </div>
       </header>
       <div className="page-width producto-layout">
         <div className="producto-gallery">
@@ -197,6 +206,12 @@ export default function ProductoPage() {
         </section>
       )}
       {notice && <div className="notice" role="status">{notice}</div>}
+      <nav className="producto-mobile-nav" aria-label="Navegación rápida">
+        <a href="/"><Store size={20} /><span>Tienda</span></a>
+        <a href="/favoritos"><Heart size={20} fill={favorites.length ? 'currentColor' : 'none'} />{favorites.length > 0 && <span key={favorites.length} className="producto-mobile-nav-badge">{favorites.length}</span>}<span>Favoritos</span></a>
+        <a href="/carrito"><ShoppingBag size={20} />{cartCount > 0 && <span key={cartCount} className="producto-mobile-nav-badge">{cartCount}</span>}<span>Carrito</span></a>
+        <button type="button" onClick={() => { window.location.href = '/?account=1'; }}><UserRound size={20} /><span>Mi cuenta</span></button>
+      </nav>
     </main>
   );
 }

@@ -28,6 +28,26 @@
 }
 
 .producto-header { margin-bottom: 32px; }
+.producto-mobile-nav { display: none; }
+@media (max-width: 720px) {
+  .producto-page { padding-bottom: 74px; }
+  .producto-header-actions { display: none; }
+  .producto-mobile-nav {
+    position: fixed; z-index: 20; left: 0; right: 0; bottom: 0;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    background: #fffaf5; border-top: 1px solid #eee3dc; box-shadow: 0 -8px 20px rgba(53,31,44,.06);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .producto-mobile-nav a, .producto-mobile-nav button {
+    position: relative; display: grid; justify-items: center; gap: 3px;
+    padding: 10px 4px 9px; border: 0; background: none; color: var(--muted); font-size: 10.5px; font-weight: 600; cursor: pointer;
+  }
+  .producto-mobile-nav a:active, .producto-mobile-nav button:active { color: var(--plum); }
+  .producto-mobile-nav-badge {
+    position: absolute; top: 4px; right: calc(50% - 20px); display: grid; place-items: center;
+    min-width: 15px; height: 15px; border-radius: 99px; background: var(--rose); color: #fff; font-size: 9px; font-weight: 700;
+  }
+}
 .producto-more { padding-bottom: 60px; }
 .producto-more h2 { font-family: Georgia, serif; font-weight: 400; font-size: 26px; margin: 0 0 20px; }
 .producto-more-item { flex-basis: 46%; }

@@ -232,6 +232,15 @@ export default function Home() {
     setAccountOpen(true);
   };
 
+  useEffect(() => {
+    // Permite abrir el modal de cuenta llegando desde otra página (ej. el
+    // ícono de cuenta en la ficha de producto) vía ?account=1.
+    if (new URLSearchParams(window.location.search).get('account') === '1') {
+      openAccount('login');
+      window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+    }
+  }, []);
+
   const passwordRules = [
     { test: (value: string) => value.length >= 8, label: 'mínimo 8 caracteres' },
     { test: (value: string) => /[A-Z]/.test(value), label: 'una mayúscula' },
