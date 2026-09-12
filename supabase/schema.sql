@@ -230,6 +230,7 @@ alter table public.orders enable row level security;
 revoke all on public.orders from anon, authenticated;
 grant select on public.orders to authenticated;
 grant update on public.orders to authenticated;
+grant delete on public.orders to authenticated;
 
 drop policy if exists "orders_read_own_or_admin" on public.orders;
 create policy "orders_read_own_or_admin" on public.orders
@@ -237,6 +238,9 @@ for select to authenticated using ((select auth.uid()) = user_id or public.is_ad
 drop policy if exists "orders_admin_update" on public.orders;
 create policy "orders_admin_update" on public.orders
 for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "orders_admin_delete" on public.orders;
+create policy "orders_admin_delete" on public.orders
+for delete to authenticated using (public.is_admin());
 
 -- Los pedidos se crean y confirman desde el servidor (Route Handler) usando la
 -- service role key, que ignora RLS — por eso no hay política de "insert" pública.
