@@ -164,3 +164,26 @@ Usamos almacenamiento local del navegador para recordar tu carrito de compras y 
 ## 8. Seguridad
 Tu contraseña se guarda cifrada por Supabase; nunca tenemos acceso a ella en texto plano. Las conexiones al sitio y a los servicios de pago usan cifrado HTTPS.`,
 };
+
+const CONTENT_CACHE_KEY = 'milaloop-content-cache';
+
+// Se lee de entrada para que el logo (y el resto del contenido editable)
+// no desaparezca un instante en cada recarga mientras llega la respuesta
+// de Supabase: el primer render usa lo último que se vio, no el default.
+export function readCachedStoreContent(): StoreContent {
+  try {
+    const raw = localStorage.getItem(CONTENT_CACHE_KEY);
+    if (!raw) return defaultStoreContent;
+    return { ...defaultStoreContent, ...(JSON.parse(raw) as Partial<StoreContent>) };
+  } catch {
+    return defaultStoreContent;
+  }
+}
+
+export function writeCachedStoreContent(content: StoreContent) {
+  try {
+    localStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(content));
+  } catch {
+    /* no crítico: solo afecta el flash en la próxima recarga */
+  }
+}

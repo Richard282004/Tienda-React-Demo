@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ProductArtwork } from '@/components/product-artwork';
 import { formatPrice as formatCurrency } from '@/lib/currency';
-import { defaultProducts, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
+import { defaultProducts, defaultStoreContent, readCachedStoreContent, writeCachedStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { type ProductImage } from '@/lib/orders';
 import { supabase } from '@/lib/supabase';
 import '../../carrito/carrito.css';
@@ -20,7 +20,7 @@ export default function ProductoPage() {
   const [otherProducts, setOtherProducts] = useState<Product[]>([]);
   const [images, setImages] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState(0);
-  const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  const [content, setContent] = useState<StoreContent>(readCachedStoreContent);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -56,7 +56,11 @@ export default function ProductoPage() {
         supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
         supabase.from('products').select('*').eq('active', true).neq('id', id).order('sort_order').limit(12),
       ]);
-      if (settings?.value) setContent({ ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) });
+      if (settings?.value) {
+        const merged = { ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) };
+        setContent(merged);
+        writeCachedStoreContent(merged);
+      }
       if (!productRow) { setNotFound(true); setLoading(false); return; }
       const typedProduct = productRow as Product;
       setProduct(typedProduct);

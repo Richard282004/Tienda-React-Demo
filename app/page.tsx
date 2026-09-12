@@ -29,14 +29,14 @@ import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { defaultProducts, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
+import { defaultProducts, defaultStoreContent, readCachedStoreContent, writeCachedStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { type Faq, type Review, type ShowcaseItem } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>(isSupabaseConfigured ? [] : defaultProducts);
-  const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  const [content, setContent] = useState<StoreContent>(readCachedStoreContent);
   const categories = useMemo(() => ['Todo', ...content.categories], [content.categories]);
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
   const [storeLoading, setStoreLoading] = useState(isSupabaseConfigured);
@@ -155,7 +155,11 @@ export default function Home() {
         setProducts((catalog.data ?? []) as Product[]);
         const available = new Set((catalog.data ?? []).map((product) => product.id));
         setCart((current) => current.filter((id) => available.has(id)));
-        if (settings.data?.value) setContent({ ...defaultStoreContent, ...(settings.data.value as Partial<StoreContent>) });
+        if (settings.data?.value) {
+          const merged = { ...defaultStoreContent, ...(settings.data.value as Partial<StoreContent>) };
+          setContent(merged);
+          writeCachedStoreContent(merged);
+        }
         const reviewsByProduct: Record<string, Review[]> = {};
         for (const review of (reviewRows.data ?? []) as Review[]) (reviewsByProduct[review.product_id] ??= []).push(review);
         setReviews(reviewsByProduct);
