@@ -226,7 +226,25 @@ export default function ProductoPage() {
         </section>
       )}
       <footer className="site-footer page-width">
-        <div className="footer-brand">{content.logoUrl ? <img className="brand-logo" src={content.logoUrl} alt="" /> : <span className="brand-mark">✦</span>}<span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span></div>
+        <div className="footer-brand">{content.logoUrl ? (
+          <img
+            className={content.hideBrandText ? 'brand-logo brand-logo-solo' : 'brand-logo'}
+            src={content.logoUrl}
+            alt={content.hideBrandText ? content.brandName : ''}
+            style={
+              content.hideBrandText
+                ? {
+                    height: `${content.logoHeight ?? 64}px`,
+                    width: `${content.logoWidth ?? 210}px`,
+                    objectFit: 'cover',
+                    objectPosition: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
+                    transformOrigin: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
+                    transform: `scale(${content.logoZoom ?? 1})`,
+                  }
+                : undefined
+            }
+          />
+        ) : <span className="brand-mark">✦</span>}{!(content.logoUrl && content.hideBrandText) && <span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span>}</div>
         <div className="footer-contact">
           <p>{content.footerCta}</p>
           <a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a>
