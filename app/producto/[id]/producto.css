@@ -35,6 +35,9 @@
 @media (max-width: 720px) {
   .producto-page { padding-bottom: 74px; }
   .producto-header-actions { display: none; }
+  .producto-header { grid-template-columns: 1fr; }
+  .producto-header .cart-page-back { display: none; }
+  .producto-header .brand { grid-column: 1; }
   .producto-mobile-nav {
     position: fixed; z-index: 20; left: 0; right: 0; bottom: 0;
     display: grid; grid-template-columns: repeat(4, 1fr);
