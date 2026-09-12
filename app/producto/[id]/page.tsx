@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Plus, ShoppingBag, Store, UserRound } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Mail, Phone, Plus, ShoppingBag, Store, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ProductArtwork } from '@/components/product-artwork';
@@ -78,17 +78,21 @@ export default function ProductoPage() {
     });
   };
 
-  const addToCart = () => {
-    if (!product) return;
+  const quickAdd = (productId: string, name: string) => {
     try {
       const saved = JSON.parse(localStorage.getItem('lumina-bag') ?? '[]');
       const cart = Array.isArray(saved) ? saved : [];
-      const next = [...cart, product.id];
+      const next = [...cart, productId];
       localStorage.setItem('lumina-bag', JSON.stringify(next));
       setCartCount(next.length);
     } catch { /* no crítico */ }
-    setNotice('Agregado a tu bolsita');
+    setNotice(`${name} agregado a tu bolsita`);
     window.setTimeout(() => setNotice(''), 2200);
+  };
+
+  const addToCart = () => {
+    if (!product) return;
+    quickAdd(product.id, product.name);
   };
 
   if (loading) {
@@ -188,23 +192,54 @@ export default function ProductoPage() {
           <h2>También te puede gustar</h2>
           <Carousel opts={{ align: 'start' }}>
             <CarouselContent>
-              {otherProducts.map((item) => (
-                <CarouselItem key={item.id} className="producto-more-item">
-                  <a href={`/producto/${item.id}`} className="producto-more-card">
-                    <div className="producto-more-visual" style={{ backgroundColor: item.color }}>
-                      <ProductArtwork product={item} className="product-photo" />
+              {otherProducts.map((item) => {
+                const itemOutOfStock = item.active === false || (item.stock != null && item.stock <= 0);
+                return (
+                  <CarouselItem key={item.id} className="producto-more-item">
+                    <div className="producto-more-card">
+                      <a href={`/producto/${item.id}`} className="producto-more-link">
+                        <div className="producto-more-visual" style={{ backgroundColor: item.color }}>
+                          <ProductArtwork product={item} className="product-photo" />
+                        </div>
+                        <span className="producto-more-name">{item.name}</span>
+                      </a>
+                      <div className="producto-more-footer">
+                        <strong>{formatPrice(item.price)}</strong>
+                        <button
+                          type="button"
+                          className="producto-more-add"
+                          disabled={itemOutOfStock}
+                          aria-label={`Agregar ${item.name} a la bolsita`}
+                          onClick={() => quickAdd(item.id, item.name)}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <span className="producto-more-name">{item.name}</span>
-                    <strong>{formatPrice(item.price)}</strong>
-                  </a>
-                </CarouselItem>
-              ))}
+                  </CarouselItem>
+                );
+              })}
             </CarouselContent>
             <CarouselPrevious />
             <CarouselNext />
           </Carousel>
         </section>
       )}
+      <footer className="site-footer page-width">
+        <div className="footer-brand"><span className="brand-mark">✦</span><span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span></div>
+        <div className="footer-contact">
+          <p>{content.footerCta}</p>
+          <a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a>
+          <a href={`mailto:${content.email}`}><Mail size={14} /> {content.email}</a>
+        </div>
+        <div className="footer-links">
+          <a href="/">Inicio</a>
+          <a href="/#tienda">Tienda</a>
+          <a href="/#nosotros">Sobre nosotros</a>
+          <a href="/terminos">Términos y condiciones</a>
+          <a href="/privacidad">Privacidad</a>
+        </div>
+      </footer>
       {notice && <div className="notice" role="status">{notice}</div>}
       <nav className="producto-mobile-nav" aria-label="Navegación rápida">
         <a href="/"><Store size={20} /><span>Tienda</span></a>
