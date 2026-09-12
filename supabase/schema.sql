@@ -613,6 +613,24 @@ $$;
 revoke all on function public.update_own_name(text) from public;
 grant execute on function public.update_own_name(text) to authenticated;
 
+-- Favoritos con cuenta: sincronizados entre dispositivos. Las compras como
+-- invitada siguen usando solo localStorage (no hay a quién asociarlos).
+create table if not exists public.favorites (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, product_id)
+);
+create index if not exists favorites_user_id_idx on public.favorites (user_id);
+
+alter table public.favorites enable row level security;
+revoke all on public.favorites from anon, authenticated;
+grant select, insert, delete on public.favorites to authenticated;
+
+drop policy if exists "favorites_own" on public.favorites;
+create policy "favorites_own" on public.favorites
+for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+
 -- ── Chat por pedido (cliente ↔ admin) ───────────────────────────────────────
 -- Solo disponible para pedidos de clientes con cuenta (order.user_id no nulo);
 -- las compras como invitada no tienen con quién autenticar el otro lado.

@@ -35,6 +35,7 @@ import { type Faq, type Review, type ShowcaseItem } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { levenshteinWithin, normalizeSearchText } from '@/lib/search';
+import { initFavorites, syncFavoriteToggle, writeLocalFavorites } from '@/lib/favorites';
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>(isSupabaseConfigured ? [] : defaultProducts);
@@ -118,10 +119,11 @@ export default function Home() {
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('lumina-bag') ?? '[]');
-      const liked = JSON.parse(localStorage.getItem('lumina-favorites') ?? '[]');
       if (Array.isArray(saved)) setCart(saved.filter((id): id is string => typeof id === 'string').slice(0, 300));
-      if (Array.isArray(liked)) setFavorites(liked.filter((id): id is string => typeof id === 'string').slice(0, 300));
     } catch { /* El almacenamiento privado puede no estar disponible. */ }
+    // Si hay sesión, trae los favoritos guardados en Supabase (sincronizados
+    // entre dispositivos) y les suma los marcados solo localmente.
+    initFavorites(supabase).then((ids) => setFavorites(ids.slice(0, 300)));
     setStorageReady(true);
   }, []);
 
@@ -129,9 +131,8 @@ export default function Home() {
     if (!storageReady) return;
     try {
       localStorage.setItem('lumina-bag', JSON.stringify(cart));
-      localStorage.setItem('lumina-favorites', JSON.stringify(favorites));
     } catch { /* La compra sigue funcionando sin persistencia local. */ }
-  }, [cart, favorites, storageReady]);
+  }, [cart, storageReady]);
 
   useEffect(() => {
     const client = supabase;
@@ -501,7 +502,7 @@ export default function Home() {
           return <article className="product-card" id={`producto-${product.id}`} key={product.id}>
             <div className="product-visual" style={{ backgroundColor: product.color }} onClick={goToProduct} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); goToProduct(); } }} role="link" tabIndex={0} aria-label={`Ver ${product.name}`}>
               {product.tag && <span className="product-tag">{product.tag}</span>}
-              <button className={`heart-icon ${favorites.includes(product.id) ? 'liked' : ''}`} onClick={(event) => { event.stopPropagation(); setFavorites((current) => current.includes(product.id) ? current.filter((item) => item !== product.id) : [...current, product.id]); }} aria-pressed={favorites.includes(product.id)} aria-label={favorites.includes(product.id) ? `Quitar ${product.name} de favoritos` : `Agregar ${product.name} a favoritos`}><Heart key={String(favorites.includes(product.id))} className="heart-pop" size={18} fill={favorites.includes(product.id) ? 'currentColor' : 'none'} /></button>
+              <button className={`heart-icon ${favorites.includes(product.id) ? 'liked' : ''}`} onClick={(event) => { event.stopPropagation(); const liked = !favorites.includes(product.id); setFavorites((current) => liked ? [...current, product.id] : current.filter((item) => item !== product.id)); syncFavoriteToggle(supabase, product.id, liked); }} aria-pressed={favorites.includes(product.id)} aria-label={favorites.includes(product.id) ? `Quitar ${product.name} de favoritos` : `Agregar ${product.name} a favoritos`}><Heart key={String(favorites.includes(product.id))} className="heart-pop" size={18} fill={favorites.includes(product.id) ? 'currentColor' : 'none'} /></button>
               <ProductArtwork product={product} className="product-photo" />
               <span className="yarn-shadow" />
             </div>

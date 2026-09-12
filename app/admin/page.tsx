@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, BarChart3, Check, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, BarChart3, Check, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Printer, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -283,6 +283,38 @@ export default function AdminPage() {
     link.download = `pedidos-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const printShippingLabel = (order: Order) => {
+    const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const win = window.open('', '_blank', 'width=420,height=560');
+    if (!win) return;
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Etiqueta #${order.id.slice(0, 8)}</title>
+      <style>
+        body { font-family: -apple-system, Arial, sans-serif; padding: 24px; color: #1a1a1a; }
+        .label { border: 2px solid #1a1a1a; border-radius: 10px; padding: 20px; max-width: 380px; }
+        .brand { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+        .order-id { font-size: 12px; color: #555; margin-bottom: 16px; }
+        h1 { font-size: 20px; margin: 0 0 14px; }
+        .row { margin-bottom: 10px; font-size: 14px; line-height: 1.5; }
+        .row span { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #777; margin-bottom: 2px; }
+        .note { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #999; font-size: 11px; color: #555; }
+        @media print { body { padding: 0; } }
+      </style></head><body>
+      <div class="label">
+        <div class="brand">${escapeHtml(content.brandName || 'MilaLoop')}</div>
+        <div class="order-id">Pedido #${order.id.slice(0, 8)}</div>
+        <h1>${escapeHtml(order.customer_name)}</h1>
+        <div class="row"><span>Dirección</span>${escapeHtml(order.address)}${order.address_extra ? `, ${escapeHtml(order.address_extra)}` : ''}</div>
+        <div class="row"><span>Comuna / Región</span>${escapeHtml(order.comuna)}, ${escapeHtml(order.region)}</div>
+        <div class="row"><span>Teléfono</span>${escapeHtml(order.customer_phone)}</div>
+        ${order.customer_rut ? `<div class="row"><span>RUT</span>${escapeHtml(order.customer_rut)}</div>` : ''}
+        ${order.tracking_number ? `<div class="row"><span>N° de seguimiento</span>${escapeHtml(order.tracking_number)}</div>` : ''}
+        <div class="note">${order.items.map((item) => `${item.quantity}× ${escapeHtml(item.name)}`).join(' · ')}</div>
+      </div>
+      <script>window.onload = () => window.print();</script>
+    </body></html>`);
+    win.document.close();
   };
 
   const updateOrder = async (orderId: string, patch: Partial<Pick<Order, 'status' | 'tracking_number'>>) => {
@@ -626,6 +658,7 @@ export default function AdminPage() {
                   </NativeSelect></label>
                   <label>N° de seguimiento<Input value={order.tracking_number ?? ''} placeholder="Ej: 1234567890" onBlur={(event) => void updateOrder(order.id, { tracking_number: event.target.value || null })} onChange={(event) => setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, tracking_number: event.target.value } : item)))} /></label>
                 </div>
+                <Button variant="outline" size="sm" className="order-card-label-print" onClick={() => printShippingLabel(order)}><Printer size={14} /> Imprimir etiqueta</Button>
                 {order.user_id && currentUserId ? <OrderChat orderId={order.id} senderRole="admin" currentUserId={currentUserId} /> : <p className="admin-section-note">Compra de invitada: sin cuenta, no hay chat disponible.</p>}
               </article>
             ))}

@@ -10,6 +10,7 @@ import { formatPrice as formatCurrency } from '@/lib/currency';
 import { defaultProducts, defaultStoreContent, readCachedStoreContent, writeCachedStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { type ProductImage } from '@/lib/orders';
 import { supabase } from '@/lib/supabase';
+import { initFavorites, syncFavoriteToggle, writeLocalFavorites } from '@/lib/favorites';
 import '../../carrito/carrito.css';
 import './producto.css';
 
@@ -30,11 +31,10 @@ export default function ProductoPage() {
 
   useEffect(() => {
     try {
-      const liked = JSON.parse(localStorage.getItem('lumina-favorites') ?? '[]');
-      if (Array.isArray(liked)) setFavorites(liked.filter((item): item is string => typeof item === 'string'));
       const bag = JSON.parse(localStorage.getItem('lumina-bag') ?? '[]');
       if (Array.isArray(bag)) setCartCount(bag.length);
     } catch { /* sin acceso a localStorage */ }
+    initFavorites(supabase).then(setFavorites);
   }, []);
 
   useEffect(() => {
@@ -75,9 +75,11 @@ export default function ProductoPage() {
 
   const toggleFavorite = () => {
     if (!product) return;
+    const liked = !favorites.includes(product.id);
+    syncFavoriteToggle(supabase, product.id, liked);
     setFavorites((current) => {
-      const next = current.includes(product.id) ? current.filter((item) => item !== product.id) : [...current, product.id];
-      try { localStorage.setItem('lumina-favorites', JSON.stringify(next)); } catch { /* no crítico */ }
+      const next = liked ? [...current, product.id] : current.filter((item) => item !== product.id);
+      writeLocalFavorites(next);
       return next;
     });
   };

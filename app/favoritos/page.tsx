@@ -7,6 +7,7 @@ import { ProductArtwork } from '@/components/product-artwork';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { supabase } from '@/lib/supabase';
+import { initFavorites, syncFavoriteToggle, writeLocalFavorites } from '@/lib/favorites';
 import '../carrito/carrito.css';
 
 export default function FavoritosPage() {
@@ -17,15 +18,8 @@ export default function FavoritosPage() {
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
 
   useEffect(() => {
-    try {
-      const liked = JSON.parse(localStorage.getItem('lumina-favorites') ?? '[]');
-      if (Array.isArray(liked)) setFavorites(liked.filter((id): id is string => typeof id === 'string'));
-    } catch { /* sin acceso a localStorage */ }
+    initFavorites(supabase).then(setFavorites);
   }, []);
-
-  useEffect(() => {
-    try { localStorage.setItem('lumina-favorites', JSON.stringify(favorites)); } catch { /* no crítico */ }
-  }, [favorites]);
 
   useEffect(() => {
     const load = async () => {
@@ -49,7 +43,14 @@ export default function FavoritosPage() {
     } catch { /* no crítico */ }
   };
 
-  const removeFavorite = (id: string) => setFavorites((current) => current.filter((item) => item !== id));
+  const removeFavorite = (id: string) => {
+    syncFavoriteToggle(supabase, id, false);
+    setFavorites((current) => {
+      const next = current.filter((item) => item !== id);
+      writeLocalFavorites(next);
+      return next;
+    });
+  };
 
   const favoriteProducts = products.filter((product) => favorites.includes(product.id));
 

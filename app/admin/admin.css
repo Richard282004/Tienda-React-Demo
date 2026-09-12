@@ -131,6 +131,7 @@
 .order-card-total p { font-size: 15px; }
 .order-card-total strong { font-family: Georgia, serif; font-size: 17px; color: #351f2c; }
 .order-card-total em { font-style: normal; color: #a4919a; font-size: 12px; }
+.order-card-label-print { width: 100%; margin-top: 12px; }
 .order-card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f0e5e0; }
 .order-card-actions label { display: grid; gap: 6px; color: #69545c; font-size: 12px; font-weight: 700; }
 @media (max-width: 560px) { .order-card-row { grid-template-columns: 1fr; gap: 3px; } }
