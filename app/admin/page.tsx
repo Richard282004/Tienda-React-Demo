@@ -791,7 +791,7 @@ export default function AdminPage() {
                     <div className="logo-adjust">
                       <div
                         className="logo-adjust-preview"
-                        style={{ width: `${content.logoWidth ?? 160}px`, height: `${content.logoHeight ?? 52}px` }}
+                        style={{ width: `${content.logoWidth ?? 210}px`, height: `${content.logoHeight ?? 64}px` }}
                       >
                         <img
                           src={content.logoUrl}
@@ -803,8 +803,8 @@ export default function AdminPage() {
                           }}
                         />
                       </div>
-                      <label>Ancho ({content.logoWidth ?? 160}px)<input type="range" min={60} max={320} value={content.logoWidth ?? 160} onChange={(event) => setContent({ ...content, logoWidth: Number(event.target.value) })} /></label>
-                      <label>Alto ({content.logoHeight ?? 52}px)<input type="range" min={28} max={82} value={content.logoHeight ?? 52} onChange={(event) => setContent({ ...content, logoHeight: Number(event.target.value) })} /></label>
+                      <label>Ancho ({content.logoWidth ?? 210}px)<input type="range" min={60} max={340} value={content.logoWidth ?? 210} onChange={(event) => setContent({ ...content, logoWidth: Number(event.target.value) })} /></label>
+                      <label>Alto ({content.logoHeight ?? 64}px)<input type="range" min={28} max={76} value={content.logoHeight ?? 64} onChange={(event) => setContent({ ...content, logoHeight: Number(event.target.value) })} /></label>
                       <label>Posición horizontal<input type="range" min={0} max={100} value={content.logoPositionX ?? 50} onChange={(event) => setContent({ ...content, logoPositionX: Number(event.target.value) })} /></label>
                       <label>Posición vertical<input type="range" min={0} max={100} value={content.logoPositionY ?? 50} onChange={(event) => setContent({ ...content, logoPositionY: Number(event.target.value) })} /></label>
                       <label>Acercar<input type="range" min={1} max={2.5} step={0.02} value={content.logoZoom ?? 1} onChange={(event) => setContent({ ...content, logoZoom: Number(event.target.value) })} /></label>

@@ -127,8 +127,8 @@ export default function ProductoPage() {
               style={
                 content.hideBrandText
                   ? {
-                      height: `${content.logoHeight ?? 52}px`,
-                      width: `${content.logoWidth ?? 160}px`,
+                      height: `${content.logoHeight ?? 64}px`,
+                      width: `${content.logoWidth ?? 210}px`,
                       objectFit: 'cover',
                       objectPosition: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
                       transformOrigin: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
