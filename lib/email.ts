@@ -125,6 +125,7 @@ export async function sendTransferInstructionsEmail(opts: {
      <ul>${itemsHtml}</ul>
      <p><strong>Total a transferir: ${price(opts.total)}</strong></p>
      <p style="background:#f6efeb; border-radius:12px; padding:14px 16px; margin:14px 0; line-height:1.7;">${detailsHtml}</p>
+     <p style="background:#fbeed2; border-radius:9px; padding:10px 14px; margin:0 0 14px; color:#7a5a1e;">Pon <strong>${opts.orderId.slice(0, 8)}</strong> como mensaje/glosa de la transferencia, así identificamos tu pago al tiro.</p>
      <p>Después de transferir, <strong>envíanos el comprobante</strong> respondiendo este correo o por el chat de tu pedido:
        <a href="${opts.storeUrl}/pedido/confirmacion?order=${opts.orderId}">ver mi pedido</a>.</p>
      <p style="color:#75646e; font-size:13px;">Guardamos tu reserva por ${opts.holdHours} horas. Si no recibimos la transferencia en ese plazo, el pedido se libera.</p>`,

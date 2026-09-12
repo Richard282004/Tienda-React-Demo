@@ -125,6 +125,9 @@ export default function ConfirmacionPage() {
               <div className="confirmation-transfer">
                 <p className="confirmation-transfer-title">Transfiere {formatPrice(order.total)} a:</p>
                 <pre className="confirmation-transfer-details">{content.transferDetails.trim()}</pre>
+                <p className="confirmation-transfer-glosa">
+                  Pon <strong>{order.id.slice(0, 8)}</strong> como mensaje/glosa de la transferencia, así identificamos tu pago al tiro.
+                </p>
                 <p className="confirmation-transfer-note">
                   Después de transferir, envíanos el comprobante por WhatsApp
                   {content.whatsapp ? (
