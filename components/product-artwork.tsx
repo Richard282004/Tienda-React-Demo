@@ -13,6 +13,8 @@ export function ProductArtwork({ product, className }: { product: Product; class
         alt={product.name}
         loading="lazy"
         decoding="async"
+        width={400}
+        height={400}
         style={{
           objectPosition: `${product.image_position_x ?? 50}% ${product.image_position_y ?? 50}%`,
           // El origen del zoom debe coincidir con el punto elegido en los

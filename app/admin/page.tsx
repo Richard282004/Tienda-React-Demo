@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Check, Clock, DollarSign, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, Package, PackagePlus, Pencil, Save, ShieldCheck, Star, Tag, Trash2, Truck, Upload, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, BarChart3, Check, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, Package, PackagePlus, Pencil, Save, ShieldCheck, Star, Tag, Trash2, Truck, Upload, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -232,6 +232,37 @@ export default function AdminPage() {
     const { error } = await supabase.from('profiles').update({ role: nextRole }).eq('id', profile.id);
     if (error) { setMessage(error.message); return; }
     setProfiles((current) => current.map((item) => (item.id === profile.id ? { ...item, role: nextRole } : item)));
+  };
+
+  const exportOrdersCsv = () => {
+    const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const header = ['ID', 'Fecha', 'Cliente', 'Correo', 'Teléfono', 'Región', 'Comuna', 'Dirección', 'Productos', 'Subtotal', 'Envío', 'Descuento', 'Total', 'Método de pago', 'Estado', 'N° de seguimiento'];
+    const rows = orders.map((order) => [
+      order.id,
+      new Date(order.created_at).toLocaleString('es-CL'),
+      order.customer_name,
+      order.customer_email,
+      order.customer_phone,
+      order.region,
+      order.comuna,
+      `${order.address}${order.address_extra ? `, ${order.address_extra}` : ''}`,
+      order.items.map((item) => `${item.quantity}x ${item.name}`).join(' | '),
+      String(order.subtotal),
+      String(order.shipping_cost),
+      String(order.discount_amount),
+      String(order.total),
+      order.payment_method === 'transfer' ? 'Transferencia' : 'Mercado Pago',
+      orderStatusLabel[order.status],
+      order.tracking_number ?? '',
+    ]);
+    const csv = [header, ...rows].map((row) => row.map(escape).join(',')).join('\n');
+    const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pedidos-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const updateOrder = async (orderId: string, patch: Partial<Pick<Order, 'status' | 'tracking_number'>>) => {
@@ -506,6 +537,7 @@ export default function AdminPage() {
       <TabsList className="admin-tabs-list">
         <TabsTrigger value="products"><Package size={17} /> Productos</TabsTrigger>
         <TabsTrigger value="orders"><Truck size={17} /> Pedidos</TabsTrigger>
+        <TabsTrigger value="metrics"><BarChart3 size={17} /> Métricas</TabsTrigger>
         <TabsTrigger value="shipping"><Truck size={17} /> Envíos</TabsTrigger>
         <TabsTrigger value="discounts"><Tag size={17} /> Descuentos</TabsTrigger>
         <TabsTrigger value="reviews"><Star size={17} /> Reseñas</TabsTrigger>
@@ -515,7 +547,7 @@ export default function AdminPage() {
         <TabsTrigger value="content"><FileText size={17} /> Textos y contacto</TabsTrigger>
       </TabsList>
       <TabsContent value="orders">
-        <div className="admin-section-heading"><div><h2>Pedidos</h2><p>{orders.length} pedidos recibidos</p></div></div>
+        <div className="admin-section-heading"><div><h2>Pedidos</h2><p>{orders.length} pedidos recibidos</p></div><Button variant="outline" disabled={orders.length === 0} onClick={exportOrdersCsv}><FileDown size={17} /> Exportar CSV</Button></div>
         {orders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Aún no hay pedidos</h3><p>Aquí aparecerán las compras pagadas con Mercado Pago.</p></div> : (
           <div className="orders-list">
             {orders.map((order) => (
@@ -550,6 +582,75 @@ export default function AdminPage() {
             ))}
           </div>
         )}
+      </TabsContent>
+      <TabsContent value="metrics">
+        <div className="admin-section-heading"><div><h2>Métricas</h2><p>Calculadas sobre los pedidos ya cargados en este panel.</p></div></div>
+        {(() => {
+          const paidOrders = orders.filter((order) => order.status === 'paid' || order.status === 'shipped' || order.status === 'delivered');
+          const totalRevenue = paidOrders.reduce((sum, order) => sum + order.total, 0);
+          const avgTicket = paidOrders.length ? totalRevenue / paidOrders.length : 0;
+          const now = Date.now();
+          const day = 86400000;
+          const last7Revenue = paidOrders.filter((order) => now - new Date(order.created_at).getTime() <= 7 * day).reduce((sum, order) => sum + order.total, 0);
+          const prev7Revenue = paidOrders.filter((order) => {
+            const age = now - new Date(order.created_at).getTime();
+            return age > 7 * day && age <= 14 * day;
+          }).reduce((sum, order) => sum + order.total, 0);
+          const trendPct = prev7Revenue > 0 ? Math.round(((last7Revenue - prev7Revenue) / prev7Revenue) * 100) : last7Revenue > 0 ? 100 : 0;
+          const unitsByProduct = new Map<string, number>();
+          for (const order of paidOrders) {
+            for (const item of order.items) unitsByProduct.set(item.name, (unitsByProduct.get(item.name) ?? 0) + item.quantity);
+          }
+          const topProducts = [...unitsByProduct.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+          const maxUnits = topProducts[0]?.[1] ?? 0;
+          const dayBuckets = Array.from({ length: 14 }, (_, index) => {
+            const start = now - (13 - index) * day;
+            const label = new Date(start).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' });
+            const total = paidOrders.filter((order) => Math.floor(new Date(order.created_at).getTime() / day) === Math.floor(start / day)).reduce((sum, order) => sum + order.total, 0);
+            return { label, total };
+          });
+          const maxDay = Math.max(...dayBuckets.map((bucket) => bucket.total), 1);
+          return (
+            <>
+              <div className="metrics-cards">
+                <div className="metric-card"><span>Ingresos totales</span><strong>{formatPrice(totalRevenue)}</strong></div>
+                <div className="metric-card"><span>Pedidos pagados</span><strong>{paidOrders.length}</strong></div>
+                <div className="metric-card"><span>Ticket promedio</span><strong>{formatPrice(avgTicket)}</strong></div>
+                <div className="metric-card"><span>Últimos 7 días vs. anteriores 7</span><strong className={trendPct >= 0 ? 'metric-up' : 'metric-down'}>{trendPct >= 0 ? '+' : ''}{trendPct}%</strong></div>
+              </div>
+              <div className="metrics-row">
+                <div className="metric-panel">
+                  <h3>Ventas por día (últimos 14 días)</h3>
+                  {totalRevenue === 0 ? <p className="admin-section-note">Sin ventas pagadas todavía.</p> : (
+                    <div className="metric-bars">
+                      {dayBuckets.map((bucket) => (
+                        <div className="metric-bar-row" key={bucket.label}>
+                          <span>{bucket.label}</span>
+                          <div className="metric-bar-track"><div className="metric-bar-fill" style={{ width: `${(bucket.total / maxDay) * 100}%` }} /></div>
+                          <span>{bucket.total > 0 ? formatPrice(bucket.total) : ''}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="metric-panel">
+                  <h3>Productos más vendidos</h3>
+                  {topProducts.length === 0 ? <p className="admin-section-note">Sin ventas pagadas todavía.</p> : (
+                    <div className="metric-bars">
+                      {topProducts.map(([name, units]) => (
+                        <div className="metric-bar-row" key={name}>
+                          <span>{name}</span>
+                          <div className="metric-bar-track"><div className="metric-bar-fill" style={{ width: `${(units / maxUnits) * 100}%` }} /></div>
+                          <span>{units} u.</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          );
+        })()}
       </TabsContent>
       <TabsContent value="shipping">
         <div className="admin-section-heading"><div><h2>Costos de envío</h2><p>Estas son las regiones/zonas que el cliente puede elegir al pagar. Agrega, edita o quita las que quieras.</p></div></div>
