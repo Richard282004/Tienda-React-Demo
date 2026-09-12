@@ -77,6 +77,9 @@ export default function AdminPage() {
   const [cropTarget, setCropTarget] = useState<'product' | 'gallery' | 'showcase' | null>(null);
   const [draggedProductId, setDraggedProductId] = useState<string | null>(null);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatus | 'all'>('all');
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderLowStockOnly, setOrderLowStockOnly] = useState(false);
   const [discounts, setDiscounts] = useState<DiscountCode[]>([]);
   const [discountDraft, setDiscountDraft] = useState(emptyDiscount);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -520,6 +523,14 @@ export default function AdminPage() {
     .reduce((sum, order) => sum + order.total, 0);
   const pendingShipmentCount = orders.filter((order) => order.status === 'paid').length;
   const lowStockCount = products.filter((product) => product.stock != null && product.stock <= 5).length;
+  const lowStockProductIds = new Set(products.filter((product) => product.stock != null && product.stock <= 5).map((product) => product.id));
+  const filteredOrders = orders.filter((order) => {
+    if (orderStatusFilter !== 'all' && order.status !== orderStatusFilter) return false;
+    if (orderLowStockOnly && !order.items.some((item) => lowStockProductIds.has(item.productId))) return false;
+    const query = orderSearch.trim().toLowerCase();
+    if (query && !`${order.customer_name} ${order.customer_email} ${order.id}`.toLowerCase().includes(query)) return false;
+    return true;
+  });
 
   if (state === 'loading') return <main className="admin-center"><div className="admin-loader">Preparando tu panel…</div></main>;
 
@@ -552,10 +563,24 @@ export default function AdminPage() {
         <TabsTrigger value="content"><FileText size={17} /> Textos y contacto</TabsTrigger>
       </TabsList>
       <TabsContent value="orders">
-        <div className="admin-section-heading"><div><h2>Pedidos</h2><p>{orders.length} pedidos recibidos</p></div><Button variant="outline" disabled={orders.length === 0} onClick={exportOrdersCsv}><FileDown size={17} /> Exportar CSV</Button></div>
-        {orders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Aún no hay pedidos</h3><p>Aquí aparecerán las compras pagadas con Mercado Pago.</p></div> : (
+        <div className="admin-section-heading"><div><h2>Pedidos</h2><p>{filteredOrders.length === orders.length ? `${orders.length} pedidos recibidos` : `${filteredOrders.length} de ${orders.length} pedidos`}</p></div><Button variant="outline" disabled={orders.length === 0} onClick={exportOrdersCsv}><FileDown size={17} /> Exportar CSV</Button></div>
+        {orders.length > 0 && (
+          <div className="order-filters">
+            <NativeSelect className="admin-select" value={orderStatusFilter} onChange={(event) => setOrderStatusFilter(event.target.value as OrderStatus | 'all')}>
+              <NativeSelectOption value="all">Todos los estados</NativeSelectOption>
+              {(Object.keys(orderStatusLabel) as OrderStatus[]).map((status) => <NativeSelectOption key={status} value={status}>{orderStatusLabel[status]}</NativeSelectOption>)}
+            </NativeSelect>
+            <Input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Buscar por cliente, correo o N° de pedido" />
+            {lowStockCount > 0 && (
+              <button type="button" className={`admin-lowstock-filter${orderLowStockOnly ? ' active' : ''}`} onClick={() => setOrderLowStockOnly((current) => !current)}>
+                <AlertTriangle size={14} /> Con stock bajo
+              </button>
+            )}
+          </div>
+        )}
+        {orders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Aún no hay pedidos</h3><p>Aquí aparecerán las compras pagadas con Mercado Pago.</p></div> : filteredOrders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Sin resultados</h3><p>Ningún pedido calza con ese filtro.</p></div> : (
           <div className="orders-list">
-            {orders.map((order) => (
+            {filteredOrders.map((order) => (
               <article className="order-card" key={order.id}>
                 <div className="order-card-header">
                   <div><strong>#{order.id.slice(0, 8)}</strong><span>{new Date(order.created_at).toLocaleString('es-CL')}</span></div>
@@ -573,7 +598,7 @@ export default function AdminPage() {
                 <div className="order-card-body">
                   <div className="order-card-row"><span><User size={14} /> Cliente</span><p>{order.customer_name} · {order.customer_email} · {order.customer_phone}{order.customer_rut ? ` · RUT ${order.customer_rut}` : ''}</p></div>
                   <div className="order-card-row"><span><MapPin size={14} /> Dirección</span><p>{order.address}{order.address_extra ? `, ${order.address_extra}` : ''}, {order.comuna}, {order.region}</p></div>
-                  <div className="order-card-row"><span><ShoppingBag size={14} /> Productos</span><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}>{item.quantity}× {item.name} — {formatPrice(item.unitPrice * item.quantity)}</li>)}</ul></div>
+                  <div className="order-card-row"><span><ShoppingBag size={14} /> Productos</span><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}>{item.quantity}× {item.name} — {formatPrice(item.unitPrice * item.quantity)}{lowStockProductIds.has(item.productId) && <span className="order-item-lowstock"><AlertTriangle size={11} /> stock bajo</span>}</li>)}</ul></div>
                   <div className="order-card-row order-card-total"><span><DollarSign size={14} /> Total</span><p><strong>{formatPrice(order.total)}</strong> <em>(envío {formatPrice(order.shipping_cost)})</em></p></div>
                 </div>
                 <div className="order-card-actions">

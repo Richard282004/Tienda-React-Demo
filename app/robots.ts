@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       // Zonas privadas o sin valor para buscadores.
-      disallow: ['/admin', '/api/', '/mi-cuenta', '/pedido/'],
+      disallow: ['/admin', '/api/', '/mi-cuenta', '/pedido/', '/carrito', '/favoritos'],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };
