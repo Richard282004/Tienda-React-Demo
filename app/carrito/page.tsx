@@ -118,8 +118,16 @@ export default function CarritoPage() {
   const [paymentMethod, setPaymentMethod] = useState<'mercadopago' | 'transfer'>('mercadopago');
   useEffect(() => { if (!transferAvailable) setPaymentMethod('mercadopago'); }, [transferAvailable]);
   useEffect(() => {
-    if (shipping.region && pickupZones.some((rate) => rate.region === shipping.region)) setDeliveryMethod('pickup');
-  }, [shipping.region, pickupZones]);
+    if (!shipping.region) return;
+    // Una zona de envío normal y la de retiro pueden compartir el mismo
+    // nombre de región (ej. "Región Metropolitana" para ambas) — si la
+    // dirección restaurada trae comuna y dirección reales, es un envío a
+    // domicilio de verdad, no un retiro, aunque el nombre coincida.
+    const isPickupRegion = pickupZones.some((rate) => rate.region === shipping.region);
+    const hasRealAddress = Boolean(shipping.comuna.trim() || shipping.address.trim());
+    if (isPickupRegion && !hasRealAddress) setDeliveryMethod('pickup');
+    else if (!isPickupRegion) setDeliveryMethod('shipping');
+  }, [shipping.region, shipping.comuna, shipping.address, pickupZones]);
   const chooseDeliveryMethod = (method: 'shipping' | 'pickup') => {
     setDeliveryMethod(method);
     if (method === 'pickup' && pickupZones.length === 1) {
