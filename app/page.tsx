@@ -5,6 +5,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
+  Copy,
   Heart,
   LockKeyhole,
   Mail,
@@ -250,6 +251,31 @@ export default function Home() {
       window.history.replaceState(null, '', window.location.pathname + window.location.hash);
     }
   }, []);
+
+  const [discountPopupOpen, setDiscountPopupOpen] = useState(false);
+  const [discountPopupCopied, setDiscountPopupCopied] = useState(false);
+
+  useEffect(() => {
+    if (!content.popupDiscountEnabled || !content.popupDiscountCode) return;
+    try { if (localStorage.getItem('milaloop-discount-popup-seen')) return; } catch { /* sin acceso a localStorage */ }
+    const delay = Math.max(0, content.popupDiscountDelaySeconds ?? 8) * 1000;
+    const timer = window.setTimeout(() => setDiscountPopupOpen(true), delay);
+    return () => window.clearTimeout(timer);
+  }, [content.popupDiscountEnabled, content.popupDiscountCode, content.popupDiscountDelaySeconds]);
+
+  const closeDiscountPopup = () => {
+    setDiscountPopupOpen(false);
+    try { localStorage.setItem('milaloop-discount-popup-seen', '1'); } catch { /* no crítico */ }
+  };
+
+  const copyDiscountCode = async () => {
+    if (!content.popupDiscountCode) return;
+    try {
+      await navigator.clipboard.writeText(content.popupDiscountCode);
+      setDiscountPopupCopied(true);
+      window.setTimeout(() => setDiscountPopupCopied(false), 2000);
+    } catch { /* el navegador puede negar el acceso al portapapeles */ }
+  };
 
   const passwordRules = [
     { test: (value: string) => value.length >= 8, label: 'mínimo 8 caracteres' },
@@ -579,6 +605,22 @@ export default function Home() {
       </Dialog>
 
       {notice && <div className="notice" role="status"><Check size={16} /> {notice}</div>}
+
+      {discountPopupOpen && content.popupDiscountCode && (
+        <div className="discount-popup-overlay" onClick={closeDiscountPopup} aria-hidden="true" />
+      )}
+      {discountPopupOpen && content.popupDiscountCode && (
+        <div className="discount-popup" role="dialog" aria-modal="true" aria-label="Descuento de bienvenida">
+          <button type="button" className="discount-popup-close" onClick={closeDiscountPopup} aria-label="Cerrar"><X size={18} /></button>
+          <Sparkles size={26} className="discount-popup-icon" />
+          <h3>{content.popupDiscountPercent ?? 5}% de descuento</h3>
+          <p>{content.popupDiscountMessage?.trim() || '¿Primera vez por aquí? Llévate un descuento en tu compra.'}</p>
+          <button type="button" className="discount-popup-code" onClick={() => void copyDiscountCode()}>
+            {content.popupDiscountCode} {discountPopupCopied ? <Check size={15} /> : <Copy size={15} />}
+          </button>
+          <small>{discountPopupCopied ? 'Código copiado' : 'Toca para copiar el código'}</small>
+        </div>
+      )}
 
     </main>
   );
