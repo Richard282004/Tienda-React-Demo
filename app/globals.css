@@ -409,6 +409,7 @@ h2 { font-size: clamp(34px, 3.6vw, 50px); line-height: 1.13; }
 .not-found-shell { min-height: 100vh; display: grid; place-items: center; padding: 32px 20px; background: #f6efeb; color: #351f2c; }
 .not-found-card { width: min(420px, 100%); text-align: center; padding: 44px 32px; border: 1px solid #e5d6d0; border-radius: 22px; background: #fffaf5; box-shadow: 0 24px 65px rgba(53,31,44,.1); }
 .not-found-mark { display: grid; width: 48px; height: 48px; margin: 0 auto 16px; place-items: center; border-radius: 50%; background: #e98d9e; color: white; font-size: 22px; }
+.not-found-logo { width: auto; height: 56px; margin: 0 auto 16px; object-fit: contain; }
 .not-found-card h1 { margin: 0 0 8px; font-family: Georgia, serif; font-size: 56px; font-weight: 400; color: #a74060; }
 .not-found-card p { margin: 0 0 22px; color: #7b6b70; font-size: 14px; line-height: 1.6; }
 .not-found-card a { display: inline-flex; color: #b75874; font-size: 13px; font-weight: 700; }

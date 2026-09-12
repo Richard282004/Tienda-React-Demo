@@ -5,6 +5,7 @@ import { ArrowRight, LockKeyhole } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
+import { readCachedStoreContent } from '@/lib/store-data';
 import './restablecer.css';
 
 const passwordRules = [
@@ -15,6 +16,7 @@ const passwordRules = [
 ];
 
 export default function RestablecerPage() {
+  const [logoUrl] = useState(() => readCachedStoreContent().logoUrl);
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [password, setPassword] = useState('');
@@ -59,7 +61,7 @@ export default function RestablecerPage() {
   return (
     <main className="reset-shell">
       <div className="reset-card">
-        <span className="reset-mark">✦</span>
+        {logoUrl ? <img className="reset-logo" src={logoUrl} alt="" /> : <span className="reset-mark">✦</span>}
         {!ready ? (
           <p className="reset-note">Verificando el enlace…</p>
         ) : done ? (

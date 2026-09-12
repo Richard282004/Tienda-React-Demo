@@ -1,6 +1,7 @@
 .reset-shell { min-height: 100vh; display: grid; place-items: center; padding: 32px 20px; background: var(--cream, #fffcf8); color: var(--ink, #382a32); }
 .reset-card { width: min(420px, 100%); text-align: center; padding: 40px 32px; border: 1px solid #e7d8d2; border-radius: 24px; background: #fffaf5; box-shadow: 0 24px 65px rgba(53,31,44,.12); }
 .reset-mark { display: grid; width: 46px; height: 46px; margin: 0 auto 14px; place-items: center; border-radius: 50%; background: var(--pink, #efbac6); color: #fff; font-size: 22px; }
+.reset-logo { width: auto; height: 54px; margin: 0 auto 14px; object-fit: contain; }
 .reset-card h1 { margin: 0 0 10px; font-family: Georgia, serif; font-size: 26px; font-weight: 400; letter-spacing: -.02em; }
 .reset-note { margin: 0; color: var(--muted, #75646e); font-size: 13px; line-height: 1.6; }
 .reset-back { display: inline-flex; margin-top: 18px; color: var(--rose, #a74060); font-size: 13px; font-weight: 700; }
