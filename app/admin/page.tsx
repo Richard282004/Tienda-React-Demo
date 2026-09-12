@@ -64,6 +64,9 @@ export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [confirmState, setConfirmState] = useState<{ message: string; resolve: (ok: boolean) => void } | null>(null);
+  const askConfirm = (confirmMessage: string) => new Promise<boolean>((resolve) => setConfirmState({ message: confirmMessage, resolve }));
+  const closeConfirm = (ok: boolean) => { confirmState?.resolve(ok); setConfirmState(null); };
   const [productOpen, setProductOpen] = useState(false);
   const [draft, setDraft] = useState<ProductDraft>(emptyProduct);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -153,7 +156,7 @@ export default function AdminPage() {
   };
 
   const deleteShowcaseItem = async (id: string) => {
-    if (!supabase || !window.confirm('¿Eliminar esta foto de la vitrina?')) return;
+    if (!supabase || !(await askConfirm('¿Eliminar esta foto de la vitrina?'))) return;
     await supabase.from('showcase_items').delete().eq('id', id);
     setShowcaseItems((current) => current.filter((item) => item.id !== id));
   };
@@ -176,7 +179,7 @@ export default function AdminPage() {
   };
 
   const deleteFaq = async (id: string) => {
-    if (!supabase || !window.confirm('¿Eliminar esta pregunta?')) return;
+    if (!supabase || !(await askConfirm('¿Eliminar esta pregunta?'))) return;
     await supabase.from('faqs').delete().eq('id', id);
     setFaqs((current) => current.filter((faq) => faq.id !== id));
   };
@@ -201,7 +204,7 @@ export default function AdminPage() {
   };
 
   const deleteDiscount = async (code: string) => {
-    if (!supabase || !window.confirm(`¿Eliminar el código ${code}?`)) return;
+    if (!supabase || !(await askConfirm(`¿Eliminar el código ${code}?`))) return;
     const { error } = await supabase.from('discount_codes').delete().eq('code', code);
     if (error) setMessage(error.message); else await loadAdminData();
   };
@@ -219,7 +222,7 @@ export default function AdminPage() {
   };
 
   const deleteReview = async (id: string) => {
-    if (!supabase || !window.confirm('¿Eliminar esta reseña?')) return;
+    if (!supabase || !(await askConfirm('¿Eliminar esta reseña?'))) return;
     await supabase.from('reviews').delete().eq('id', id);
     setReviews((current) => current.filter((review) => review.id !== id));
   };
@@ -228,7 +231,7 @@ export default function AdminPage() {
     if (!supabase) return;
     if (profile.id === currentUserId && profile.role === 'admin') { setMessage('No puedes quitarte tu propio acceso de administradora.'); return; }
     const nextRole = profile.role === 'admin' ? 'customer' : 'admin';
-    if (!window.confirm(`¿${nextRole === 'admin' ? 'Dar' : 'Quitar'} acceso de administradora a ${profile.email ?? profile.id}?`)) return;
+    if (!(await askConfirm(`¿${nextRole === 'admin' ? 'Dar' : 'Quitar'} acceso de administradora a ${profile.email ?? profile.id}?`))) return;
     const { error } = await supabase.from('profiles').update({ role: nextRole }).eq('id', profile.id);
     if (error) { setMessage(error.message); return; }
     setProfiles((current) => current.map((item) => (item.id === profile.id ? { ...item, role: nextRole } : item)));
@@ -482,7 +485,7 @@ export default function AdminPage() {
   };
 
   const deleteProduct = async (product: Product) => {
-    if (!supabase || !window.confirm(`¿Eliminar ${product.name}? Esta acción no se puede deshacer.`)) return;
+    if (!supabase || !(await askConfirm(`¿Eliminar ${product.name}? Esta acción no se puede deshacer.`))) return;
     const { error } = await supabase.from('products').delete().eq('id', product.id);
     if (error) setMessage(error.message); else { setMessage('Producto eliminado.'); await loadAdminData(); }
   };
@@ -853,5 +856,19 @@ export default function AdminPage() {
 </div>{message && <p className="admin-message">{message}</p>}<Button disabled={busy} type="submit" className="save-product"><Save size={17} /> {busy ? 'Guardando…' : 'Guardar producto'}</Button></form></DialogContent></Dialog>
 
     <ImageCropDialog file={cropQueue[0] ?? null} onCancel={onCropCancel} onConfirm={onCropConfirm} />
+
+    <Dialog open={confirmState !== null} onOpenChange={(open) => { if (!open) closeConfirm(false); }}>
+      <DialogContent className="confirm-dialog">
+        <DialogHeader>
+          <div className="confirm-dialog-icon"><AlertTriangle size={20} /></div>
+          <DialogTitle>Confirmar acción</DialogTitle>
+          <DialogDescription>{confirmState?.message}</DialogDescription>
+        </DialogHeader>
+        <div className="confirm-dialog-actions">
+          <Button variant="outline" onClick={() => closeConfirm(false)}>Cancelar</Button>
+          <Button className="confirm-dialog-danger" onClick={() => closeConfirm(true)}>Sí, confirmar</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   </main>;
 }
