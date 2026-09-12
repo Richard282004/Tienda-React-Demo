@@ -16,6 +16,7 @@ export type Order = {
   customer_name: string;
   customer_email: string;
   customer_phone: string;
+  customer_rut: string | null;
   region: string;
   comuna: string;
   address: string;

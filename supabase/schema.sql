@@ -196,6 +196,7 @@ create table if not exists public.orders (
   customer_name text not null,
   customer_email text not null,
   customer_phone text not null,
+  customer_rut text,
   region text not null,
   comuna text not null,
   address text not null,
@@ -219,6 +220,7 @@ create table if not exists public.orders (
 -- (get_order_public / expire_stale_orders las referencian).
 alter table public.orders add column if not exists payment_method text not null default 'mercadopago'
   check (payment_method in ('mercadopago', 'transfer'));
+alter table public.orders add column if not exists customer_rut text;
 
 create index if not exists orders_created_at_idx on public.orders (created_at desc);
 create index if not exists orders_mp_preference_idx on public.orders (mp_preference_id);

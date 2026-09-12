@@ -41,8 +41,11 @@
   .producto-mobile-nav a, .producto-mobile-nav button {
     position: relative; display: grid; justify-items: center; gap: 3px;
     padding: 10px 4px 9px; border: 0; background: none; color: var(--muted); font-size: 10.5px; font-weight: 600; cursor: pointer;
+    transition: color 140ms var(--ease-out);
   }
+  .producto-mobile-nav a svg, .producto-mobile-nav button svg { transition: transform 140ms var(--ease-out); }
   .producto-mobile-nav a:active, .producto-mobile-nav button:active { color: var(--plum); }
+  .producto-mobile-nav a:active svg, .producto-mobile-nav button:active svg { transform: scale(0.82); }
   .producto-mobile-nav-badge {
     position: absolute; top: 4px; right: calc(50% - 20px); display: grid; place-items: center;
     min-width: 15px; height: 15px; border-radius: 99px; background: var(--rose); color: #fff; font-size: 9px; font-weight: 700;

@@ -182,7 +182,7 @@ export default function ProductoPage() {
           <div className="producto-actions">
             <Button className="primary-button" disabled={outOfStock} onClick={addToCart}>Agregar a la bolsita <Plus size={16} /></Button>
             <button className={`heart-icon producto-heart ${isLiked ? 'liked' : ''}`} onClick={toggleFavorite} aria-pressed={isLiked} aria-label={isLiked ? `Quitar ${product.name} de favoritos` : `Agregar ${product.name} a favoritos`}>
-              <Heart size={19} fill={isLiked ? 'currentColor' : 'none'} />
+              <Heart key={String(isLiked)} className="heart-pop" size={19} fill={isLiked ? 'currentColor' : 'none'} />
             </button>
           </div>
         </div>
@@ -226,7 +226,7 @@ export default function ProductoPage() {
         </section>
       )}
       <footer className="site-footer page-width">
-        <div className="footer-brand"><span className="brand-mark">✦</span><span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span></div>
+        <div className="footer-brand">{content.logoUrl ? <img className="brand-logo" src={content.logoUrl} alt="" /> : <span className="brand-mark">✦</span>}<span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span></div>
         <div className="footer-contact">
           <p>{content.footerCta}</p>
           <a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a>
@@ -243,7 +243,7 @@ export default function ProductoPage() {
       {notice && <div className="notice" role="status">{notice}</div>}
       <nav className="producto-mobile-nav" aria-label="Navegación rápida">
         <a href="/"><Store size={20} /><span>Tienda</span></a>
-        <a href="/favoritos"><Heart size={20} fill={favorites.length ? 'currentColor' : 'none'} />{favorites.length > 0 && <span key={favorites.length} className="producto-mobile-nav-badge">{favorites.length}</span>}<span>Favoritos</span></a>
+        <a href="/favoritos"><Heart key={`fav-heart-${favorites.length}`} className="heart-pop" size={20} fill={favorites.length ? 'currentColor' : 'none'} />{favorites.length > 0 && <span key={`fav-badge-${favorites.length}`} className="producto-mobile-nav-badge">{favorites.length}</span>}<span>Favoritos</span></a>
         <a href="/carrito"><ShoppingBag size={20} />{cartCount > 0 && <span key={cartCount} className="producto-mobile-nav-badge">{cartCount}</span>}<span>Carrito</span></a>
         <button type="button" onClick={() => { window.location.href = '/?account=1'; }}><UserRound size={20} /><span>Mi cuenta</span></button>
       </nav>

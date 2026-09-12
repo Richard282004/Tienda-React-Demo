@@ -192,6 +192,7 @@ export async function POST(request: Request) {
         customer_name: payload.customerName,
         customer_email: payload.customerEmail,
         customer_phone: payload.customerPhone,
+        customer_rut: payload.customerRut,
         region: payload.region,
         comuna: payload.comuna,
         address: payload.address,

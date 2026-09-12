@@ -6,6 +6,7 @@ const valid = () => ({
   customerName: " Cliente ",
   customerEmail: "cliente@example.com",
   customerPhone: "+56911111111",
+  customerRut: "11.111.111-1",
   region: "Metropolitana de Santiago",
   comuna: "Santiago",
   address: "Calle de prueba 123",
@@ -44,8 +45,14 @@ test("rechaza cuerpos malformados, carrito vacío y datos incompletos", () => {
     { ...valid(), items: [] },
     { ...valid(), customerEmail: "incorrecto" },
     { ...valid(), customerName: "   " },
+    { ...valid(), customerRut: "11.111.111-2" },
+    { ...valid(), customerRut: "" },
   ])
     assert.throws(() => parseCheckoutPayload(value));
+});
+test("normaliza el RUT sin puntos y con guion", () => {
+  assert.equal(parseCheckoutPayload({ ...valid(), customerRut: "11111111-1" }).customerRut, "11111111-1");
+  assert.equal(parseCheckoutPayload({ ...valid(), customerRut: "11.111.111-1" }).customerRut, "11111111-1");
 });
 test("no considera gratis una tarifa ausente o inválida", () => {
   for (const rate of [undefined, -10, NaN, 1.5])

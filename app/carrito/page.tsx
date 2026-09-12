@@ -13,8 +13,25 @@ import { formatPrice as formatCurrency } from '@/lib/currency';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import './carrito.css';
 
-type Shipping = { name: string; email: string; phone: string; region: string; comuna: string; address: string; addressExtra: string };
-const emptyShipping: Shipping = { name: '', email: '', phone: '', region: '', comuna: '', address: '', addressExtra: '' };
+type Shipping = { name: string; email: string; phone: string; rut: string; region: string; comuna: string; address: string; addressExtra: string };
+const emptyShipping: Shipping = { name: '', email: '', phone: '', rut: '', region: '', comuna: '', address: '', addressExtra: '' };
+
+// Valida el dígito verificador de un RUT chileno (con o sin puntos/guion).
+function isValidRut(raw: string): boolean {
+  const clean = raw.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (clean.length < 8 || clean.length > 9) return false;
+  const body = clean.slice(0, -1);
+  const verifier = clean.slice(-1);
+  let sum = 0;
+  let factor = 2;
+  for (let i = body.length - 1; i >= 0; i -= 1) {
+    sum += Number(body[i]) * factor;
+    factor = factor === 7 ? 2 : factor + 1;
+  }
+  const mod = 11 - (sum % 11);
+  const expected = mod === 11 ? '0' : mod === 10 ? 'K' : String(mod);
+  return verifier === expected;
+}
 
 export default function CarritoPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -72,7 +89,7 @@ export default function CarritoPage() {
         const last = list[list.length - 1];
         if (last) {
           setSelectedAddressId(last.id);
-          setShipping({ name: last.full_name, email: user.email ?? '', phone: last.phone, region: last.region, comuna: last.comuna, address: last.address, addressExtra: last.address_extra ?? '' });
+          setShipping((current) => ({ ...current, name: last.full_name, email: user.email ?? '', phone: last.phone, region: last.region, comuna: last.comuna, address: last.address, addressExtra: last.address_extra ?? '' }));
         } else {
           setShipping((current) => ({ ...current, name: profile?.full_name ?? '', email: user.email ?? '' }));
         }
@@ -115,6 +132,7 @@ export default function CarritoPage() {
     shipping.name.trim() &&
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shipping.email.trim()) &&
     shipping.phone.trim() &&
+    isValidRut(shipping.rut) &&
     shipping.region &&
     (!requiresAddress || (shipping.comuna.trim() && shipping.address.trim())),
   );
@@ -161,6 +179,7 @@ export default function CarritoPage() {
           customerName: shipping.name,
           customerEmail: shipping.email,
           customerPhone: shipping.phone,
+          customerRut: shipping.rut,
           region: shipping.region,
           comuna: shipping.comuna,
           address: shipping.address,
@@ -260,6 +279,7 @@ export default function CarritoPage() {
               <label>Nombre completo<Input required autoComplete="name" maxLength={120} value={shipping.name} onChange={(event) => setShipping({ ...shipping, name: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
               <label>Correo electrónico<Input required autoComplete="email" type="email" maxLength={254} value={shipping.email} onChange={(event) => setShipping({ ...shipping, email: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
               <label>Teléfono<Input required type="tel" inputMode="tel" autoComplete="tel" maxLength={40} value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /><small className="field-required">Campo obligatorio</small></label>
+              <label>RUT<Input required maxLength={12} value={shipping.rut} onChange={(event) => setShipping({ ...shipping, rut: event.target.value })} placeholder="12345678-9" /><small className="field-required">{shipping.rut.trim() && !isValidRut(shipping.rut) ? 'RUT inválido' : 'Campo obligatorio'}</small></label>
               {pickupZones.length > 0 && (
                 <div className="delivery-method-tabs" role="group" aria-label="Método de entrega">
                   <button type="button" className={deliveryMethod === 'shipping' ? 'active' : ''} onClick={() => chooseDeliveryMethod('shipping')}>Envío a domicilio</button>

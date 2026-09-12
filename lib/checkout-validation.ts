@@ -3,6 +3,7 @@ export type CheckoutPayload = {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  customerRut: string;
   region: string;
   comuna: string;
   address: string;
@@ -10,6 +11,28 @@ export type CheckoutPayload = {
   discountCode?: string;
   paymentMethod: "mercadopago" | "transfer";
 };
+
+// Valida el dígito verificador de un RUT chileno (módulo 11). Acepta con o
+// sin puntos/guion; se guarda normalizado ("12345678-9").
+function isValidRut(raw: string): boolean {
+  const clean = raw.replace(/[^0-9kK]/g, "").toUpperCase();
+  if (clean.length < 8 || clean.length > 9) return false;
+  const body = clean.slice(0, -1);
+  const verifier = clean.slice(-1);
+  let sum = 0;
+  let factor = 2;
+  for (let i = body.length - 1; i >= 0; i -= 1) {
+    sum += Number(body[i]) * factor;
+    factor = factor === 7 ? 2 : factor + 1;
+  }
+  const mod = 11 - (sum % 11);
+  const expected = mod === 11 ? "0" : mod === 10 ? "K" : String(mod);
+  return verifier === expected;
+}
+function normalizeRut(raw: string): string {
+  const clean = raw.replace(/[^0-9kK]/g, "").toUpperCase();
+  return `${clean.slice(0, -1)}-${clean.slice(-1)}`;
+}
 
 export function parseCheckoutPayload(value: unknown): CheckoutPayload {
   if (!value || typeof value !== "object" || Array.isArray(value))
@@ -52,12 +75,15 @@ export function parseCheckoutPayload(value: unknown): CheckoutPayload {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail))
     throw new Error("Ingresa un correo válido.");
   const paymentMethod = record.paymentMethod === "transfer" ? "transfer" : "mercadopago";
+  const rawRut = field("customerRut", 12);
+  if (!isValidRut(rawRut)) throw new Error("Ingresa un RUT válido.");
   return {
     items: [...quantities].map(([productId, quantity]) => ({ productId, quantity })),
     paymentMethod,
     customerName: field("customerName", 120),
     customerEmail,
     customerPhone: field("customerPhone", 40),
+    customerRut: normalizeRut(rawRut),
     region: field("region", 120),
     // Comuna y dirección son opcionales aquí: si la región elegida es de
     // retiro/entrega personal (requires_address = false), no hacen falta.
