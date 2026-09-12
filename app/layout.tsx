@@ -43,18 +43,18 @@ export async function generateMetadata(): Promise<Metadata> {
   const favicon = await customFavicon();
   return {
     metadataBase: new URL(siteUrl),
-    title: { default: 'MILUÉ LOOP — Amiguitos tejidos a mano', template: '%s · MILUÉ LOOP' },
+    title: { default: 'MilaLoop — Amiguitos tejidos a mano', template: '%s · MilaLoop' },
     description: 'Llaveros y peluches de crochet hechos a mano, puntada por puntada. Envíos a todo Chile.',
     robots: { index: true, follow: true },
     openGraph: {
       type: 'website',
       locale: 'es_CL',
-      siteName: 'MILUÉ LOOP',
-      title: 'MILUÉ LOOP — Amiguitos tejidos a mano',
+      siteName: 'MilaLoop',
+      title: 'MilaLoop — Amiguitos tejidos a mano',
       description: 'Llaveros y peluches de crochet hechos a mano, puntada por puntada. Envíos a todo Chile.',
-      images: [{ url: '/og-image.jpg', width: 1122, height: 589, alt: 'Llaveros y peluches MILUÉ LOOP' }],
+      images: [{ url: '/og-image.jpg', width: 1122, height: 589, alt: 'Llaveros y peluches MilaLoop' }],
     },
-    twitter: { card: 'summary_large_image', title: 'MILUÉ LOOP — Amiguitos tejidos a mano', description: 'Llaveros y peluches de crochet hechos a mano.', images: ['/og-image.jpg'] },
+    twitter: { card: 'summary_large_image', title: 'MilaLoop — Amiguitos tejidos a mano', description: 'Llaveros y peluches de crochet hechos a mano.', images: ['/og-image.jpg'] },
     icons: { icon: favicon || '/favicon.svg' },
   };
 }
@@ -63,7 +63,7 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1, view
 const organizationJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
-  name: 'MILUÉ LOOP',
+  name: 'MilaLoop',
   url: siteUrl,
   logo: `${siteUrl}/favicon.svg`,
   description: 'Llaveros y peluches de crochet hechos a mano, puntada por puntada. Envíos a todo Chile.',
@@ -73,7 +73,7 @@ const organizationJsonLd = {
 const websiteJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
-  name: 'MILUÉ LOOP',
+  name: 'MilaLoop',
   url: siteUrl,
   inLanguage: 'es-CL',
 };

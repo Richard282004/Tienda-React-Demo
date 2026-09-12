@@ -12,7 +12,7 @@ Mujeres jóvenes en Chile que compran llaveros y peluches de crochet hechos a ma
 
 ## Product Purpose
 
-Tienda online (MILUÉ LOOP, renombrada desde LÚMINA) de llaveros/peluches de crochet artesanales. Permite navegar productos por categoría, agregar al carrito, pagar con Mercado Pago, elegir envío (incluida una zona de entrega personal gratis solo en Pudahuel, RM), guardar favoritos, ver historial de pedidos, gestionar direcciones guardadas, y coordinar por chat en tiempo real con la vendedora sobre cada pedido. Panel admin propio para productos, stock, pedidos, envíos, contenido legal/marca y categorías.
+Tienda online (MilaLoop, renombrada desde LÚMINA) de llaveros/peluches de crochet artesanales. Permite navegar productos por categoría, agregar al carrito, pagar con Mercado Pago, elegir envío (incluida una zona de entrega personal gratis solo en Pudahuel, RM), guardar favoritos, ver historial de pedidos, gestionar direcciones guardadas, y coordinar por chat en tiempo real con la vendedora sobre cada pedido. Panel admin propio para productos, stock, pedidos, envíos, contenido legal/marca y categorías.
 
 ## Positioning
 
@@ -40,7 +40,7 @@ Frente a vender solo por Instagram/Mercado Libre: tienda propia con checkout rea
 
 ## Brand Commitments
 
-- Nombre: MILUÉ LOOP (renombrada desde LÚMINA vía panel admin). No cambiar sin pedido explícito.
+- Nombre: MilaLoop (renombrada desde MILUÉ LOOP, que a su vez venía de LÚMINA, vía panel admin). No cambiar sin pedido explícito.
 - Tono: cercano, artesanal, cálido — no corporativo.
 - Idioma principal: español (Chile); toggle ES/EN existente en el sitio.
 - Paleta actual: crema + rosa (`--pink: #e98d9e`) + acentos ciruela/plum. Preservar salvo pedido explícito de rediseño.

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-09-09T00:00:00.000Z",
-  "title": "Design System: MILUÉ LOOP",
+  "title": "Design System: MilaLoop",
   "extensions": {
     "colorMeta": {
       "cream": { "role": "neutral", "displayName": "Crema", "canonical": "#fffcf8", "tonalRamp": ["#3a2c30", "#5c4448", "#7e5c60", "#a68186", "#c9aeae", "#e6d6d0", "#f4e9e2", "#fffcf8"] },
@@ -87,7 +87,7 @@
   ],
   "narrative": {
     "northStar": "El Atelier Cálido",
-    "overview": "MILUÉ LOOP se lee como una boutique artesanal chilena, no como una tienda de plantilla genérica. Todo el sistema se apoya en dos gestos: color cálido en capas suaves (crema de fondo, rosa/ciruela como acento, nunca gris ni azul corporativo) y curvas generosas (pill buttons, esquinas de 16-24px, el blob de 46% del hero-image) que evocan lo hecho a mano. La serif Georgia en títulos aporta el aire boutique editorial; la sans Geist en cuerpo y etiquetas mantiene todo legible y contemporáneo sin volverse frío.\n\nEl sistema rechaza explícitamente: azul/gris corporativo, esquinas rectas duras, sombras pesadas decorativas, y cualquier ícono/emoji genérico de stock donde ya existe foto real de producto.",
+    "overview": "MilaLoop se lee como una boutique artesanal chilena, no como una tienda de plantilla genérica. Todo el sistema se apoya en dos gestos: color cálido en capas suaves (crema de fondo, rosa/ciruela como acento, nunca gris ni azul corporativo) y curvas generosas (pill buttons, esquinas de 16-24px, el blob de 46% del hero-image) que evocan lo hecho a mano. La serif Georgia en títulos aporta el aire boutique editorial; la sans Geist en cuerpo y etiquetas mantiene todo legible y contemporáneo sin volverse frío.\n\nEl sistema rechaza explícitamente: azul/gris corporativo, esquinas rectas duras, sombras pesadas decorativas, y cualquier ícono/emoji genérico de stock donde ya existe foto real de producto.",
     "keyCharacteristics": [
       "Paleta crema + rosa + ciruela, nunca fría.",
       "Serif Georgia para todo título; sans Geist para cuerpo/label.",

@@ -1,5 +1,5 @@
 ---
-name: MILUÉ LOOP
+name: MilaLoop
 description: Boutique de crochet artesanal en tonos crema y rosa, cálida y hecha a mano.
 colors:
   cream: "#fffcf8"
@@ -69,13 +69,13 @@ components:
     padding: "0"
 ---
 
-# Design System: MILUÉ LOOP
+# Design System: MilaLoop
 
 ## Overview
 
 **Creative North Star: "El Atelier Cálido"**
 
-MILUÉ LOOP se lee como una boutique artesanal chilena, no como una tienda de plantilla genérica. Todo el sistema se apoya en dos gestos: color cálido en capas suaves (crema de fondo, rosa/ciruela como acento, nunca gris ni azul corporativo) y curvas generosas (pill buttons, esquinas de 16-24px, el blob de 46% del hero-image) que evocan lo hecho a mano. La serif Georgia en títulos aporta el aire "boutique editorial"; la sans Geist en cuerpo y etiquetas mantiene todo legible y contemporáneo sin volverse frío.
+MilaLoop se lee como una boutique artesanal chilena, no como una tienda de plantilla genérica. Todo el sistema se apoya en dos gestos: color cálido en capas suaves (crema de fondo, rosa/ciruela como acento, nunca gris ni azul corporativo) y curvas generosas (pill buttons, esquinas de 16-24px, el blob de 46% del hero-image) que evocan lo hecho a mano. La serif Georgia en títulos aporta el aire "boutique editorial"; la sans Geist en cuerpo y etiquetas mantiene todo legible y contemporáneo sin volverse frío.
 
 El sistema rechaza explícitamente: azul/gris corporativo, esquinas rectas duras, sombras pesadas decorativas, y cualquier ícono/emoji genérico de stock donde ya existe foto real de producto.
 

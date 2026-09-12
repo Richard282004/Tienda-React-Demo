@@ -52,6 +52,7 @@ export type StoreContent = {
   orderNotifyEmail?: string;
   lowStockThreshold?: number;
   logoUrl?: string;
+  hideBrandText?: boolean;
   faviconUrl?: string;
   winbackCode?: string;
   transferEnabled?: boolean;
@@ -69,7 +70,7 @@ export const defaultProducts: Product[] = [
 ];
 
 export const defaultStoreContent: StoreContent = {
-  brandName: 'MILUÉ LOOP',
+  brandName: 'MilaLoop',
   brandTagline: 'hecho a mano',
   categories: ['Llaveros', 'Peluches'],
   currency: 'CLP',
@@ -79,7 +80,7 @@ export const defaultStoreContent: StoreContent = {
   heroHighlight: 'ternura para llevar.',
   heroDescription: 'Llaveros y peluches tejidos a mano, puntada por puntada, para acompañarte todos los días.',
   heroCtaPrimary: 'Ver la colección',
-  heroCtaSecondary: 'Conoce MILUÉ LOOP',
+  heroCtaSecondary: 'Conoce MilaLoop',
   heroNote1: 'Hecho a mano',
   heroNote2: 'Materiales suaves',
   categoryText1: 'Regalos con cariño',
@@ -93,7 +94,7 @@ export const defaultStoreContent: StoreContent = {
   aboutHighlight: 'hecho bonito.',
   aboutText: 'Cada pieza nace desde la naturaleza del amor, todos nuestros productos los realizamos de manera artesanal, con la mejor calidad en nuestras lanas, nuestra empresa nace desde el amor y creatividad.!!!',
   storyQuote: 'Lo imperfecto es parte de lo encantador.',
-  storyQuoteAuthor: '— filosofía MILUÉ LOOP',
+  storyQuoteAuthor: '— filosofía MilaLoop',
   footerCta: '¿Tienes una idea especial?',
   legalName: '',
   legalRetention: 'Mientras mantengas tu cuenta activa. Si la cierras, conservamos los datos de tus pedidos hasta por 6 años desde la compra por obligaciones tributarias y contables, y luego los eliminamos.',

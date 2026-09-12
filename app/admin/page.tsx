@@ -780,6 +780,12 @@ export default function AdminPage() {
                   <strong>Logo de la tienda</strong>
                   <label className="brand-asset-upload">{brandAssetBusy === 'logoUrl' ? 'Subiendo…' : content.logoUrl ? 'Cambiar logo' : 'Subir logo'}<input type="file" accept="image/*" disabled={brandAssetBusy !== null} onChange={(event) => void uploadBrandAsset('logoUrl', event.target.files?.[0])} /></label>
                   {content.logoUrl && <button type="button" className="brand-asset-clear" onClick={() => setContent({ ...content, logoUrl: '' })}>Quitar (recuerda Guardar)</button>}
+                  {content.logoUrl && (
+                    <label className="shipping-rate-address-toggle">
+                      <input type="checkbox" checked={content.hideBrandText ?? false} onChange={(event) => setContent({ ...content, hideBrandText: event.target.checked })} />
+                      Mostrar solo el logo arriba (ocultar nombre y frase al lado)
+                    </label>
+                  )}
                 </div>
               </div>
               <div className="brand-asset">

@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'MILUÉ LOOP',
-    short_name: 'MILUÉ LOOP',
+    name: 'MilaLoop',
+    short_name: 'MilaLoop',
     description: 'Llaveros y peluches de crochet hechos a mano. Envíos a todo Chile.',
     start_url: '/',
     display: 'standalone',

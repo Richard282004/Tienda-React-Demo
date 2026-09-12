@@ -353,8 +353,8 @@ export default function Home() {
 
       <header className="site-header">
         <a href="#inicio" className="brand" aria-label={`${content.brandName}, inicio`}>
-          {content.logoUrl ? <img className="brand-logo" src={content.logoUrl} alt="" /> : <span className="brand-mark">✦</span>}
-          <span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span>
+          {content.logoUrl ? <img className={content.hideBrandText ? 'brand-logo brand-logo-solo' : 'brand-logo'} src={content.logoUrl} alt={content.hideBrandText ? content.brandName : ''} /> : <span className="brand-mark">✦</span>}
+          {!(content.logoUrl && content.hideBrandText) && <span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span>}
         </a>
         <nav id="main-navigation" className={`main-nav ${menuOpen ? 'open' : ''}`} aria-label="Navegación principal">
           <a href="#inicio" onClick={() => setMenuOpen(false)}>Inicio</a>
