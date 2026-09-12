@@ -17,6 +17,22 @@ function parseSender(from: string): { name?: string; email: string } {
   return { email: from.trim() };
 }
 
+// Genera una versión en texto plano del HTML: los filtros de spam (Gmail,
+// Yahoo, Outlook) penalizan correos que solo traen htmlContent.
+function htmlToText(html: string): string {
+  return html
+    .replace(/<(li|p|div|h[1-6])[^>]*>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 async function sendEmail(apiKey: string, from: string, to: string | string[], subject: string, html: string) {
   const recipients = (Array.isArray(to) ? to : [to]).map((email) => ({ email }));
   const payload = JSON.stringify({
@@ -24,6 +40,7 @@ async function sendEmail(apiKey: string, from: string, to: string | string[], su
     to: recipients,
     subject,
     htmlContent: html,
+    textContent: htmlToText(html),
   });
   // Un reintento ante fallos transitorios de Brevo (429 / 5xx / red caída):
   // los correos salen desde rutas "fire-and-forget", así que sin esto un

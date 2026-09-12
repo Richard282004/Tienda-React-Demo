@@ -73,7 +73,9 @@ export function OrderChat({ orderId, senderRole, currentUserId }: Props) {
             {messages.length === 0 && <p className="order-chat-empty">Sin mensajes todavía.</p>}
             {messages.map((message) => (
               <div key={message.id} className={`order-chat-bubble ${message.sender_id === currentUserId ? 'mine' : ''}`}>
-                <span className="order-chat-role">{message.sender_role === 'admin' ? 'Tienda' : 'Cliente'}</span>
+                <span className="order-chat-role">
+                  {message.sender_id === currentUserId ? 'Yo' : message.sender_role === 'admin' ? 'Tienda' : 'Cliente'}
+                </span>
                 <p>{message.body}</p>
               </div>
             ))}
