@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ProductArtwork } from '@/components/product-artwork';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { defaultProducts, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
@@ -16,6 +17,7 @@ export default function ProductoPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
   const [product, setProduct] = useState<Product | null>(null);
+  const [otherProducts, setOtherProducts] = useState<Product[]>([]);
   const [images, setImages] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState(0);
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
@@ -40,19 +42,22 @@ export default function ProductoPage() {
         const fallback = defaultProducts.find((item) => item.id === id) ?? null;
         setProduct(fallback);
         setImages(fallback ? [fallback.image_url].filter(Boolean) as string[] : []);
+        setOtherProducts(defaultProducts.filter((item) => item.id !== id));
         setNotFound(!fallback);
         setLoading(false);
         return;
       }
-      const [{ data: productRow }, { data: imageRows }, { data: settings }] = await Promise.all([
+      const [{ data: productRow }, { data: imageRows }, { data: settings }, { data: otherRows }] = await Promise.all([
         supabase.from('products').select('*').eq('id', id).maybeSingle(),
         supabase.from('product_images').select('*').eq('product_id', id).order('sort_order'),
         supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
+        supabase.from('products').select('*').eq('active', true).neq('id', id).order('sort_order').limit(12),
       ]);
       if (settings?.value) setContent({ ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) });
       if (!productRow) { setNotFound(true); setLoading(false); return; }
       const typedProduct = productRow as Product;
       setProduct(typedProduct);
+      setOtherProducts((otherRows ?? []) as Product[]);
       const gallery = [typedProduct.image_url, ...((imageRows ?? []) as ProductImage[]).map((image) => image.image_url)].filter(Boolean) as string[];
       setImages(gallery);
       setActiveImage(0);
@@ -103,7 +108,32 @@ export default function ProductoPage() {
 
   return (
     <main className="cart-page-shell producto-page">
-      <header className="cart-page-header"><a href="/#tienda" className="cart-page-back"><ArrowLeft size={16} /> Volver a la tienda</a></header>
+      <header className="site-header producto-header">
+        <a href="/" className="brand" aria-label={`${content.brandName}, inicio`}>
+          {content.logoUrl ? (
+            <img
+              className={content.hideBrandText ? 'brand-logo brand-logo-solo' : 'brand-logo'}
+              src={content.logoUrl}
+              alt={content.brandName}
+              style={
+                content.hideBrandText
+                  ? {
+                      height: `${content.logoHeight ?? 52}px`,
+                      width: `${content.logoWidth ?? 160}px`,
+                      objectFit: 'cover',
+                      objectPosition: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
+                      transformOrigin: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
+                      transform: `scale(${content.logoZoom ?? 1})`,
+                    }
+                  : undefined
+              }
+            />
+          ) : (
+            <span className="brand-mark">✦</span>
+          )}
+        </a>
+        <a href="/#tienda" className="cart-page-back"><ArrowLeft size={16} /> Volver a la tienda</a>
+      </header>
       <div className="page-width producto-layout">
         <div className="producto-gallery">
           <div className="producto-gallery-main" style={{ backgroundColor: product.color }}>
@@ -144,6 +174,28 @@ export default function ProductoPage() {
           </div>
         </div>
       </div>
+      {otherProducts.length > 0 && (
+        <section className="page-width producto-more">
+          <h2>También te puede gustar</h2>
+          <Carousel opts={{ align: 'start' }}>
+            <CarouselContent>
+              {otherProducts.map((item) => (
+                <CarouselItem key={item.id} className="producto-more-item">
+                  <a href={`/producto/${item.id}`} className="producto-more-card">
+                    <div className="producto-more-visual" style={{ backgroundColor: item.color }}>
+                      <ProductArtwork product={item} className="product-photo" />
+                    </div>
+                    <span className="producto-more-name">{item.name}</span>
+                    <strong>{formatPrice(item.price)}</strong>
+                  </a>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+          </Carousel>
+        </section>
+      )}
       {notice && <div className="notice" role="status">{notice}</div>}
     </main>
   );
