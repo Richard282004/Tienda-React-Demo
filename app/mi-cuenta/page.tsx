@@ -95,7 +95,7 @@ export default function MiCuentaPage() {
       ? await supabase.from('addresses').update(payload).eq('id', editingAddressId)
       : await supabase.from('addresses').insert(payload);
     setBusy(false);
-    if (error) { setMessage('No pudimos guardar la dirección.'); return; }
+    if (error) { setMessage(`No pudimos guardar la dirección: ${error.message}`); return; }
     const { data: addressRows } = await supabase.from('addresses').select('*').eq('user_id', userId).order('created_at');
     setAddresses((addressRows ?? []) as Address[]);
     closeAddressForm();
