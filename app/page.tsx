@@ -33,6 +33,7 @@ import { defaultProducts, defaultStoreContent, readCachedStoreContent, writeCach
 import { type Faq, type Review, type ShowcaseItem } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { formatPrice as formatCurrency } from '@/lib/currency';
+import { levenshteinWithin, normalizeSearchText } from '@/lib/search';
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>(isSupabaseConfigured ? [] : defaultProducts);
@@ -85,8 +86,13 @@ export default function Home() {
     [category, products],
   );
   const searchResults = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return term ? products.filter((product) => `${product.name} ${product.type}`.toLowerCase().includes(term)) : products.slice(0, 4);
+    const words = normalizeSearchText(search).split(/\s+/).filter(Boolean);
+    if (!words.length) return products.slice(0, 4);
+    return products.filter((product) => {
+      const haystack = normalizeSearchText(`${product.name} ${product.type} ${product.tag ?? ''}`);
+      const tokens = haystack.split(/\s+/);
+      return words.every((word) => haystack.includes(word) || tokens.some((token) => levenshteinWithin(token, word, 1)));
+    });
   }, [search, products]);
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
   const [faqs, setFaqs] = useState<Faq[]>([]);
