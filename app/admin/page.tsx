@@ -80,6 +80,18 @@ export default function AdminPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [orderSearch, setOrderSearch] = useState('');
   const [orderLowStockOnly, setOrderLowStockOnly] = useState(false);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const toggleOrderSelected = (id: string) => setSelectedOrderIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  const deleteSelectedOrders = async () => {
+    if (!supabase || selectedOrderIds.length === 0) return;
+    const count = selectedOrderIds.length;
+    if (!(await askConfirm(`¿Eliminar ${count} pedido${count === 1 ? '' : 's'} seleccionado${count === 1 ? '' : 's'}? Esta acción no se puede deshacer y borra los datos de compra de forma permanente.`))) return;
+    const { error } = await supabase.from('orders').delete().in('id', selectedOrderIds);
+    if (error) { setMessage(error.message); return; }
+    setSelectedOrderIds([]);
+    setMessage(`${count} pedido${count === 1 ? '' : 's'} eliminado${count === 1 ? '' : 's'}.`);
+    await loadAdminData();
+  };
   const [discounts, setDiscounts] = useState<DiscountCode[]>([]);
   const [discountDraft, setDiscountDraft] = useState(emptyDiscount);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -578,12 +590,19 @@ export default function AdminPage() {
             )}
           </div>
         )}
+        {selectedOrderIds.length > 0 && (
+          <div className="order-bulk-bar">
+            <span>{selectedOrderIds.length} seleccionado{selectedOrderIds.length === 1 ? '' : 's'}</span>
+            <Button variant="outline" size="sm" onClick={() => setSelectedOrderIds([])}>Deseleccionar</Button>
+            <Button variant="destructive" size="sm" onClick={() => void deleteSelectedOrders()}><Trash2 size={14} /> Eliminar seleccionados</Button>
+          </div>
+        )}
         {orders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Aún no hay pedidos</h3><p>Aquí aparecerán las compras pagadas con Mercado Pago.</p></div> : filteredOrders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Sin resultados</h3><p>Ningún pedido calza con ese filtro.</p></div> : (
           <div className="orders-list">
             {filteredOrders.map((order) => (
-              <article className="order-card" key={order.id}>
+              <article className={`order-card${selectedOrderIds.includes(order.id) ? ' selected' : ''}`} key={order.id}>
                 <div className="order-card-header">
-                  <div><strong>#{order.id.slice(0, 8)}</strong><span>{new Date(order.created_at).toLocaleString('es-CL')}</span></div>
+                  <div className="order-card-select"><input type="checkbox" checked={selectedOrderIds.includes(order.id)} onChange={() => toggleOrderSelected(order.id)} aria-label={`Seleccionar pedido #${order.id.slice(0, 8)}`} /><div><strong>#{order.id.slice(0, 8)}</strong><span>{new Date(order.created_at).toLocaleString('es-CL')}</span></div></div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     {order.payment_method === 'transfer' && <span className="order-status-badge" style={{ background: '#f6e9c9', color: '#7a5a1e' }}>Transferencia</span>}
                     <span className={`order-status-badge status-${order.status}`}>{orderStatusLabel[order.status]}</span>

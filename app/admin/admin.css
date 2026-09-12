@@ -101,6 +101,10 @@
   .product-dialog { width: calc(100% - 32px) !important; max-height: calc(100dvh - 32px); }
 }
 
+.order-bulk-bar { display: flex; align-items: center; gap: 10px; margin: -8px 0 18px; padding: 10px 16px; border: 1px solid #e2d4cf; border-radius: 12px; background: #fdf7ec; font-size: 13px; font-weight: 700; color: #6d5a61; }
+.order-card-select { display: flex; align-items: center; gap: 10px; }
+.order-card-select input { width: 17px; height: 17px; accent-color: #a74060; cursor: pointer; }
+.order-card.selected { border-color: #a74060; box-shadow: 0 0 0 2px rgba(167,64,96,.15); }
 .order-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -8px 0 18px; }
 .order-filters .admin-select { width: auto; min-width: 160px; }
 .order-filters input { flex: 1; min-width: 200px; }
