@@ -21,6 +21,13 @@
 .producto-actions { display: flex; align-items: center; gap: 14px; }
 .producto-actions .primary-button { min-height: 48px; padding: 0 28px !important; }
 .producto-heart { position: static; width: 44px; height: 44px; background: #fff !important; border: 1px solid var(--border); }
+.stock-alert-box { margin-top: 18px; padding: 16px 18px; border-radius: 16px; background: #f6efeb; max-width: 420px; }
+.stock-alert-box label { display: block; margin-bottom: 8px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.stock-alert-box p { margin: 0; color: var(--plum); font-size: 14px; }
+.stock-alert-row { display: flex; gap: 10px; }
+.stock-alert-row input { flex: 1; height: 42px; border: 1px solid #decec8; border-radius: 10px; background: #fff; padding: 0 14px; font-size: 14px; }
+.stock-alert-row .primary-button { min-height: 42px; padding: 0 18px !important; white-space: nowrap; }
+.stock-alert-error { margin-top: 8px !important; color: #9f5367 !important; font-size: 12px !important; }
 @media (max-width: 900px) {
   .producto-layout { grid-template-columns: 1fr; gap: 28px; padding-bottom: 56px; }
   .producto-info h1 { max-width: 100%; }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Mail, Phone, Plus, ShoppingBag, Store, UserRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,12 +21,21 @@ export default function ProductoPage() {
   const [otherProducts, setOtherProducts] = useState<Product[]>([]);
   const [images, setImages] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState(0);
-  const [content, setContent] = useState<StoreContent>(readCachedStoreContent);
+  // Arranca en el default (igual en servidor y cliente, sin desajuste de
+  // hidratación) y aplica la caché justo antes de pintar, así no se ve el
+  // parpadeo del logo por defecto.
+  const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  useLayoutEffect(() => {
+    const cached = readCachedStoreContent();
+    if (cached !== defaultStoreContent) setContent(cached);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [cartCount, setCartCount] = useState(0);
   const [notice, setNotice] = useState('');
+  const [alertEmail, setAlertEmail] = useState('');
+  const [alertStatus, setAlertStatus] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
 
   useEffect(() => {
@@ -101,6 +110,17 @@ export default function ProductoPage() {
     quickAdd(product.id, product.name);
   };
 
+  const requestStockAlert = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase || !product || !alertEmail.trim()) return;
+    setAlertStatus('busy');
+    const { error } = await supabase.from('stock_alerts').insert({ product_id: product.id, email: alertEmail.trim() });
+    // Código 23505 = ya había dejado su correo para este producto; lo tratamos
+    // igual como éxito, no como error.
+    if (error && error.code !== '23505') { setAlertStatus('error'); return; }
+    setAlertStatus('done');
+  };
+
   if (loading) {
     return <main className="cart-page-shell"><p className="cart-page-loading">Cargando…</p></main>;
   }
@@ -133,9 +153,9 @@ export default function ProductoPage() {
               style={
                 content.hideBrandText
                   ? {
-                      height: `${content.logoHeight ?? 64}px`,
                       width: `${content.logoWidth ?? 210}px`,
-                      objectFit: 'cover',
+                      aspectRatio: `${content.logoWidth ?? 210} / ${content.logoHeight ?? 64}`,
+                      objectFit: 'contain',
                       objectPosition: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
                       transformOrigin: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
                       transform: `scale(${content.logoZoom ?? 1})`,
@@ -191,6 +211,22 @@ export default function ProductoPage() {
               <Heart key={String(isLiked)} className="heart-pop" size={19} fill={isLiked ? 'currentColor' : 'none'} />
             </button>
           </div>
+          {outOfStock && (
+            <div className="stock-alert-box">
+              {alertStatus === 'done' ? (
+                <p>Listo, te avisamos por correo apenas vuelva.</p>
+              ) : (
+                <form onSubmit={requestStockAlert}>
+                  <label htmlFor="stock-alert-email">Avísame cuando vuelva el stock</label>
+                  <div className="stock-alert-row">
+                    <input id="stock-alert-email" type="email" required placeholder="tu@correo.com" value={alertEmail} onChange={(event) => setAlertEmail(event.target.value)} />
+                    <Button type="submit" className="primary-button" disabled={alertStatus === 'busy'}>Avísame</Button>
+                  </div>
+                  {alertStatus === 'error' && <p className="stock-alert-error">No pudimos guardarlo, inténtalo de nuevo.</p>}
+                </form>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {otherProducts.length > 0 && (
@@ -240,9 +276,9 @@ export default function ProductoPage() {
             style={
               content.hideBrandText
                 ? {
-                    height: `${content.logoHeight ?? 64}px`,
                     width: `${content.logoWidth ?? 210}px`,
-                    objectFit: 'cover',
+                    aspectRatio: `${content.logoWidth ?? 210} / ${content.logoHeight ?? 64}`,
+                    objectFit: 'contain',
                     objectPosition: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
                     transformOrigin: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
                     transform: `scale(${content.logoZoom ?? 1})`,

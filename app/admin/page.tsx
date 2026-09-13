@@ -548,11 +548,27 @@ export default function AdminPage() {
       imageUrl = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
     }
     const payload = { name: draft.name, description: draft.description || null, type: draft.type, price: Number(draft.price), color: draft.color, art: draft.art, image_url: imageUrl, image_position_x: Math.round(draft.image_position_x ?? 50), image_position_y: Math.round(draft.image_position_y ?? 50), image_zoom: draft.image_zoom ?? 1, tag: draft.tag || null, active: draft.active ?? true, sort_order: Number(draft.sort_order ?? 0), stock: draft.stock === null || draft.stock === undefined || Number.isNaN(Number(draft.stock)) ? null : Number(draft.stock), updated_at: new Date().toISOString() };
+    const previousStock = draft.id ? products.find((product) => product.id === draft.id)?.stock : undefined;
     const result = draft.id
       ? await supabase.from('products').update(payload).eq('id', draft.id)
       : await supabase.from('products').insert(payload);
     setBusy(false);
     if (result.error) { setMessage(result.error.message); return; }
+    // Volvió a haber stock de algo que estaba agotado: avisa a quienes lo
+    // pidieron en la ficha del producto (tabla stock_alerts).
+    const wasOutOfStock = previousStock != null && previousStock <= 0;
+    const nowInStock = payload.stock === null || payload.stock > 0;
+    if (draft.id && wasOutOfStock && nowInStock) {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (token) {
+        void fetch('/api/products/restock-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ productId: draft.id }),
+        }).catch(() => {});
+      }
+    }
     setProductOpen(false);
     setMessage('Producto guardado correctamente.');
     await loadAdminData();

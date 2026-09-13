@@ -296,3 +296,23 @@ export async function sendOrderStatusEmail(opts: { apiKey: string; to: string; o
   const html = wrap(brandName, copy.title, `<p>${copy.body(brandName)}</p>${tracking}<p>Pedido #${opts.orderId.slice(0, 8)}</p>`);
   await sendEmail(opts.apiKey, from, opts.to, `${copy.subject} — ${brandName}`, html);
 }
+
+export async function sendBackInStockEmail(opts: {
+  apiKey: string;
+  to: string;
+  productName: string;
+  productUrl: string;
+  brandName?: string;
+  fromEmail?: string;
+}) {
+  const brandName = opts.brandName || 'Tu tienda';
+  const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
+  const html = wrap(
+    brandName,
+    '¡Ya volvió!',
+    `<p>Nos pediste que te avisáramos: <strong>${opts.productName}</strong> ya tiene stock de nuevo.</p>
+     <p>Como se agota rápido, te conviene mirarlo antes de que se acabe otra vez:</p>
+     <p><a href="${opts.productUrl}" style="display:inline-block; background:#5c2640; color:#fff; padding:12px 22px; border-radius:999px; text-decoration:none;">Ver producto</a></p>`,
+  );
+  await sendEmail(opts.apiKey, from, opts.to, `Ya volvió: ${opts.productName} — ${brandName}`, html);
+}

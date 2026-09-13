@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { ArrowRight, LockKeyhole } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,8 @@ const passwordRules = [
 ];
 
 export default function RestablecerPage() {
-  const [logoUrl] = useState(() => readCachedStoreContent().logoUrl);
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(undefined);
+  useLayoutEffect(() => { setLogoUrl(readCachedStoreContent().logoUrl); }, []);
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [password, setPassword] = useState('');

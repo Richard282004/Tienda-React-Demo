@@ -740,3 +740,22 @@ end;
 $$;
 revoke all on function public.admin_cancel_order(uuid) from public;
 grant execute on function public.admin_cancel_order(uuid) to authenticated;
+
+-- "Avísame cuando vuelva": cualquiera deja su correo en un producto agotado
+-- (solo insert, sin poder leer los correos de otras personas). Cuando la
+-- admin vuelve a poner stock, la ruta /api/products/restock-notify (con
+-- llave de servicio) lee los pendientes de ese producto y les avisa.
+create table if not exists public.stock_alerts (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  email text not null,
+  created_at timestamptz not null default now(),
+  notified_at timestamptz
+);
+create unique index if not exists stock_alerts_unique_pending on public.stock_alerts (product_id, lower(email)) where notified_at is null;
+alter table public.stock_alerts enable row level security;
+revoke all on public.stock_alerts from anon, authenticated;
+grant insert on public.stock_alerts to anon, authenticated;
+drop policy if exists "stock_alerts_insert" on public.stock_alerts;
+create policy "stock_alerts_insert" on public.stock_alerts
+for insert to anon, authenticated with check (true);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   ArrowLeft,
@@ -40,7 +40,14 @@ import { initFavorites, syncFavoriteToggle, writeLocalFavorites } from '@/lib/fa
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>(isSupabaseConfigured ? [] : defaultProducts);
-  const [content, setContent] = useState<StoreContent>(readCachedStoreContent);
+  // Arranca en el default (igual en servidor y cliente, sin desajuste de
+  // hidratación) y aplica la caché justo antes de pintar, así no se ve el
+  // parpadeo del logo por defecto.
+  const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  useLayoutEffect(() => {
+    const cached = readCachedStoreContent();
+    if (cached !== defaultStoreContent) setContent(cached);
+  }, []);
   const categories = useMemo(() => ['Todo', ...content.categories], [content.categories]);
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
   const [storeLoading, setStoreLoading] = useState(isSupabaseConfigured);
@@ -408,9 +415,9 @@ export default function Home() {
               style={
                 content.hideBrandText
                   ? {
-                      height: `${content.logoHeight ?? 64}px`,
                       width: `${content.logoWidth ?? 210}px`,
-                      objectFit: 'cover',
+                      aspectRatio: `${content.logoWidth ?? 210} / ${content.logoHeight ?? 64}`,
+                      objectFit: 'contain',
                       objectPosition: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
                       transformOrigin: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
                       transform: `scale(${content.logoZoom ?? 1})`,
@@ -547,9 +554,9 @@ export default function Home() {
           style={
             content.hideBrandText
               ? {
-                  height: `${content.logoHeight ?? 64}px`,
                   width: `${content.logoWidth ?? 210}px`,
-                  objectFit: 'cover',
+                  aspectRatio: `${content.logoWidth ?? 210} / ${content.logoHeight ?? 64}`,
+                  objectFit: 'contain',
                   objectPosition: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
                   transformOrigin: `${content.logoPositionX ?? 50}% ${content.logoPositionY ?? 50}%`,
                   transform: `scale(${content.logoZoom ?? 1})`,
