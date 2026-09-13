@@ -262,6 +262,7 @@ export default function ProductoPage() {
           <a href="/">Inicio</a>
           <a href="/#tienda">Tienda</a>
           <a href="/#nosotros">Sobre nosotros</a>
+          <a href="/rastrear">Rastrear pedido</a>
           <a href="/terminos">Términos y condiciones</a>
           <a href="/privacidad">Privacidad</a>
         </div>

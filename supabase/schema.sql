@@ -264,6 +264,27 @@ $$;
 revoke all on function public.get_order_public(uuid) from public;
 grant execute on function public.get_order_public(uuid) to anon, authenticated;
 
+-- Rastreo de pedido sin cuenta: la compradora invitada solo tiene el código
+-- corto (8 caracteres, el que aparece en sus correos/WhatsApp) y su correo.
+-- Exigir ambos juntos evita abrir la tabla completa a cualquiera que solo
+-- adivine un código.
+create or replace function public.get_order_by_short_id_and_email(short_id text, p_email text)
+returns table (id uuid, status text, region text, comuna text, items jsonb, subtotal integer, shipping_cost integer, total integer, payment_method text, tracking_number text, created_at timestamptz)
+language sql
+stable
+security definer set search_path = public
+as $$
+  select id, status, region, comuna, items, subtotal, shipping_cost, total, payment_method, tracking_number, created_at
+  from public.orders
+  where id::text like (lower(trim(short_id)) || '%')
+    and lower(customer_email) = lower(trim(p_email))
+  order by created_at desc
+  limit 5;
+$$;
+
+revoke all on function public.get_order_by_short_id_and_email(text, text) from public;
+grant execute on function public.get_order_by_short_id_and_email(text, text) to anon, authenticated;
+
 -- Migraciones para bases ya creadas antes de este bloque:
 alter table public.products add column if not exists stock integer;
 -- Las categorías ahora las define cada tienda desde Admin → Categorías, no un

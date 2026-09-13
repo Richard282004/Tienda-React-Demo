@@ -1,0 +1,6 @@
+.rastrear-form { display: grid; gap: 14px; margin-bottom: 6px; text-align: left; }
+.rastrear-form label { color: #69545c; font-size: 12px; font-weight: 600; }
+.rastrear-form input { margin-top: 6px; height: 43px; border-color: #decec8; border-radius: 11px; background: white; }
+.rastrear-form .primary-button { width: 100%; margin-top: 4px; }
+.rastrear-empty { margin: 18px 0 0; padding: 12px 14px; border-radius: 12px; background: #f5e5e2; color: #9f5367; font-size: 13px; line-height: 1.5; }
+.rastrear-result { margin-top: 22px; padding-top: 22px; border-top: 1px solid #eadfd8; }

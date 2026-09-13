@@ -130,14 +130,40 @@ export default function AdminPage() {
   };
 
   const [brandAssetBusy, setBrandAssetBusy] = useState<'logoUrl' | 'faviconUrl' | null>(null);
+  // El logo se ve como máximo a ~340px de ancho en la tienda, pero suele
+  // subirse tal cual sale del diseño (hasta 2000px+ y varios cientos de KB),
+  // repetido en header y footer de cada página. Se achica antes de subir si
+  // el formato es rasterizado (png/jpg/webp); SVG e ICO se dejan intactos.
+  const downsizeImage = (file: File, maxDimension: number): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const scale = Math.min(1, maxDimension / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        const ctx = canvas.getContext('2d');
+        URL.revokeObjectURL(url);
+        if (!ctx) { reject(new Error('sin contexto de canvas')); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('toBlob falló'))), 'image/png');
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('no se pudo leer la imagen')); };
+      img.src = url;
+    });
   const uploadBrandAsset = async (field: 'logoUrl' | 'faviconUrl', file: File | undefined) => {
     if (!supabase || !file) return;
     if (!file.type.startsWith('image/')) { setMessage('El archivo debe ser una imagen.'); return; }
     if (file.size > 1_000_000) { setMessage('La imagen es muy pesada (máx. 1 MB).'); return; }
     setBrandAssetBusy(field); setMessage('');
+    const rasterFormat = file.type === 'image/png' || file.type === 'image/jpeg' || file.type === 'image/webp';
+    const upload = rasterFormat
+      ? await downsizeImage(file, field === 'faviconUrl' ? 256 : 700).catch(() => file)
+      : file;
     const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
     const path = `brand-${field === 'logoUrl' ? 'logo' : 'favicon'}-${crypto.randomUUID()}-${safeName}`;
-    const { error: uploadError } = await supabase.storage.from('products').upload(path, file, { cacheControl: '3600' });
+    const { error: uploadError } = await supabase.storage.from('products').upload(path, upload, { cacheControl: '3600' });
     if (uploadError) { setBrandAssetBusy(null); setMessage(uploadError.message); return; }
     const url = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
     const nextContent = { ...content, [field]: url };
