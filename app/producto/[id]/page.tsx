@@ -255,6 +255,7 @@ export default function ProductoPage() {
           <p>{content.footerCta}</p>
           <a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a>
           <a href={`mailto:${content.email}`}><Mail size={14} /> {content.email}</a>
+          <span className="payment-badges-label">Pagos seguros con</span>
           <div className="payment-badges" aria-label="Medios de pago aceptados"><span className="payment-badge visa">VISA</span><span className="payment-badge mastercard"><i /><i /></span><span className="payment-badge amex">AMEX</span><span className="payment-badge mp">Mercado Pago</span></div>
         </div>
         <div className="footer-links">
