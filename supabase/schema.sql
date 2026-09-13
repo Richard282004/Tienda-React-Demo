@@ -634,6 +634,41 @@ $$;
 revoke all on function public.update_own_name(text) from public;
 grant execute on function public.update_own_name(text) to authenticated;
 
+-- Preferencia de correos de ofertas/novedades ("vuelve"): los transaccionales
+-- (confirmación, estado del pedido, transferencia, carrito abandonado) no se
+-- pueden apagar porque son sobre un pedido real en curso.
+alter table public.profiles add column if not exists marketing_emails_enabled boolean not null default true;
+
+create or replace function public.update_own_notification_prefs(p_marketing_emails_enabled boolean)
+returns void
+language sql
+security definer set search_path = public
+as $$
+  update public.profiles set marketing_emails_enabled = p_marketing_emails_enabled where id = (select auth.uid());
+$$;
+revoke all on function public.update_own_notification_prefs(boolean) from public;
+grant execute on function public.update_own_notification_prefs(boolean) to authenticated;
+
+-- Eliminar la cuenta propia desde "Mi cuenta". Borra el usuario de auth.users;
+-- el resto (perfil, direcciones, favoritos, mensajes) se limpia solo por los
+-- "on delete cascade"/"set null" ya definidos en cada tabla. Los pedidos NO
+-- se borran (obligación tributaria de conservarlos): quedan sin dueño, igual
+-- que una compra de invitada.
+create or replace function public.delete_own_account()
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if (select auth.uid()) is null then
+    raise exception 'not_authenticated';
+  end if;
+  delete from auth.users where id = (select auth.uid());
+end;
+$$;
+revoke all on function public.delete_own_account() from public;
+grant execute on function public.delete_own_account() to authenticated;
+
 -- Favoritos con cuenta: sincronizados entre dispositivos. Las compras como
 -- invitada siguen usando solo localStorage (no hay a quién asociarlos).
 create table if not exists public.favorites (

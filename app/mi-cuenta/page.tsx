@@ -31,6 +31,9 @@ export default function MiCuentaPage() {
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  const [marketingEmails, setMarketingEmails] = useState(true);
+  const [prefsBusy, setPrefsBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
 
   useEffect(() => {
@@ -42,13 +45,14 @@ export default function MiCuentaPage() {
       setUserId(user.id);
       setEmail(user.email ?? null);
       const [{ data: profile }, { data: orderRows }, { data: addressRows }, { data: rateRows }, { data: settings }] = await Promise.all([
-        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle<{ full_name: string | null }>(),
+        supabase.from('profiles').select('full_name, marketing_emails_enabled').eq('id', user.id).maybeSingle<{ full_name: string | null; marketing_emails_enabled: boolean | null }>(),
         supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('addresses').select('*').eq('user_id', user.id).order('created_at'),
         supabase.from('shipping_rates').select('region, cost, requires_address'),
         supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       ]);
       setName(profile?.full_name ?? '');
+      setMarketingEmails(profile?.marketing_emails_enabled ?? true);
       setOrders((orderRows ?? []) as Order[]);
       setOrdersLoaded(true);
       setAddresses((addressRows ?? []) as Address[]);
@@ -68,6 +72,25 @@ export default function MiCuentaPage() {
     setBusy(false);
     setMessage(error ? 'No pudimos guardar los cambios.' : 'Cambios guardados.');
     window.setTimeout(() => setMessage(''), 2500);
+  };
+
+  const toggleMarketingEmails = async (enabled: boolean) => {
+    if (!supabase) return;
+    setMarketingEmails(enabled);
+    setPrefsBusy(true);
+    const { error } = await supabase.rpc('update_own_notification_prefs', { p_marketing_emails_enabled: enabled });
+    setPrefsBusy(false);
+    if (error) { setMarketingEmails(!enabled); setMessage('No pudimos guardar la preferencia.'); window.setTimeout(() => setMessage(''), 2500); }
+  };
+
+  const deleteAccount = async () => {
+    if (!supabase) return;
+    if (!window.confirm('¿Eliminar tu cuenta? Se borran tus datos, direcciones y favoritos. Tus pedidos ya hechos se conservan (obligación legal) pero dejan de estar ligados a tu cuenta. Esta acción no se puede deshacer.')) return;
+    setDeleteBusy(true);
+    const { error } = await supabase.rpc('delete_own_account');
+    if (error) { setDeleteBusy(false); setMessage(`No pudimos eliminar la cuenta: ${error.message}`); return; }
+    await supabase.auth.signOut();
+    window.location.href = '/';
   };
 
   const openNewAddress = () => { setEditingAddressId('new'); setAddressForm(emptyAddressForm); };
@@ -151,6 +174,21 @@ export default function MiCuentaPage() {
                 {message && <p className="account-message">{message}</p>}
                 <Button disabled={busy || !isSupabaseConfigured} type="submit" className="primary-button">{busy ? 'Guardando…' : 'Guardar cambios'}</Button>
               </form>
+
+              <div className="account-page-form account-notifications">
+                <h2>Notificaciones por correo</h2>
+                <label className="account-notifications-toggle">
+                  <input type="checkbox" checked={marketingEmails} disabled={prefsBusy} onChange={(event) => void toggleMarketingEmails(event.target.checked)} />
+                  Recibir correos de ofertas y novedades
+                </label>
+                <p className="account-page-subtitle">Los correos sobre el estado de tus pedidos siempre se envían, aunque apagues esto.</p>
+              </div>
+
+              <div className="account-page-form account-danger-zone">
+                <h2>Eliminar cuenta</h2>
+                <p className="account-page-subtitle">Borra tu perfil, direcciones y favoritos. No se puede deshacer.</p>
+                <Button type="button" variant="destructive" disabled={deleteBusy} onClick={() => void deleteAccount()}>{deleteBusy ? 'Eliminando…' : 'Eliminar mi cuenta'}</Button>
+              </div>
             </>
           ) : tab === 'direcciones' ? (
             <>

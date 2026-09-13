@@ -17,6 +17,7 @@ type OrderRow = {
   created_at: string;
   status: string;
   winback_sent_at: string | null;
+  user_id: string | null;
 };
 
 export async function POST(request: Request) {
@@ -35,29 +36,41 @@ export async function POST(request: Request) {
   const since = new Date(Date.now() - MAX_DAYS * 86_400_000).toISOString();
   const { data: rows } = await supabase
     .from("orders")
-    .select("customer_email, customer_name, created_at, status, winback_sent_at")
+    .select("customer_email, customer_name, created_at, status, winback_sent_at, user_id")
     .in("status", ["paid", "shipped", "delivered"])
     .gte("created_at", since)
     .order("created_at", { ascending: false });
 
   const orders = (rows ?? []) as OrderRow[];
   const cutoff = Date.now() - MIN_DAYS * 86_400_000;
-  const byEmail = new Map<string, { name: string | null; latest: number; alreadySent: boolean }>();
+  const byEmail = new Map<string, { name: string | null; latest: number; alreadySent: boolean; userId: string | null }>();
   for (const order of orders) {
     if (!order.customer_email) continue;
     const key = order.customer_email.toLowerCase();
     const at = new Date(order.created_at).getTime();
     const entry = byEmail.get(key);
     if (!entry) {
-      byEmail.set(key, { name: order.customer_name, latest: at, alreadySent: Boolean(order.winback_sent_at) });
+      byEmail.set(key, { name: order.customer_name, latest: at, alreadySent: Boolean(order.winback_sent_at), userId: order.user_id });
     } else {
       entry.latest = Math.max(entry.latest, at);
       if (order.winback_sent_at) entry.alreadySent = true;
+      if (order.user_id) entry.userId = order.user_id;
+    }
+  }
+
+  // Quien tiene cuenta y apagó "correos de ofertas y novedades" en Mi cuenta
+  // no entra al lote (las de invitada no tienen dónde configurar esto).
+  const accountUserIds = [...byEmail.values()].map((v) => v.userId).filter((id): id is string => Boolean(id));
+  const optedOut = new Set<string>();
+  if (accountUserIds.length) {
+    const { data: profileRows } = await supabase.from("profiles").select("id, marketing_emails_enabled").in("id", accountUserIds);
+    for (const profile of profileRows ?? []) {
+      if (profile.marketing_emails_enabled === false) optedOut.add(profile.id);
     }
   }
 
   const targets = [...byEmail.entries()]
-    .filter(([, v]) => !v.alreadySent && v.latest < cutoff)
+    .filter(([, v]) => !v.alreadySent && v.latest < cutoff && !(v.userId && optedOut.has(v.userId)))
     .slice(0, BATCH);
 
   const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
