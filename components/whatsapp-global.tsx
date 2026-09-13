@@ -23,5 +23,5 @@ export function WhatsappGlobal() {
   }, []);
 
   if (!number || pathname?.startsWith('/admin')) return null;
-  return <WhatsappFab number={number} />;
+  return <WhatsappFab number={number} pathname={pathname ?? undefined} />;
 }

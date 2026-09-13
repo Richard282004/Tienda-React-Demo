@@ -15,17 +15,22 @@ function clampPos(x: number, y: number) {
 // Botón flotante de WhatsApp que la visitante puede arrastrar: en algunas
 // pantallas queda encima de un precio o botón, así que puede correrlo a un
 // lugar que no le estorbe. La posición elegida se recuerda en este navegador.
-export function WhatsappFab({ number }: { number: string }) {
+export function WhatsappFab({ number, pathname }: { number: string; pathname?: string }) {
+  // La posición se guarda por página: cada una tiene su propio layout, y una
+  // posición arrastrada en una (ej: home) puede quedar encima de contenido
+  // en otra (ej: el menú de Mi cuenta) si se comparte la misma llave.
+  const storageKey = pathname ? `${POS_KEY}:${pathname}` : POS_KEY;
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
   const justDraggedRef = useRef(false);
 
   useEffect(() => {
+    setPos(null);
     try {
-      const saved = JSON.parse(localStorage.getItem(POS_KEY) ?? 'null') as { x: number; y: number } | null;
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as { x: number; y: number } | null;
       if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') setPos(clampPos(saved.x, saved.y));
     } catch { /* sin acceso a localStorage */ }
-  }, []);
+  }, [storageKey]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLAnchorElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -47,7 +52,7 @@ export function WhatsappFab({ number }: { number: string }) {
     if (drag?.moved) {
       justDraggedRef.current = true;
       setPos((current) => {
-        if (current) { try { localStorage.setItem(POS_KEY, JSON.stringify(current)); } catch { /* no crítico */ } }
+        if (current) { try { localStorage.setItem(storageKey, JSON.stringify(current)); } catch { /* no crítico */ } }
         return current;
       });
     }
