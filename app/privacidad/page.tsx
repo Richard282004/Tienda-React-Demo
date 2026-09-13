@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { fillLegalPlaceholders, parseLegalBlocks } from '@/lib/legal-content';
 import { defaultStoreContent, type StoreContent } from '@/lib/store-data';
 import { supabase } from '@/lib/supabase';
-import '../terminos/legal.css';
+import './privacidad.css';
 
 export default function PrivacidadPage() {
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);

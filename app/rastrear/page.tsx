@@ -9,7 +9,6 @@ import type { Order } from '@/lib/orders';
 import { orderStatusLabel } from '@/lib/orders';
 import { defaultStoreContent, type StoreContent } from '@/lib/store-data';
 import { formatPrice as formatCurrency } from '@/lib/currency';
-import '../pedido/confirmacion/confirmacion.css';
 import './rastrear.css';
 
 export default function RastrearPage() {

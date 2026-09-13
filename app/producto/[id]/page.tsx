@@ -11,7 +11,6 @@ import { defaultProducts, defaultStoreContent, readCachedStoreContent, writeCach
 import { type ProductImage } from '@/lib/orders';
 import { supabase } from '@/lib/supabase';
 import { initFavorites, syncFavoriteToggle, writeLocalFavorites } from '@/lib/favorites';
-import '../../carrito/carrito.css';
 import './producto.css';
 
 export default function ProductoPage() {

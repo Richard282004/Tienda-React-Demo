@@ -1,0 +1,9 @@
+/* Copiadas de carrito.css (no importarlo desde aquí): compartir un .css entre
+   dos páginas distintas hace que el bundler genere un chunk fantasma que
+   nunca se emite, y la página referenciándolo queda pegada cargando. */
+.cart-page-shell { min-height: 100vh; padding: 28px 20px 90px; background: var(--cream); color: var(--ink); }
+.cart-page-header { width: min(1080px, 100%); margin: 0 auto 18px; }
+.cart-page-back { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.cart-page-loading { text-align: center; color: var(--muted); padding: 60px 0; }
+.cart-page-empty { display: grid; justify-items: center; gap: 16px; max-width: 360px; margin: 60px auto; text-align: center; color: var(--muted); }
+.cart-page-empty > span { color: var(--pink); font-family: Georgia, serif; font-size: 56px; }

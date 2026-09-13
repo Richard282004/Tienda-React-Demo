@@ -8,7 +8,7 @@ import { formatPrice as formatCurrency } from '@/lib/currency';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { supabase } from '@/lib/supabase';
 import { initFavorites, syncFavoriteToggle, writeLocalFavorites } from '@/lib/favorites';
-import '../carrito/carrito.css';
+import './favoritos.css';
 
 export default function FavoritosPage() {
   const [products, setProducts] = useState<Product[]>([]);

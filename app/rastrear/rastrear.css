@@ -1,3 +1,21 @@
+/* Copiadas de confirmacion.css (no importarlo desde aquí): compartir un .css
+   entre dos páginas distintas hace que el bundler genere un chunk fantasma
+   que nunca se emite, y la página referenciándolo queda pegada cargando. */
+.confirmation-shell { min-height: 100vh; display: grid; place-items: center; padding: 32px 20px; background: #f4ece8; color: #351f2c; }
+.confirmation-card { width: min(480px, 100%); border: 1px solid #e5d6d0; border-radius: 25px; padding: 38px; text-align: center; background: #fffaf5; box-shadow: 0 24px 65px rgba(53,31,44,.12); }
+.confirmation-icon { display: grid; width: 56px; height: 56px; margin: 0 auto 18px; place-items: center; border-radius: 50%; }
+.confirmation-icon.ok { background: #e4f0e2; color: #4f7a4a; }
+.confirmation-icon.warn { background: #f6e9c9; color: #93701f; }
+.confirmation-icon.bad { background: #f4dede; color: #9a4b4b; }
+.confirmation-card h1 { margin: 0 0 8px; font-family: Georgia, serif; font-size: 27px; font-weight: 400; }
+.confirmation-status { margin: 0 0 20px; color: #7b6b70; font-size: 14px; }
+.confirmation-summary { display: grid; gap: 10px; margin-bottom: 18px; padding: 16px; border-radius: 16px; background: #f6efeb; text-align: left; }
+.confirmation-summary > div { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+.confirmation-summary span { color: #8b747c; }
+.confirmation-items { display: grid; gap: 8px; margin: 0 0 24px; padding: 0; list-style: none; text-align: left; }
+.confirmation-items li { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #5c454c; }
+.confirmation-back { display: inline-flex; color: #b75874; font-size: 13px; font-weight: 700; }
+
 .rastrear-form { display: grid; gap: 14px; margin-bottom: 6px; text-align: left; }
 .rastrear-form label { color: #69545c; font-size: 12px; font-weight: 600; }
 .rastrear-form input { margin-top: 6px; height: 43px; border-color: #decec8; border-radius: 11px; background: white; }
