@@ -1,4 +1,6 @@
 'use client';
+// Forzar hash de build nuevo: el archivo anterior quedó sin subir en el
+// deploy pasado (404 en /_next/static/chunks/carrito-*.js).
 
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Minus, Plus, Trash2 } from 'lucide-react';
