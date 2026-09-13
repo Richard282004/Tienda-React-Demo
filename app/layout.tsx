@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Analytics } from '@/components/analytics';
+import { WhatsappGlobal } from '@/components/whatsapp-global';
 import { SITE_URL } from '@/lib/site-url';
 import './globals.css';
 
@@ -86,6 +87,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
         <Analytics />
+        <WhatsappGlobal />
         {children}
       </body>
     </html>
