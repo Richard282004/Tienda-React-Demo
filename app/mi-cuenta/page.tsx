@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ChevronRight, LogOut, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronRight, LogOut, Pencil, Plus, Trash2 } from 'lucide-react';
 import { OrderChat } from '@/components/order-chat';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { orderStatusLabel, type Address, type Order, type ShippingRate } from '@/lib/orders';
@@ -34,6 +35,9 @@ export default function MiCuentaPage() {
   const [marketingEmails, setMarketingEmails] = useState(true);
   const [prefsBusy, setPrefsBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [confirmState, setConfirmState] = useState<{ message: string; resolve: (ok: boolean) => void } | null>(null);
+  const askConfirm = (confirmMessage: string) => new Promise<boolean>((resolve) => setConfirmState({ message: confirmMessage, resolve }));
+  const closeConfirm = (ok: boolean) => { confirmState?.resolve(ok); setConfirmState(null); };
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
 
   useEffect(() => {
@@ -85,7 +89,8 @@ export default function MiCuentaPage() {
 
   const deleteAccount = async () => {
     if (!supabase) return;
-    if (!window.confirm('¿Eliminar tu cuenta? Se borran tus datos, direcciones y favoritos. Tus pedidos ya hechos se conservan (obligación legal) pero dejan de estar ligados a tu cuenta. Esta acción no se puede deshacer.')) return;
+    const ok = await askConfirm('¿Eliminar tu cuenta? Se borran tus datos, direcciones y favoritos. Tus pedidos ya hechos se conservan (obligación legal) pero dejan de estar ligados a tu cuenta. Esta acción no se puede deshacer.');
+    if (!ok) return;
     setDeleteBusy(true);
     const { error } = await supabase.rpc('delete_own_account');
     if (error) { setDeleteBusy(false); setMessage(`No pudimos eliminar la cuenta: ${error.message}`); return; }
@@ -273,6 +278,20 @@ export default function MiCuentaPage() {
           )}
         </section>
       </div>
+
+      <Dialog open={confirmState !== null} onOpenChange={(open) => { if (!open) closeConfirm(false); }}>
+        <DialogContent className="confirm-dialog">
+          <DialogHeader>
+            <div className="confirm-dialog-icon"><AlertTriangle size={20} /></div>
+            <DialogTitle>Confirmar acción</DialogTitle>
+            <DialogDescription>{confirmState?.message}</DialogDescription>
+          </DialogHeader>
+          <div className="confirm-dialog-actions">
+            <Button variant="outline" onClick={() => closeConfirm(false)}>Cancelar</Button>
+            <Button className="confirm-dialog-danger" onClick={() => closeConfirm(true)}>Sí, confirmar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
