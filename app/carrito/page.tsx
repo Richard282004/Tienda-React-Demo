@@ -1,6 +1,4 @@
 'use client';
-// Forzar hash de build nuevo: el archivo anterior quedó sin subir en el
-// deploy pasado (404 en /_next/static/chunks/carrito-*.js).
 
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Minus, Plus, Trash2 } from 'lucide-react';
@@ -224,7 +222,7 @@ export default function CarritoPage() {
   };
 
   return (
-    <main className="cart-page-shell">
+    <main className="cart-page-shell" data-build="carrito-fix-1">
       <header className="cart-page-header">
         <a href="/" className="cart-page-back"><ArrowLeft size={16} /> Volver a la tienda</a>
       </header>
