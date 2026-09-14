@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 
-import { parseEmailList, sendLowStockAdminEmail, sendOrderStatusEmail } from "@/lib/email";
+import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderStatusEmail } from "@/lib/email";
 import { formatPrice } from "@/lib/currency";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { notifyAdminSubscribers } from "@/lib/web-push";
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   }
   if (!body.orderId || !body.status) return NextResponse.json({ error: "Faltan datos." }, { status: 400 });
 
-  const { data: order } = await supabase.from("orders").select("customer_email, items, total, status, tracking_number, shipping_payment, shipping_carrier").eq("id", body.orderId).maybeSingle();
+  const { data: order } = await supabase.from("orders").select("customer_name, customer_email, customer_phone, region, comuna, address, address_extra, items, total, status, tracking_number, shipping_payment, shipping_carrier").eq("id", body.orderId).maybeSingle();
   if (order && order.status !== body.status) return NextResponse.json({ error: "El estado cambió. Actualiza el pedido." }, { status: 409 });
   if (!order) return NextResponse.json({ error: "Pedido no encontrado." }, { status: 404 });
 
@@ -55,6 +55,15 @@ export async function POST(request: Request) {
         icon: store?.faviconUrl,
       });
       const adminEmails = parseEmailList(store?.orderNotifyEmail);
+      if (emailApiKey && adminEmails.length) {
+        await sendNewOrderAdminEmail({
+          apiKey: emailApiKey, to: adminEmails, orderId: body.orderId,
+          customerName: order.customer_name, customerEmail: order.customer_email, customerPhone: order.customer_phone,
+          region: order.region, comuna: order.comuna, address: order.address, addressExtra: order.address_extra,
+          items: order.items, total: order.total, shippingPayment: order.shipping_payment, brandName, fromEmail,
+          currency: store?.currency, locale: store?.locale,
+        });
+      }
       const productIds = [...new Set(((order.items ?? []) as OrderItem[]).map((item) => item.productId).filter(Boolean))];
       if (emailApiKey && adminEmails.length && productIds.length) {
         const threshold = typeof store?.lowStockThreshold === "number" ? store.lowStockThreshold : 5;

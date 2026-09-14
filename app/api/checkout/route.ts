@@ -280,6 +280,7 @@ export async function POST(request: Request) {
 
     if (isTransfer) {
       const siteUrl = new URL(request.url).origin;
+      await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, { title: "Pedido pendiente de transferencia", body: `Pedido #${order.id.slice(0, 8)} · esperando tu confirmación`, url: `/admin?order=${order.id}` });
       const emailApiKey = env.BREVO_API_KEY;
       if (emailApiKey) {
         try {
