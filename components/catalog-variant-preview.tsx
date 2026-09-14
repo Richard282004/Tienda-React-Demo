@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { Pause, Play } from 'lucide-react';
 import type { Product } from '@/lib/store-data';
 import type { CatalogVariant } from '@/lib/product-variants';
 
@@ -40,19 +40,28 @@ export function CatalogVariantPreview({ product, variants, children }: {
     return () => window.clearInterval(timer);
   }, [variants.length, paused, hovered, focused, visible, reducedMotion]);
 
-  const choose = (step: number) => {
+  const choose = (next: number) => {
     setPaused(true);
-    setIndex((current) => (current + step + variants.length) % variants.length);
+    setIndex(next);
   };
   const artwork = variant ? { ...product, name: `${product.name} · ${label}`, image_url: variant.image_url || product.image_url,
     ...(variant.image_url ? { image_zoom: 1, image_position_x: 50, image_position_y: 50 } : {}) } : product;
   const href = `/producto/${product.id}${variant ? `?variante=${encodeURIComponent(variant.id)}` : ''}`;
   const controls = variant ? <div className="catalog-variant-picker">
+    {variants.length > 1 && <div className="catalog-variant-thumbnails" role="group" aria-label={`Variantes de ${product.name}`}>
+      {variants.map((option, optionIndex) => {
+        const optionLabel = [option.color, option.size].filter(Boolean).join(' · ') || 'Opción estándar';
+        return <button key={option.id} type="button" className="catalog-variant-thumbnail"
+          aria-label={`Ver ${optionLabel}`} aria-pressed={option.id === variant.id} title={optionLabel}
+          onPointerEnter={(event) => { if (event.pointerType === 'mouse') choose(optionIndex); }}
+          onClick={() => choose(optionIndex)}>
+          {option.image_url ? <img src={option.image_url} alt="" loading="lazy" width={48} height={48} /> : <span>{optionLabel}</span>}
+        </button>;
+      })}
+    </div>}
     <div className="catalog-variant-caption"><span>{label}</span>{!variant.image_url && <small>Foto principal de referencia</small>}</div>
-    {variants.length > 1 && <div className="catalog-variant-controls" role="group" aria-label={`Variantes de ${product.name}`}>
-      <button type="button" onClick={() => choose(-1)} aria-label="Variante anterior"><ChevronLeft size={17} /></button>
+    {variants.length > 1 && <div className="catalog-variant-controls">
       <span>{index % variants.length + 1} / {variants.length}</span>
-      <button type="button" onClick={() => choose(1)} aria-label="Variante siguiente"><ChevronRight size={17} /></button>
       {!reducedMotion && <button type="button" onClick={() => setPaused((value) => !value)} aria-label={paused ? 'Reanudar cambio automático' : 'Pausar cambio automático'}>{paused ? <Play size={15} /> : <Pause size={15} />}</button>}
     </div>}
   </div> : null;

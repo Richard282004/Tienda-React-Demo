@@ -534,8 +534,8 @@ export default function Home() {
               <span className="yarn-shadow" />
             </div>
             <div className="product-info">
-              <h3><a className="product-name-link" href={href}>{product.name}</a></h3>
               {controls}
+              <h3><a className="product-name-link" href={href}>{product.name}</a></h3>
               <strong>{variant ? formatPrice(variant.price) : formatPrice(product.price)}</strong>
               <div className="product-meta">
                 <span className={`availability-badge ${previewOutOfStock ? 'unavailable' : 'available'}`}>{previewOutOfStock ? 'Agotado' : lowStock ? `¡Últimas ${product.stock}!` : 'Disponible'}</span>
