@@ -1,5 +1,6 @@
 // Envío de correos transaccionales vía la API REST de Brevo (sin SDK, para
 // que corra bien en el runtime de Cloudflare Workers).
+import { COLLECT_NOTICE, BLUE_TRACKING_URL } from './shipping';
 import { formatPrice } from './currency';
 import { parseEmailList } from './email-list';
 
@@ -79,6 +80,7 @@ export async function sendOrderConfirmationEmail(opts: {
   orderId: string;
   items: { name: string; unitPrice: number; quantity: number; variantLabel?: string }[];
   total: number;
+  shippingPayment?: string;
   brandName?: string;
   fromEmail?: string;
   currency?: string;
@@ -93,7 +95,7 @@ export async function sendOrderConfirmationEmail(opts: {
     'Recibimos tu pedido',
     `<p>Gracias por tu compra. Tu pedido <strong>#${opts.orderId.slice(0, 8)}</strong> quedó registrado y está esperando la confirmación del pago.</p>
      <ul>${itemsHtml}</ul>
-     <p><strong>Total: ${price(opts.total)}</strong></p>
+     <p><strong>Total: ${price(opts.total)}</strong></p>${opts.shippingPayment === 'collect' ? `<p>${COLLECT_NOTICE}</p>` : ''}
      <p>Te avisaremos apenas se confirme el pago.</p>`,
   );
   await sendEmail(opts.apiKey, from, opts.to, `Pedido #${opts.orderId.slice(0, 8)} recibido — ${brandName}`, html);
@@ -105,6 +107,7 @@ export async function sendTransferInstructionsEmail(opts: {
   orderId: string;
   items: { name: string; unitPrice: number; quantity: number; variantLabel?: string }[];
   total: number;
+  shippingPayment?: string;
   transferDetails: string;
   holdHours: number;
   storeUrl: string;
@@ -123,7 +126,7 @@ export async function sendTransferInstructionsEmail(opts: {
     'Recibimos tu pedido — falta la transferencia',
     `<p>Tu pedido <strong>#${opts.orderId.slice(0, 8)}</strong> quedó reservado. Para confirmarlo, transfiere el total:</p>
      <ul>${itemsHtml}</ul>
-     <p><strong>Total a transferir: ${price(opts.total)}</strong></p>
+     <p><strong>Total a transferir: ${price(opts.total)}</strong></p>${opts.shippingPayment === 'collect' ? `<p>${COLLECT_NOTICE}</p>` : ''}
      <p style="background:#f6efeb; border-radius:12px; padding:14px 16px; margin:14px 0; line-height:1.7;">${detailsHtml}</p>
      <p style="background:#fbeed2; border-radius:9px; padding:10px 14px; margin:0 0 14px; color:#7a5a1e;">Pon <strong>${opts.orderId.slice(0, 8)}</strong> como mensaje/glosa de la transferencia, así identificamos tu pago al tiro.</p>
      <p>Después de transferir, <strong>envíanos el comprobante</strong> respondiendo este correo o por el chat de tu pedido:
@@ -153,6 +156,7 @@ export async function sendNewOrderAdminEmail(opts: {
   addressExtra?: string | null;
   items: { name: string; unitPrice: number; quantity: number; variantLabel?: string }[];
   total: number;
+  shippingPayment?: string;
   brandName?: string;
   fromEmail?: string;
   currency?: string;
@@ -172,7 +176,7 @@ export async function sendNewOrderAdminEmail(opts: {
     opts.pendingTransfer ? 'Nuevo pedido por transferencia' : '¡Nueva venta!',
     `${lead}
      <ul>${itemsHtml}</ul>
-     <p><strong>Total: ${price(opts.total)}</strong></p>
+     <p><strong>Total: ${price(opts.total)}</strong></p>${opts.shippingPayment === 'collect' ? `<p>${COLLECT_NOTICE}</p>` : ''}
      <p><strong>${opts.customerName}</strong><br>${opts.customerEmail} · ${opts.customerPhone}<br>${opts.comuna}, ${opts.region}${addressLine ? `<br>${addressLine}` : ''}</p>`,
   );
   const subject = opts.pendingTransfer
@@ -287,13 +291,14 @@ export async function sendWinbackEmail(opts: {
   await sendEmail(opts.apiKey, from, opts.to, `Te tejimos cosas nuevas — ${brandName}`, html);
 }
 
-export async function sendOrderStatusEmail(opts: { apiKey: string; to: string; orderId: string; status: string; trackingNumber?: string | null; brandName?: string; fromEmail?: string }) {
+export async function sendOrderStatusEmail(opts: { apiKey: string; to: string; orderId: string; status: string; trackingNumber?: string | null; shippingPayment?: string; shippingCarrier?: string | null; brandName?: string; fromEmail?: string }) {
   const copy = statusCopy[opts.status];
   if (!copy) return;
   const brandName = opts.brandName || 'Tu tienda';
   const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
-  const tracking = opts.trackingNumber ? `<p>N° de seguimiento: <strong>${opts.trackingNumber}</strong></p>` : '';
-  const html = wrap(brandName, copy.title, `<p>${copy.body(brandName)}</p>${tracking}<p>Pedido #${opts.orderId.slice(0, 8)}</p>`);
+  const safeTracking = (opts.trackingNumber ?? '').replace(/[&<>"']/g, (character) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]!));
+  const tracking = safeTracking ? `<p>N° de seguimiento: <strong>${safeTracking}</strong></p>${opts.shippingCarrier === 'blue_express' ? `<p><a href="${BLUE_TRACKING_URL}">Seguir mi envío en Blue Express</a>. Ingresa el número indicado arriba.</p>` : ''}` : '';
+  const html = wrap(brandName, copy.title, `<p>${copy.body(brandName)}</p>${tracking}${opts.shippingPayment === 'collect' ? `<p>${COLLECT_NOTICE}</p>` : ''}<p>Pedido #${opts.orderId.slice(0, 8)}</p>`);
   await sendEmail(opts.apiKey, from, opts.to, `${copy.subject} — ${brandName}`, html);
 }
 

@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
     const { data: existingOrder } = await supabase
       .from("orders")
-      .select("status, items, total, customer_name, customer_email, customer_phone, region, comuna, address, address_extra")
+      .select("status, items, total, customer_name, customer_email, customer_phone, region, comuna, address, address_extra, shipping_payment, shipping_carrier")
       .eq("id", payment.external_reference)
       .maybeSingle();
     const { data: transition, error } = await supabase.rpc("apply_payment_status", {
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
         const brandName = store?.brandName || "Tu tienda";
         const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
         const adminEmails = parseEmailList(store?.orderNotifyEmail);
-        await sendOrderStatusEmail({ apiKey: emailApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, brandName, fromEmail });
+        await sendOrderStatusEmail({ apiKey: emailApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, shippingPayment: existingOrder.shipping_payment, shippingCarrier: existingOrder.shipping_carrier, brandName, fromEmail });
         if (orderStatus === "paid" && adminEmails.length) {
           await sendNewOrderAdminEmail({
             apiKey: emailApiKey,
@@ -87,6 +87,7 @@ export async function POST(request: Request) {
             addressExtra: existingOrder.address_extra,
             items: existingOrder.items,
             total: existingOrder.total,
+            shippingPayment: existingOrder.shipping_payment,
             brandName,
             fromEmail,
             currency: store?.currency,

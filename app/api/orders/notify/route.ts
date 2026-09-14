@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   }
   if (!body.orderId || !body.status) return NextResponse.json({ error: "Faltan datos." }, { status: 400 });
 
-  const { data: order } = await supabase.from("orders").select("customer_email, items, total, status").eq("id", body.orderId).maybeSingle();
+  const { data: order } = await supabase.from("orders").select("customer_email, items, total, status, tracking_number, shipping_payment, shipping_carrier").eq("id", body.orderId).maybeSingle();
   if (order && order.status !== body.status) return NextResponse.json({ error: "El estado cambió. Actualiza el pedido." }, { status: 409 });
   if (!order) return NextResponse.json({ error: "Pedido no encontrado." }, { status: 404 });
 
@@ -63,9 +63,9 @@ export async function POST(request: Request) {
         if (low.length) await sendLowStockAdminEmail({ apiKey: emailApiKey, to: adminEmails, products: low, threshold, brandName, fromEmail });
       }
     }
-    if (emailApiKey) await sendOrderStatusEmail({ apiKey: emailApiKey, to: order.customer_email, orderId: body.orderId, status: body.status, trackingNumber: body.trackingNumber, brandName, fromEmail });
+    if (emailApiKey) await sendOrderStatusEmail({ apiKey: emailApiKey, to: order.customer_email, orderId: body.orderId, status: body.status, trackingNumber: order.tracking_number, shippingPayment: order.shipping_payment, shippingCarrier: order.shipping_carrier, brandName, fromEmail });
   } catch {
-    /* El correo es un complemento; el cambio de estado ya se guardó antes de llamar aquí. */
+    return NextResponse.json({error:"El estado se guardó, pero no pudimos enviar el aviso."}, {status:502});
   }
   return NextResponse.json({ ok: true });
 }

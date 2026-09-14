@@ -1,5 +1,6 @@
 "use client";
 
+import { ShipmentStatus } from '@/components/shipment-status';
 import { useEffect, useState } from "react";
 import { Check, Clock, X } from "lucide-react";
 
@@ -125,6 +126,7 @@ export default function ConfirmacionPage() {
                 <strong>{formatPrice(order.total)}</strong>
               </div>
             </div>
+            <ShipmentStatus order={order} />
             <ul className="confirmation-items">
               {order.items.map((item, index) => (
                 <li key={`${item.productId}-${index}`}>

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ImageCropDialog } from '@/components/image-crop-dialog';
 import { OrderChat } from '@/components/order-chat';
+import { DispatchPanel } from '@/components/dispatch-panel';
 import { PushAdmin } from '@/components/push-admin';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
@@ -803,17 +804,18 @@ export default function AdminPage() {
                     <Button size="sm" onClick={() => void updateOrder(order.id, { status: 'paid' })}><Check size={15} /> Confirmar pago</Button>
                   </div>
                 )}
+                <DispatchPanel order={order} onSaved={loadAdminData} />
                 <div className="order-card-body">
                   <div className="order-card-row"><span><User size={14} /> Cliente</span><p>{order.customer_name} · {order.customer_email} · {order.customer_phone}{order.customer_rut ? ` · RUT ${order.customer_rut}` : ''}</p></div>
                   <div className="order-card-row"><span><MapPin size={14} /> Dirección</span><p>{order.address}{order.address_extra ? `, ${order.address_extra}` : ''}, {order.comuna}, {order.region}</p></div>
                   <div className="order-card-row"><span><ShoppingBag size={14} /> Productos</span><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}>{item.quantity}× {item.name}{item.variantLabel ? ` (${item.variantLabel})` : ''} — {formatPrice(item.unitPrice * item.quantity)}{lowStockProductIds.has(item.productId) && <span className="order-item-lowstock"><AlertTriangle size={11} /> stock bajo</span>}</li>)}</ul></div>
-                  <div className="order-card-row order-card-total"><span><DollarSign size={14} /> Total</span><p><strong>{formatPrice(order.total)}</strong> <em>(envío {formatPrice(order.shipping_cost)})</em></p></div>
+                  <div className="order-card-row order-card-total"><span><DollarSign size={14} /> Total</span><p><strong>{formatPrice(order.total)}</strong> <em>({order.shipping_payment === 'collect' ? 'despacho por pagar' : `envío ${formatPrice(order.shipping_cost)}`})</em></p></div>
                 </div>
                 <div className="order-card-actions">
                   <label>Estado<NativeSelect className="admin-select" value={order.status} onChange={(event) => void updateOrder(order.id, { status: event.target.value as OrderStatus })}>
                     {(Object.keys(orderStatusLabel) as OrderStatus[]).map((status) => <NativeSelectOption key={status} value={status}>{orderStatusLabel[status]}</NativeSelectOption>)}
                   </NativeSelect></label>
-                  <label>N° de seguimiento<Input value={order.tracking_number ?? ''} placeholder="Ej: 1234567890" onBlur={(event) => void updateOrder(order.id, { tracking_number: event.target.value || null })} onChange={(event) => setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, tracking_number: event.target.value } : item)))} /></label>
+
                 </div>
                 <Button variant="outline" size="sm" className="order-card-label-print" onClick={() => printShippingLabel(order)}><Printer size={14} /> Imprimir etiqueta</Button>
                 {order.user_id && currentUserId ? <OrderChat orderId={order.id} senderRole="admin" currentUserId={currentUserId} /> : <p className="admin-section-note">Compra de invitada: sin cuenta, no hay chat disponible.</p>}
@@ -892,7 +894,15 @@ export default function AdminPage() {
         })()}
       </TabsContent>
       <TabsContent value="shipping">
-        <div className="admin-section-heading"><div><h2>Costos de envío</h2><p>Estas son las regiones/zonas que el cliente puede elegir al pagar. Agrega, edita o quita las que quieras.</p></div></div>
+        <div className="admin-section-heading"><div><h2>Despachos y retiros</h2><p>Estas son las regiones/zonas que el cliente puede elegir al pagar. Agrega, edita o quita las que quieras.</p></div></div>
+        <label className="shipping-rate-address-toggle"><input type="checkbox" checked={Boolean(content.shippingCollectEnabled)} onChange={async (event) => {
+          if (!supabase) return;
+          const next = {...content, shippingCollectEnabled: event.target.checked};
+          const {error} = await supabase.from('site_content').upsert({key:'store',value:next,updated_at:new Date().toISOString()});
+          if (error) {setMessage('No se pudo guardar la forma de despacho.'); return;}
+          setContent(next); setMessage('Forma de despacho actualizada.');
+        }} /> Usar Blue Express por pagar para envíos a domicilio</label>
+        <p className="admin-section-note">{content.shippingCollectEnabled ? 'El cliente paga el despacho aparte. Las tarifas de abajo se conservan, pero no se cobran para envíos a domicilio. Retiro y entrega personal mantienen su tarifa.' : 'Se cobran las tarifas de abajo al comprar.'} La etiqueta se genera en Blue Express; no se contrata ni se compra un envío desde esta página.</p>
         <div className="shipping-rates-grid">
           {shippingRates.map((rate) => (
             <div className="shipping-rate-row" key={rate.region}>

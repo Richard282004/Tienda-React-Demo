@@ -1,5 +1,6 @@
 'use client';
 
+import { ShipmentStatus } from '@/components/shipment-status';
 import { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ChevronRight, LogOut, Pencil, Plus, Trash2 } from 'lucide-react';
 import { OrderChat } from '@/components/order-chat';
@@ -267,7 +268,7 @@ export default function MiCuentaPage() {
                           <li key={`${item.productId}-${index}`}><span>{item.quantity}× {item.name}{item.variantLabel ? ` (${item.variantLabel})` : ''}</span><span>{formatPrice(item.unitPrice * item.quantity)}</span></li>
                         ))}
                       </ul>
-                      {order.tracking_number && <p className="account-page-order-tracking">N° de seguimiento: <strong>{order.tracking_number}</strong></p>}
+                      <ShipmentStatus order={order} />
                       <div className="account-page-order-total"><span>Total</span><strong>{formatPrice(order.total)}</strong></div>
                       {userId && <OrderChat orderId={order.id} senderRole="customer" currentUserId={userId} />}
                     </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { ShipmentStatus } from '@/components/shipment-status';
 import { useState } from 'react';
 import { Search, Check, Clock, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -64,7 +65,7 @@ export default function RastrearPage() {
                   <div><span>Pedido</span><strong>{order.id.slice(0, 8)}</strong></div>
                   <div><span>Envío a</span><strong>{order.comuna}, {order.region}</strong></div>
                   <div><span>Total</span><strong>{formatPrice(order.total)}</strong></div>
-                  {order.tracking_number && <div><span>N° de seguimiento</span><strong>{order.tracking_number}</strong></div>}
+                  <ShipmentStatus order={order} />
                 </div>
                 <ul className="confirmation-items">
                   {order.items.map((item, index) => (

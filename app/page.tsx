@@ -430,7 +430,7 @@ export default function Home() {
       <a className="skip-link" href="#tienda">Saltar a la colección</a>
       <div className="utility-bar">
         <span><Truck size={15} /> Envíos a todo Chile</span>
-        {!storeLoading && <span className="utility-message">{content.shippingMessage}</span>}
+        {!storeLoading && <span className="utility-message">{content.shippingCollectEnabled ? 'Despachos por pagar con Blue Express · Retiro coordinado' : content.shippingMessage}</span>}
         <div className="utility-actions">
           <a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a>
           <button onClick={() => openAccount('login')}><UserRound size={14} /> {sessionEmail ?? 'Iniciar sesión'}</button>

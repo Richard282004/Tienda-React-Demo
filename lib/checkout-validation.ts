@@ -1,4 +1,5 @@
 export type CheckoutPayload = {
+  shippingPayment?: 'prepaid' | 'collect' | 'pickup';
   items: { productId: string; quantity: number; variantId?: string }[];
   customerName: string;
   customerEmail: string;
@@ -86,6 +87,7 @@ export function parseCheckoutPayload(value: unknown): CheckoutPayload {
   return {
     items: [...quantities.values()].map(({ productId, variantId, quantity }) => (variantId ? { productId, variantId, quantity } : { productId, quantity })),
     paymentMethod,
+    shippingPayment: record.shippingPayment === 'collect' ? 'collect' : record.shippingPayment === 'pickup' ? 'pickup' : 'prepaid',
     customerName: field("customerName", 120),
     customerEmail,
     customerPhone: field("customerPhone", 40),

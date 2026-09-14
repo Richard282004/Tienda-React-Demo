@@ -17,6 +17,7 @@ export type Product = {
 };
 
 export type StoreContent = {
+  shippingCollectEnabled?: boolean;
   brandName: string;
   brandTagline: string;
   categories: string[];
@@ -99,7 +100,7 @@ export const defaultStoreContent: StoreContent = {
   phone: '+569 56720490',
   email: 'richardlagos2@gmail.com',
   whatsapp: '+56 9 5672 0490',
-  shippingMessage: 'Envío gratis sobre $25.000 · cada pieza es artesanal, se hace a mano',
+  shippingMessage: 'Envíos a todo Chile · cada pieza es artesanal, se hace a mano',
   aboutTitle: 'Hecho lento,',
   aboutHighlight: 'hecho bonito.',
   aboutText: 'Cada pieza nace desde la naturaleza del amor, todos nuestros productos los realizamos de manera artesanal, con la mejor calidad en nuestras lanas, nuestra empresa nace desde el amor y creatividad.!!!',

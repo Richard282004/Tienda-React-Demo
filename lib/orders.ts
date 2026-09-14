@@ -25,6 +25,8 @@ export type Order = {
   items: OrderItem[];
   subtotal: number;
   shipping_cost: number;
+  shipping_payment?: 'prepaid' | 'collect' | 'pickup';
+  shipping_carrier?: 'blue_express' | null;
   discount_code: string | null;
   discount_amount: number;
   total: number;

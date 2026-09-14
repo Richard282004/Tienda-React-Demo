@@ -8,7 +8,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { ProductArtwork } from '@/components/product-artwork';
 import { decodeCartEntry } from '@/lib/cart';
 import { resolveCartLines } from '@/lib/cart-lines';
-import { calculateShipping } from '@/lib/checkout-validation';
+import { shippingPayment, shippingCharge, COLLECT_NOTICE } from '@/lib/shipping';
 import { variantLabel, type Address, type ProductVariant, type ShippingRate } from '@/lib/orders';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { formatPrice as formatCurrency } from '@/lib/currency';
@@ -116,7 +116,8 @@ export default function CarritoPage() {
   const total = groupedCart.reduce((sum, { product, variant, quantity }) => sum + (variant?.price ?? product.price) * quantity, 0);
   const selectedRate = shippingRates.find((rate) => rate.region === shipping.region);
   const requiresAddress = selectedRate?.requires_address ?? true;
-  const shippingCost = calculateShipping(total, selectedRate?.cost);
+  const dispatchMethod = shippingPayment(Boolean(content.shippingCollectEnabled), requiresAddress);
+  const shippingCost = shippingCharge(total, selectedRate?.cost, dispatchMethod);
   const shippingZones = useMemo(() => shippingRates.filter((rate) => rate.requires_address ?? true), [shippingRates]);
   const pickupZones = useMemo(() => shippingRates.filter((rate) => !(rate.requires_address ?? true)), [shippingRates]);
   const [deliveryMethod, setDeliveryMethod] = useState<'shipping' | 'pickup'>('shipping');
@@ -202,6 +203,7 @@ export default function CarritoPage() {
           addressExtra: shipping.addressExtra,
           discountCode: validDiscount?.code,
           paymentMethod,
+          shippingPayment: dispatchMethod,
         }),
       });
       const data = (await response.json()) as { initPoint?: string; orderId?: string; error?: string };
@@ -279,9 +281,10 @@ export default function CarritoPage() {
             <h2>Resumen del pedido</h2>
             <div className="cart-page-summary-row"><span>{cartProducts.length} producto{cartProducts.length === 1 ? '' : 's'}</span><strong>{formatPrice(total)}</strong></div>
             {discountAmount > 0 && <div className="cart-page-summary-row"><span>Descuento</span><strong>-{formatPrice(discountAmount)}</strong></div>}
-            <div className="cart-page-summary-row"><span>Envío{shipping.region ? '' : ' (elige región)'}</span><strong>{shipping.region ? (shippingCost === null ? 'No disponible' : shippingCost === 0 ? 'Gratis' : formatPrice(shippingCost)) : '—'}</strong></div>
-            <div className="cart-page-summary-total"><span>Total</span><strong>{shippingCost === null ? 'Por calcular' : formatPrice(grandTotal)}</strong></div>
+            <div className="cart-page-summary-row"><span>Envío{shipping.region ? '' : ' (elige región)'}</span><strong>{shipping.region ? (shippingCost === null ? 'No disponible' : dispatchMethod === 'collect' ? 'Se paga aparte' : shippingCost === 0 ? 'Gratis' : formatPrice(shippingCost)) : '—'}</strong></div>
+            <div className="cart-page-summary-total"><span>{dispatchMethod === 'collect' ? 'Total a pagar en la tienda' : 'Total'}</span><strong>{shippingCost === null ? 'Por calcular' : formatPrice(grandTotal)}</strong></div>
 
+            {shipping.region && dispatchMethod === 'collect' && <p className="cart-page-pickup-note">{COLLECT_NOTICE}</p>}
             <label className="discount-field cart-page-discount">Código de descuento (opcional)
               <div className="discount-input-row">
                 <Input value={discountInput} onChange={(event) => { setDiscountInput(event.target.value); setAppliedDiscount(null); }} placeholder="EJ: BIENVENIDA10" />
@@ -308,7 +311,7 @@ export default function CarritoPage() {
               <label>RUT<Input required maxLength={12} value={shipping.rut} onChange={(event) => setShipping({ ...shipping, rut: event.target.value })} placeholder="12345678-9" /><small className="field-required">{shipping.rut.trim() && !isValidRut(shipping.rut) ? 'RUT inválido' : 'Campo obligatorio'}</small></label>
               {pickupZones.length > 0 && (
                 <div className="delivery-method-tabs" role="group" aria-label="Método de entrega">
-                  <button type="button" className={deliveryMethod === 'shipping' ? 'active' : ''} onClick={() => chooseDeliveryMethod('shipping')}>Envío a domicilio</button>
+                  <button type="button" className={deliveryMethod === 'shipping' ? 'active' : ''} onClick={() => chooseDeliveryMethod('shipping')}>{content.shippingCollectEnabled ? 'Blue Express por pagar' : 'Envío a domicilio'}</button>
                   <button type="button" className={deliveryMethod === 'pickup' ? 'active' : ''} onClick={() => chooseDeliveryMethod('pickup')}>Retiro / entrega personal</button>
                 </div>
               )}

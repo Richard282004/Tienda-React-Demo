@@ -1,7 +1,7 @@
+import { shippingPayment, shippingCharge } from "@/lib/shipping";
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import {
-  calculateShipping,
   parseCheckoutPayload,
   type CheckoutPayload,
 } from "@/lib/checkout-validation";
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       /* No crítico: si falla, el checkout sigue con el stock disponible actual. */
     }
     const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
-    const storeSettings = (settings?.value ?? {}) as { brandName?: string; currency?: string; locale?: string; orderNotifyEmail?: string; lowStockThreshold?: number; transferEnabled?: boolean; transferDetails?: string; transferHoldHours?: number };
+    const storeSettings = (settings?.value ?? {}) as { brandName?: string; currency?: string; locale?: string; orderNotifyEmail?: string; lowStockThreshold?: number; shippingCollectEnabled?: boolean; transferEnabled?: boolean; transferDetails?: string; transferHoldHours?: number };
     const isTransfer = payload.paymentMethod === "transfer";
     if (isTransfer && !(storeSettings.transferEnabled && storeSettings.transferDetails?.trim())) {
       return NextResponse.json({ error: "El pago por transferencia no está disponible en este momento." }, { status: 400 });
@@ -171,7 +171,9 @@ export async function POST(request: Request) {
         { error: "No pudimos calcular el envío. Inténtalo de nuevo." },
         { status: 503 },
       );
-    const shippingCost = calculateShipping(subtotal, shippingRate?.cost);
+    const dispatchMethod = shippingPayment(Boolean(storeSettings.shippingCollectEnabled), shippingRate?.requires_address !== false);
+    if (payload.shippingPayment !== dispatchMethod && !(dispatchMethod === 'pickup' && payload.shippingPayment === 'prepaid')) return NextResponse.json({error:"La forma de despacho cambió. Recarga tu carrito para revisar el total."}, {status:409});
+    const shippingCost = shippingCharge(subtotal, shippingRate?.cost, dispatchMethod);
     if (shippingCost === null)
       return NextResponse.json(
         { error: "El envío a esa región no está disponible." },
@@ -232,6 +234,8 @@ export async function POST(request: Request) {
         items: orderItems,
         subtotal,
         shipping_cost: shippingCost,
+        shipping_payment: dispatchMethod,
+        shipping_carrier: dispatchMethod === 'collect' ? 'blue_express' : null,
         discount_code: discountCode,
         discount_amount: discountAmount,
         total,
@@ -251,7 +255,7 @@ export async function POST(request: Request) {
       const emailApiKey = env.BREVO_API_KEY;
       if (emailApiKey) {
         try {
-          await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, fromEmail: env.BREVO_FROM_EMAIL });
+          await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, shippingPayment: dispatchMethod, fromEmail: env.BREVO_FROM_EMAIL });
           // Pedido gratis (100% descuento): no pasa por el webhook de Mercado
           // Pago, así que el aviso al admin y el de stock bajo van desde aquí.
           const adminEmails = parseEmailList(storeSettings.orderNotifyEmail);
@@ -260,7 +264,7 @@ export async function POST(request: Request) {
               apiKey: emailApiKey, to: adminEmails, orderId: order.id,
               customerName: payload.customerName, customerEmail: payload.customerEmail, customerPhone: payload.customerPhone,
               region: payload.region, comuna: payload.comuna, address: payload.address, addressExtra: payload.addressExtra || null,
-              items: orderItems, total, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale,
+              items: orderItems, total, shippingPayment: dispatchMethod, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale,
             });
             const threshold = typeof storeSettings.lowStockThreshold === "number" ? storeSettings.lowStockThreshold : 5;
             const { data: stockRows } = await supabase.from("products").select("name, stock").in("id", orderItems.map((item) => item.productId));
@@ -284,7 +288,7 @@ export async function POST(request: Request) {
             items: orderItems, total,
             transferDetails: storeSettings.transferDetails!.trim(),
             holdHours: typeof storeSettings.transferHoldHours === "number" && storeSettings.transferHoldHours > 0 ? storeSettings.transferHoldHours : 48,
-            storeUrl: siteUrl, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale,
+            storeUrl: siteUrl, shippingPayment: dispatchMethod, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale,
           });
           const adminEmails = parseEmailList(storeSettings.orderNotifyEmail);
           if (adminEmails.length) {
@@ -292,7 +296,7 @@ export async function POST(request: Request) {
               apiKey: emailApiKey, to: adminEmails, orderId: order.id,
               customerName: payload.customerName, customerEmail: payload.customerEmail, customerPhone: payload.customerPhone,
               region: payload.region, comuna: payload.comuna, address: payload.address, addressExtra: payload.addressExtra || null,
-              items: orderItems, total, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale, pendingTransfer: true,
+              items: orderItems, total, shippingPayment: dispatchMethod, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale, pendingTransfer: true,
             });
           }
         } catch {
@@ -321,7 +325,7 @@ export async function POST(request: Request) {
       const emailApiKey = env.BREVO_API_KEY;
       if (emailApiKey) {
         try {
-          await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, fromEmail: env.BREVO_FROM_EMAIL });
+          await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, shippingPayment: dispatchMethod, fromEmail: env.BREVO_FROM_EMAIL });
         } catch {
           /* El correo es un complemento: si falla, el pedido sigue su curso normal. */
         }
