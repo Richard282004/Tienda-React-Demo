@@ -34,7 +34,7 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-async function sendEmail(apiKey: string, from: string, to: string | string[], subject: string, html: string) {
+async function sendEmail(apiKey: string, from: string, to: string | string[], subject: string, html: string, attachments?: { name: string; content: string }[]) {
   const recipients = (Array.isArray(to) ? to : [to]).map((email) => ({ email }));
   const payload = JSON.stringify({
     sender: parseSender(from),
@@ -42,6 +42,7 @@ async function sendEmail(apiKey: string, from: string, to: string | string[], su
     subject,
     htmlContent: html,
     textContent: htmlToText(html),
+    ...(attachments?.length ? { attachment: attachments } : {}),
   });
   // Un reintento ante fallos transitorios de Brevo (429 / 5xx / red caída):
   // los correos salen desde rutas "fire-and-forget", así que sin esto un
@@ -300,6 +301,27 @@ export async function sendOrderStatusEmail(opts: { apiKey: string; to: string; o
   const tracking = safeTracking ? `<p>N° de seguimiento: <strong>${safeTracking}</strong></p>${opts.shippingCarrier === 'blue_express' ? `<p><a href="${BLUE_TRACKING_URL}">Seguir mi envío en Blue Express</a>. Ingresa el número indicado arriba.</p>` : ''}` : '';
   const html = wrap(brandName, copy.title, `<p>${copy.body(brandName)}</p>${tracking}${opts.shippingPayment === 'collect' ? `<p>${COLLECT_NOTICE}</p>` : ''}<p>Pedido #${opts.orderId.slice(0, 8)}</p>`);
   await sendEmail(opts.apiKey, from, opts.to, `${copy.subject} — ${brandName}`, html);
+}
+
+export async function sendReceiptEmail(opts: {
+  apiKey: string;
+  to: string;
+  orderId: string;
+  pdfBase64: string;
+  brandName?: string;
+  fromEmail?: string;
+}) {
+  const brandName = opts.brandName || 'Tu tienda';
+  const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
+  const html = wrap(
+    brandName,
+    '¡Pago confirmado!',
+    `<p>Ya recibimos tu pago. Estamos preparando tu pedido <strong>#${opts.orderId.slice(0, 8)}</strong> para despacharlo pronto.</p>
+     <p>Adjuntamos el comprobante de tu compra.</p>`,
+  );
+  await sendEmail(opts.apiKey, from, opts.to, `Tu pago fue confirmado — ${brandName}`, html, [
+    { name: `comprobante-${opts.orderId.slice(0, 8)}.pdf`, content: opts.pdfBase64 },
+  ]);
 }
 
 export async function sendBackInStockEmail(opts: {

@@ -66,7 +66,15 @@ export async function fetchMercadoPagoPayment(accessToken: string, paymentId: st
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!response.ok) throw new Error('No se pudo consultar el pago en Mercado Pago.');
-  return (await response.json()) as { status: string; external_reference: string; id: number; transaction_amount?: number };
+  return (await response.json()) as {
+    status: string;
+    external_reference: string;
+    id: number;
+    transaction_amount?: number;
+    date_approved?: string | null;
+    payer?: { email?: string; first_name?: string; last_name?: string };
+    payment_method_id?: string;
+  };
 }
 
 // Reembolso total real vía la API de Mercado Pago (mismo dinero que se cobró

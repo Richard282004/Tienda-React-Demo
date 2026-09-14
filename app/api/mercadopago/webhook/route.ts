@@ -1,9 +1,10 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 
-import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderStatusEmail } from "@/lib/email";
+import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderStatusEmail, sendReceiptEmail } from "@/lib/email";
 import { formatPrice } from "@/lib/currency";
 import { fetchMercadoPagoPayment } from "@/lib/mercadopago";
+import { generateReceiptPdf, uint8ToBase64 } from "@/lib/receipt";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { notifyAdminSubscribers } from "@/lib/web-push";
@@ -72,7 +73,30 @@ export async function POST(request: Request) {
         const brandName = store?.brandName || "Tu tienda";
         const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
         const adminEmails = parseEmailList(store?.orderNotifyEmail);
-        await sendOrderStatusEmail({ apiKey: emailApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, shippingPayment: existingOrder.shipping_payment, shippingCarrier: existingOrder.shipping_carrier, brandName, fromEmail });
+        if (orderStatus === "paid") {
+          // El comprobante con el detalle del pago reemplaza el correo
+          // genérico de "pago confirmado" (ya lleva ese mismo mensaje).
+          try {
+            const pdfBytes = await generateReceiptPdf({
+              brandName,
+              orderId: payment.external_reference,
+              paymentId: String(payment.id),
+              paidAt: payment.date_approved || new Date().toISOString(),
+              customerName: existingOrder.customer_name,
+              customerEmail: existingOrder.customer_email,
+              items: existingOrder.items,
+              total: existingOrder.total,
+              currency: store?.currency,
+              locale: store?.locale,
+            });
+            await sendReceiptEmail({ apiKey: emailApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, pdfBase64: uint8ToBase64(pdfBytes), brandName, fromEmail });
+          } catch {
+            // Si falla el PDF o el envío con adjunto, al menos avisa el cambio de estado.
+            await sendOrderStatusEmail({ apiKey: emailApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, shippingPayment: existingOrder.shipping_payment, shippingCarrier: existingOrder.shipping_carrier, brandName, fromEmail });
+          }
+        } else {
+          await sendOrderStatusEmail({ apiKey: emailApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, shippingPayment: existingOrder.shipping_payment, shippingCarrier: existingOrder.shipping_carrier, brandName, fromEmail });
+        }
         if (orderStatus === "paid" && adminEmails.length) {
           await sendNewOrderAdminEmail({
             apiKey: emailApiKey,
