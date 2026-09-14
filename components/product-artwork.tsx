@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Product } from "@/lib/store-data";
 
-export function ProductArtwork({ product, className, defaultZoom = 1 }: { product: Product; className?: string; defaultZoom?: number }) {
+export function ProductArtwork({ product, className, defaultZoom = 1, onReady }: { product: Product; className?: string; defaultZoom?: number; onReady?: () => void }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   if (product.image_url && failedUrl !== product.image_url) {
     return (
@@ -23,7 +23,8 @@ export function ProductArtwork({ product, className, defaultZoom = 1 }: { produc
           transformOrigin: `${product.image_position_x ?? 50}% ${product.image_position_y ?? 50}%`,
           transform: `scale(${product.image_zoom == null || product.image_zoom === 1 ? defaultZoom : product.image_zoom})`,
         }}
-        onError={() => setFailedUrl(product.image_url ?? null)}
+        onLoad={onReady}
+        onError={() => { setFailedUrl(product.image_url ?? null); onReady?.(); }}
       />
     );
   }

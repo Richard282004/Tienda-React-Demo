@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 
 import { CONSENT_EVENT, CONSENT_KEY } from '@/components/cookie-consent';
+import { CrossfadeArtwork } from '@/components/crossfade-artwork';
 import { ProductArtwork } from '@/components/product-artwork';
 import { CatalogVariantPreview, type PreviewVariant } from '@/components/catalog-variant-preview';
 import { Button } from '@/components/ui/button';
@@ -529,7 +530,7 @@ export default function Home() {
             <div className="product-visual" style={{ backgroundColor: product.color }} onClick={goToProduct} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); goToProduct(); } }} role="link" tabIndex={0} aria-label={`Ver ${product.name}`}>
               {product.tag && <span className="product-tag">{product.tag}</span>}
               <button className={`heart-icon ${favorites.includes(product.id) ? 'liked' : ''}`} onClick={(event) => { event.stopPropagation(); const liked = !favorites.includes(product.id); setFavorites((current) => liked ? [...current, product.id] : current.filter((item) => item !== product.id)); syncFavoriteToggle(supabase, product.id, liked); }} aria-pressed={favorites.includes(product.id)} aria-label={favorites.includes(product.id) ? `Quitar ${product.name} de favoritos` : `Agregar ${product.name} a favoritos`}><Heart key={String(favorites.includes(product.id))} className="heart-pop" size={18} fill={favorites.includes(product.id) ? 'currentColor' : 'none'} /></button>
-              <ProductArtwork product={artwork} className="product-photo" defaultZoom={variant?.image_url ? 1 : 1.12} />
+              <CrossfadeArtwork product={artwork} defaultZoom={variant?.image_url ? 1 : 1.12} />
               <span className="yarn-shadow" />
             </div>
             <div className="product-info">
