@@ -232,3 +232,23 @@
 .metric-bar-fill { height: 100%; background: #a74060; border-radius: 5px; }
 @media (max-width: 900px) { .metrics-cards { grid-template-columns: 1fr 1fr; } .metrics-row { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .metrics-cards { grid-template-columns: 1fr; } .metric-bar-row { grid-template-columns: 60px 1fr auto; } }
+
+.variant-manager-row { grid-template-columns: 56px minmax(0, 1fr) auto; align-items: start; padding: 14px; gap: 12px; }
+.variant-manager-row > .variant-fields { grid-column: 2; grid-row: 1 / span 2; }
+.variant-manager-row > .variant-manager-active { grid-column: 1; white-space: normal; }
+.variant-manager-row > button { grid-column: 3; grid-row: 1; width: 44px; height: 44px; }
+.variant-fields { min-width: 0; margin: 0; padding: 16px; border: 1px solid var(--border, #ecdfda); border-radius: 12px; background: #fffcf8; }
+.variant-fields legend { padding-inline: 6px; font-size: 14px; font-weight: 600; }
+.variant-fields-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.variant-fields-grid label { display: grid; gap: 6px; min-width: 0; font-size: 12px; }
+.variant-fields-grid input { width: 100%; min-width: 0; min-height: 44px; }
+.variant-fields .variant-unlimited { display: flex; align-items: center; gap: 8px; margin-block: 12px; font-size: 12px; }
+.variant-unlimited input { width: 18px; min-height: 18px; }
+.variant-feedback { margin: 10px 0 0; font-size: 13px; line-height: 1.5; }
+@media (max-width: 620px) {
+  .variant-manager-row { display: grid; grid-template-columns: 56px 1fr 44px; }
+  .variant-manager-row > .variant-fields { grid-column: 1 / -1; grid-row: 2; }
+  .variant-manager-row > .variant-manager-active { grid-column: 2; grid-row: 1; align-self: center; }
+  .variant-fields { padding: 12px; }
+  .variant-fields-grid { grid-template-columns: 1fr; }
+}

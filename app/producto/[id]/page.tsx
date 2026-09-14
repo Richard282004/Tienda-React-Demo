@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Mail, Phone, Plus, Shoppin
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ProductArtwork } from '@/components/product-artwork';
+import { variantForColor } from '@/lib/product-variants';
 import { encodeCartEntry } from '@/lib/cart';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { defaultProducts, defaultStoreContent, readCachedStoreContent, writeCachedStoreContent, type Product, type StoreContent } from '@/lib/store-data';
@@ -81,7 +82,7 @@ export default function ProductoPage() {
       setProduct(typedProduct);
       setOtherProducts((otherRows ?? []) as Product[]);
       setOtherVariantProductIds(new Set(((otherVariantRows ?? []) as { product_id: string }[]).map((row) => row.product_id)));
-      const typedVariants = (variantRows ?? []) as ProductVariant[];
+      const typedVariants = ((variantRows ?? []) as ProductVariant[]).map((variant) => ({ ...variant, color: variant.color?.trim() || null, size: variant.size?.trim() || null }));
       setVariants(typedVariants);
       // Preselecciona la primera variante con stock (o la primera de todas si
       // ninguna tiene) para que el precio/foto mostrados de entrada ya sean
@@ -123,8 +124,10 @@ export default function ProductoPage() {
   // Colores/tallas disponibles y la variante que resulta de combinarlos.
   // Un producto puede tener solo color, solo talla, ambos, o ninguno (sin
   // variantes: se comporta exactamente como antes).
-  const colors = [...new Set(variants.map((variant) => variant.color).filter((color): color is string => Boolean(color)))];
-  const sizes = [...new Set(variants.map((variant) => variant.size).filter((size): size is string => Boolean(size)))];
+  const allColors = [...new Set(variants.map((variant) => variant.color))];
+  const colors = allColors.some(Boolean) ? allColors : [];
+  const matchingSizes = [...new Set(variants.filter((variant) => variant.color === selectedColor).map((variant) => variant.size))];
+  const sizes = matchingSizes.some(Boolean) ? matchingSizes : [];
   const selectedVariant = variants.length
     ? variants.find((variant) => (variant.color ?? null) === selectedColor && (variant.size ?? null) === selectedSize)
     : undefined;
@@ -243,13 +246,17 @@ export default function ProductoPage() {
                   <div className="producto-variant-options">
                     {colors.map((color) => (
                       <button
-                        key={color}
+                        key={color ?? 'default'}
                         type="button"
                         className={`producto-variant-swatch ${selectedColor === color ? 'active' : ''}`}
                         aria-pressed={selectedColor === color}
-                        onClick={() => setSelectedColor(color)}
+                        onClick={() => {
+                          const next = variantForColor(variants, color, selectedSize);
+                          setSelectedColor(color);
+                          setSelectedSize(next?.size ?? null);
+                        }}
                       >
-                        {color}
+                        {color ?? 'Original'}
                       </button>
                     ))}
                   </div>
@@ -257,22 +264,23 @@ export default function ProductoPage() {
               )}
               {sizes.length > 0 && (
                 <div className="producto-variant-group">
-                  <span className="producto-variant-label">Talla</span>
+                  <span className="producto-variant-label">Tamaño</span>
                   <div className="producto-variant-options">
                     {sizes.map((size) => (
                       <button
-                        key={size}
+                        key={size ?? 'default'}
                         type="button"
                         className={`producto-variant-chip ${selectedSize === size ? 'active' : ''}`}
                         aria-pressed={selectedSize === size}
                         onClick={() => setSelectedSize(size)}
                       >
-                        {size}
+                        {size ?? 'Estándar'}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
+              {selectedVariant && <p className="producto-selection-summary" role="status">Tu elección: {[selectedVariant.color, selectedVariant.size].filter(Boolean).join(' · ') || 'Opción estándar'} · {formatPrice(selectedVariant.price)}</p>}
               {!selectedVariant && <p className="producto-variant-missing">Esa combinación no existe. Elige otra.</p>}
             </div>
           )}

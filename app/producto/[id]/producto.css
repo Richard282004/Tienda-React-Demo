@@ -97,3 +97,7 @@
 .producto-more-add:hover:not(:disabled) { background: var(--rose); transform: scale(1.08); }
 .producto-more-add:active:not(:disabled) { transform: scale(0.94); }
 .producto-more-add:disabled { background: #d9cdc8; cursor: not-allowed; }
+
+.producto-selection-summary { margin: 14px 0 0; color: var(--plum); font-size: 14px; line-height: 1.5; }
+.producto-variant-options { flex-wrap: wrap; }
+.producto-variant-options button { min-height: 44px; }

@@ -3,6 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, BarChart3, Check, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Printer, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
 
+import { VariantFields } from '@/components/variant-fields';
+import { sameVariantOptions, variantValidation, type VariantValues } from '@/lib/product-variants';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ImageCropDialog } from '@/components/image-crop-dialog';
@@ -498,24 +500,37 @@ export default function AdminPage() {
     setVariants((variantRows ?? []) as ProductVariant[]);
   };
 
-  const addVariant = async () => {
-    if (!supabase || !draft.id) return;
+  const addVariant = async (values: VariantValues) => {
+    if (!supabase || !draft.id || variantBusy) return false;
+    const validation = variantValidation(values);
+    if (validation) { setMessage(validation); return false; }
+    if (variants.some((variant) => sameVariantOptions(variant, values))) { setMessage('Ya existe una opción con ese color y tamaño. Edita la existente.'); return false; }
     setVariantBusy(true);
+    try {
     const { data, error } = await supabase
       .from('product_variants')
-      .insert({ product_id: draft.id, color: '', size: '', price: draft.price, stock: null, sort_order: variants.length })
+      .insert({ product_id: draft.id, ...values, active: true, sort_order: variants.length })
       .select('*')
       .single();
-    setVariantBusy(false);
-    if (error || !data) { setMessage(error?.message ?? 'No pudimos crear la variante.'); return; }
+    if (error || !data) { setMessage(error?.message ?? 'No pudimos crear la variante.'); return false; }
     setVariants((current) => [...current, data as ProductVariant]);
+    setMessage('');
+    return true;
+    } finally { setVariantBusy(false); }
   };
 
   const updateVariantField = async (id: string, patch: Partial<ProductVariant>) => {
-    setVariants((current) => current.map((variant) => (variant.id === id ? { ...variant, ...patch } : variant)));
-    if (!supabase) return;
+    if (!supabase) return false;
     const previous = variants.find((variant) => variant.id === id);
-    await supabase.from('product_variants').update(patch).eq('id', id);
+    if (!previous) return false;
+    const next = { ...previous, ...patch };
+    const validation = variantValidation(next);
+    if (validation) { setMessage(validation); return false; }
+    if (variants.some((variant) => variant.id !== id && sameVariantOptions(variant, next))) { setMessage('Ya existe una opción con ese color y tamaño.'); return false; }
+    const { data: saved, error } = await supabase.from('product_variants').update(patch).eq('id', id).select('*').single();
+    if (error || !saved) { setMessage(error?.message ?? 'No pudimos guardar la opción.'); return false; }
+    setVariants((current) => current.map((variant) => variant.id === id ? saved as ProductVariant : variant));
+    setMessage('');
     // Si el stock de esta variante pasó de agotado a disponible, avisa a
     // quienes dejaron su correo esperando justo esa combinación.
     if (draft.id && previous && 'stock' in patch) {
@@ -533,6 +548,7 @@ export default function AdminPage() {
         }
       }
     }
+    return true;
   };
 
   const deleteVariant = async (id: string) => {
@@ -1054,26 +1070,25 @@ export default function AdminPage() {
     <label className="gallery-manager-add">{galleryBusy ? '...' : <><Upload size={16} /> Agregar</>}<input type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={galleryBusy} onChange={(event) => { addGalleryPhotos(event.target.files); event.target.value = ''; }} /></label>
   </div>
 </div>}
+{!draft.id && <p className="full admin-section-note">¿Este diseño tiene colores o tamaños? Guarda primero el producto; después podrás crear sus opciones con precio, stock y foto propios.</p>}
 {draft.id && <div className="full variant-manager">
-  <span className="gallery-manager-label">Variantes (color / talla)</span>
-  <p className="admin-section-note">Cada variante tiene su propio precio, stock y foto. Si un producto no tiene variantes, sigue funcionando con el precio/stock de arriba.</p>
+  <span className="gallery-manager-label">Opciones del producto</span>
+  <p className="admin-section-note">Usa opciones para el mismo diseño en distintos colores o tamaños. Ejemplo: Conejito → Rosa / Pequeño y Rosa / Grande. Puedes completar solo color o solo tamaño. Con opciones activas, el precio y el stock se toman de cada opción, no del producto general.</p>
   {variants.length > 0 && <div className="variant-manager-list">
     {variants.map((variant) => (
       <div className="variant-manager-row" key={variant.id}>
-        <label className="variant-manager-photo">
+        <label className="variant-manager-photo" aria-label={`Foto de ${variantLabel(variant) || "esta opción"}`}>
           {variant.image_url ? <img src={variant.image_url} alt="" /> : <span><Upload size={14} /></span>}
           <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) startCrop([file], 'variant', variant.id); event.target.value = ''; }} />
         </label>
-        <Input placeholder="Color (ej: Rosa)" value={variant.color ?? ''} onChange={(event) => setVariants((current) => current.map((item) => (item.id === variant.id ? { ...item, color: event.target.value } : item)))} onBlur={(event) => void updateVariantField(variant.id, { color: event.target.value || null })} />
-        <Input placeholder="Talla (ej: M)" value={variant.size ?? ''} onChange={(event) => setVariants((current) => current.map((item) => (item.id === variant.id ? { ...item, size: event.target.value } : item)))} onBlur={(event) => void updateVariantField(variant.id, { size: event.target.value || null })} />
-        <Input type="number" min="0" placeholder="Precio" value={variant.price} onChange={(event) => setVariants((current) => current.map((item) => (item.id === variant.id ? { ...item, price: Number(event.target.value) } : item)))} onBlur={(event) => void updateVariantField(variant.id, { price: Number(event.target.value) || 0 })} />
-        <Input type="number" min="0" placeholder="Sin límite" value={variant.stock ?? ''} onChange={(event) => setVariants((current) => current.map((item) => (item.id === variant.id ? { ...item, stock: event.target.value === '' ? null : Number(event.target.value) } : item)))} onBlur={(event) => void updateVariantField(variant.id, { stock: event.target.value === '' ? null : Number(event.target.value) })} />
+        <VariantFields initial={variant} onSave={(values) => updateVariantField(variant.id, values)} />
         <label className="variant-manager-active"><input type="checkbox" checked={variant.active} onChange={(event) => void updateVariantField(variant.id, { active: event.target.checked })} /> Activa</label>
         <button type="button" onClick={() => void deleteVariant(variant.id)} aria-label={`Eliminar variante ${variantLabel(variant)}`}><Trash2 size={14} /></button>
       </div>
     ))}
   </div>}
-  <Button type="button" variant="outline" disabled={variantBusy} onClick={() => void addVariant()}><PackagePlus size={16} /> Agregar variante</Button>
+  <p className="admin-section-note">0 unidades significa agotado. “No limitar unidades” permite vender sin descontar existencias. Guarda cada opción con su propio botón; la foto y “Activa” se guardan al cambiarlas.</p>
+  <VariantFields key={draft.id} creating initial={{ color: null, size: null, price: draft.price, stock: 0 }} onSave={addVariant} />
 </div>}
 </div>{message && <p className="admin-message">{message}</p>}<Button disabled={busy} type="submit" className="save-product"><Save size={17} /> {busy ? 'Guardando…' : 'Guardar producto'}</Button></form></DialogContent></Dialog>
 
