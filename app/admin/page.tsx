@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, BarChart3, Check, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Printer, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
 
+import { PriceCalculator } from '@/components/price-calculator';
 import { VariantFields } from '@/components/variant-fields';
 import { catalogPrice, sameVariantOptions, variantValidation, type VariantValues } from '@/lib/product-variants';
 import { Button } from '@/components/ui/button';
@@ -737,6 +738,7 @@ export default function AdminPage() {
     <Tabs value={activeTab} onValueChange={(value) => selectTab(value as string)} className="admin-tabs" orientation="vertical">
       <TabsList className="admin-tabs-list">
         <TabsTrigger value="products"><Package size={17} /> Productos</TabsTrigger>
+        <TabsTrigger value="calculator"><DollarSign size={17} /> Calcular precios</TabsTrigger>
         <TabsTrigger value="orders"><Truck size={17} /> Pedidos</TabsTrigger>
         <TabsTrigger value="metrics"><BarChart3 size={17} /> Métricas</TabsTrigger>
         <TabsTrigger value="shipping"><Truck size={17} /> Envíos</TabsTrigger>
@@ -899,6 +901,7 @@ export default function AdminPage() {
         </form>
         <p className="admin-section-note">Desmarca "Requiere dirección" para zonas de retiro/entrega personal: la cliente paga sin ingresar comuna ni dirección.</p>
       </TabsContent>
+      <TabsContent value="calculator"><PriceCalculator /></TabsContent>
       <TabsContent value="products">
         <div className="admin-section-heading"><div><h2>Productos</h2><p>{products.length} productos en el catálogo</p></div><Button onClick={openNewProduct}><PackagePlus size={17} /> Nuevo producto</Button></div>
         {lowStockCount > 0 && (
