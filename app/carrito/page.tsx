@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { ProductArtwork } from '@/components/product-artwork';
-import { decodeCartEntry, encodeCartEntry } from '@/lib/cart';
+import { decodeCartEntry } from '@/lib/cart';
+import { resolveCartLines } from '@/lib/cart-lines';
 import { calculateShipping } from '@/lib/checkout-validation';
 import { variantLabel, type Address, type ProductVariant, type ShippingRate } from '@/lib/orders';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
@@ -48,10 +49,11 @@ export default function CarritoPage() {
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [discountInput, setDiscountInput] = useState('');
   const [discountChecking, setDiscountChecking] = useState(false);
-  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number } | null>(null);
+  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number; subtotal: number } | null>(null);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     try {
@@ -70,12 +72,13 @@ export default function CarritoPage() {
     const client = supabase;
     const load = async () => {
       if (!client) { setLoading(false); return; }
-      const [{ data: productRows }, { data: variantRows }, { data: rateRows }, { data: settings }] = await Promise.all([
+      const [{ data: productRows, error: productError }, { data: variantRows, error: variantError }, { data: rateRows, error: rateError }, { data: settings }] = await Promise.all([
         client.from('products').select('id, name, price, color, art, image_url, stock, active').order('sort_order'),
         client.from('product_variants').select('*'),
         client.from('shipping_rates').select('region, cost, requires_address, warning'),
         client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       ]);
+      if (productError || variantError || rateError) { setLoadError(true); setLoading(false); return; }
       setProducts((productRows ?? []) as Product[]);
       setVariants((variantRows ?? []) as ProductVariant[]);
       setShippingRates((rateRows ?? []) as ShippingRate[]);
@@ -100,25 +103,15 @@ export default function CarritoPage() {
       }
       setLoading(false);
     };
-    void load();
+    void load().catch(() => { setLoadError(true); setLoading(false); });
   }, []);
 
   // Cada entrada del carrito es "productId" o "productId::variantId" (ver
   // lib/cart.ts). Se agrupa por esa clave exacta: dos variantes del mismo
   // producto son líneas distintas, con su propio precio y stock.
-  const groupedCart = useMemo(() => {
-    const counts = new Map<string, number>();
-    cart.forEach((entry) => counts.set(entry, (counts.get(entry) ?? 0) + 1));
-    const lines: { key: string; product: Product; variant?: ProductVariant; quantity: number }[] = [];
-    for (const [key, quantity] of counts) {
-      const { productId, variantId } = decodeCartEntry(key);
-      const product = products.find((item) => item.id === productId);
-      if (!product) continue;
-      const variant = variantId ? variants.find((item) => item.id === variantId) : undefined;
-      lines.push({ key, product, variant, quantity });
-    }
-    return lines;
-  }, [cart, products, variants]);
+  const allLines = useMemo(() => resolveCartLines(cart, products, variants), [cart, products, variants]);
+  const invalidLines = allLines.filter((line) => line.error);
+  const groupedCart = allLines.filter((line): line is typeof line & { product: Product } => Boolean(line.product) && !line.error);
   const cartProducts = groupedCart.flatMap(({ product, variant, quantity }) => Array(quantity).fill({ ...product, price: variant?.price ?? product.price }) as Product[]);
   const total = groupedCart.reduce((sum, { product, variant, quantity }) => sum + (variant?.price ?? product.price) * quantity, 0);
   const selectedRate = shippingRates.find((rate) => rate.region === shipping.region);
@@ -157,7 +150,9 @@ export default function CarritoPage() {
     shipping.region &&
     (!requiresAddress || (shipping.comuna.trim() && shipping.address.trim())),
   );
-  const discountAmount = appliedDiscount ? Math.min(total, appliedDiscount.amount) : 0;
+  useEffect(() => { setAppliedDiscount(null); }, [total]);
+  const validDiscount = appliedDiscount?.subtotal === total ? appliedDiscount : null;
+  const discountAmount = validDiscount ? Math.min(total, validDiscount.amount) : 0;
   const grandTotal = total - discountAmount + (shippingCost ?? 0);
 
   const incrementCartItem = (key: string) => {
@@ -181,12 +176,12 @@ export default function CarritoPage() {
     const row = Array.isArray(data) ? data[0] : null;
     setDiscountChecking(false);
     if (!row?.valid) { setAppliedDiscount(null); setCheckoutError(row?.message ?? 'Código no válido.'); return; }
-    setAppliedDiscount({ code: discountInput.trim().toUpperCase(), amount: row.discount_amount });
+    setAppliedDiscount({ code: discountInput.trim().toUpperCase(), amount: row.discount_amount, subtotal: total });
   };
 
   const handleCheckout = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!cartProducts.length || !shippingComplete || shippingCost === null) return;
+    if (checkoutBusy || invalidLines.length || !cartProducts.length || !shippingComplete || shippingCost === null) return;
     setCheckoutBusy(true);
     setCheckoutError('');
     try {
@@ -205,11 +200,11 @@ export default function CarritoPage() {
           comuna: shipping.comuna,
           address: shipping.address,
           addressExtra: shipping.addressExtra,
-          discountCode: appliedDiscount?.code,
+          discountCode: validDiscount?.code,
           paymentMethod,
         }),
       });
-      const data = (await response.json()) as { initPoint?: string; error?: string };
+      const data = (await response.json()) as { initPoint?: string; orderId?: string; error?: string };
       if (!response.ok || !data.initPoint) { setCheckoutError(data.error ?? 'No se pudo iniciar el pago.'); return; }
       if (supabase && !savedAddresses.length) {
         // Primera compra con cuenta: guarda esta dirección para la próxima vez.
@@ -223,9 +218,11 @@ export default function CarritoPage() {
           } catch { /* Guardar la dirección es un complemento; el pedido ya se creó igual. */ }
         }
       }
-      // El pedido ya quedó creado (con el stock reservado); la bolsita de
-      // compra ya cumplió su función, así que se vacía antes de salir a pagar.
-      try { localStorage.setItem('lumina-bag', JSON.stringify([])); } catch { /* no crítico */ }
+      // Mantener la bolsita hasta que la confirmación compruebe el pago.
+      // El snapshot permite retirar solo estas unidades, sin borrar compras nuevas.
+      try {
+        if (data.orderId) localStorage.setItem(`milaloop-checkout-${data.orderId}`, JSON.stringify(cart));
+      } catch { /* La compra puede continuar sin almacenamiento. */ }
       window.location.href = data.initPoint;
     } catch {
       setCheckoutError('No se pudo conectar con el servidor de pagos.');
@@ -240,7 +237,7 @@ export default function CarritoPage() {
         <a href="/" className="cart-page-back"><ArrowLeft size={16} /> Volver a la tienda</a>
       </header>
 
-      {loading ? <p className="cart-page-loading">Cargando tu bolsita…</p> : cartProducts.length === 0 ? (
+      {loading ? <p className="cart-page-loading">Cargando tu bolsita…</p> : loadError ? <p role="alert">No pudimos cargar tu carrito. <button onClick={() => window.location.reload()}>Reintentar</button></p> : cart.length === 0 ? (
         <div className="cart-page-empty">
           <span aria-hidden="true">♡</span>
           <p>Tu bolsita está esperando algo bonito.</p>
@@ -253,6 +250,7 @@ export default function CarritoPage() {
               <h1>Tu carrito <small>({cartProducts.length} producto{cartProducts.length === 1 ? '' : 's'})</small></h1>
               <button type="button" className="clear-cart" onClick={() => setCart([])}><Trash2 size={13} /> Vaciar carrito</button>
             </div>
+            {invalidLines.map((line) => <div className="cart-page-item" key={line.key} role="alert"><div><strong>{line.product?.name || 'Producto no disponible'}</strong><p>{line.error}</p><a href={line.product ? `/producto/${line.product.id}` : '/#tienda'}>Ver opciones</a></div><button type="button" onClick={() => removeFromCart(line.key)}>Quitar del carrito</button></div>)}
             {groupedCart.map(({ key, product, variant, quantity }) => {
               const unitPrice = variant?.price ?? product.price;
               const unitStock = variant ? variant.stock : product.stock;
@@ -289,6 +287,7 @@ export default function CarritoPage() {
                 <Input value={discountInput} onChange={(event) => { setDiscountInput(event.target.value); setAppliedDiscount(null); }} placeholder="EJ: BIENVENIDA10" />
                 <Button type="button" variant="outline" disabled={discountChecking || !discountInput.trim()} onClick={applyDiscountCode}>{discountChecking ? '...' : 'Aplicar'}</Button>
               </div>
+              {discountInput.trim() && !appliedDiscount && <small>Aplica el código después de ajustar las cantidades.</small>}
               {appliedDiscount && <small className="discount-applied">✓ Código {appliedDiscount.code} aplicado: -{formatPrice(appliedDiscount.amount)}</small>}
             </label>
 
@@ -349,7 +348,7 @@ export default function CarritoPage() {
               )}
               {checkoutError && <p className="account-message">{checkoutError}</p>}
               {!isSupabaseConfigured && <p className="account-message">El pago no está disponible por el momento.</p>}
-              <Button disabled={checkoutBusy || !shippingComplete || shippingCost === null || cartProducts.length === 0} type="submit" className="primary-button cart-page-pay">{checkoutBusy ? (paymentMethod === 'transfer' ? 'Creando tu pedido…' : 'Redirigiendo a Mercado Pago…') : paymentMethod === 'transfer' ? 'Confirmar pedido' : 'Ir a pagar'} <ArrowRight size={16} /></Button>
+              <Button disabled={checkoutBusy || invalidLines.length > 0 || !shippingComplete || shippingCost === null || cartProducts.length === 0} type="submit" className="primary-button cart-page-pay">{checkoutBusy ? (paymentMethod === 'transfer' ? 'Creando tu pedido…' : 'Redirigiendo a Mercado Pago…') : paymentMethod === 'transfer' ? 'Confirmar pedido' : 'Ir a pagar'} <ArrowRight size={16} /></Button>
             </form>
           </aside>
         </div>

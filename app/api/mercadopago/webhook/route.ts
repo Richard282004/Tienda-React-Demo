@@ -49,22 +49,23 @@ export async function POST(request: Request) {
       .select("status, items, total, customer_name, customer_email, customer_phone, region, comuna, address, address_extra")
       .eq("id", payment.external_reference)
       .maybeSingle();
-    const { error } = await supabase
-      .from("orders")
-      .update({
-        status: orderStatus,
-        mp_payment_id: String(payment.id),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", payment.external_reference);
+    const { data: transition, error } = await supabase.rpc("apply_payment_status", {
+      p_order_id: payment.external_reference, p_payment_id: String(payment.id),
+      p_status: orderStatus, p_amount: payment.transaction_amount,
+    });
     if (error) return NextResponse.json({ ok: false }, { status: 503 });
-    // Si el pago se cae (rechazado/cancelado/reembolsado), la reserva de stock
-    // hecha al crear el pedido se devuelve al inventario.
-    if (orderStatus === "cancelled" && existingOrder && existingOrder.status !== "cancelled") {
-      await supabase.rpc("restore_order_stock", { items: existingOrder.items });
+    const effectiveStatus = transition?.status ?? orderStatus;
+    if (!transition?.changed) return NextResponse.json({ ok: true });
+    if (existingOrder && (effectiveStatus === "paid" || effectiveStatus === "payment_review")) {
+      const items = (existingOrder.items ?? []) as { name: string }[];
+      await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, {
+        title: effectiveStatus === "payment_review" ? "Pago recibido: revisar stock antes de despachar" : `Nueva venta · ${formatPrice(existingOrder.total)}`,
+        body: `Pedido #${payment.external_reference.slice(0, 8)} · ${items[0]?.name ?? "Producto"}`,
+        url: `/admin?order=${payment.external_reference}`,
+      });
     }
     const emailApiKey = env.BREVO_API_KEY as string | undefined;
-    if (emailApiKey && existingOrder && existingOrder.status !== orderStatus) {
+    if (emailApiKey && existingOrder && effectiveStatus !== "payment_review") {
       try {
         const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
         const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; currency?: string; locale?: string; lowStockThreshold?: number; faviconUrl?: string } | undefined;
@@ -72,16 +73,6 @@ export async function POST(request: Request) {
         const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
         const adminEmails = parseEmailList(store?.orderNotifyEmail);
         await sendOrderStatusEmail({ apiKey: emailApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, brandName, fromEmail });
-        if (orderStatus === "paid") {
-          const items = (existingOrder.items ?? []) as { name: string }[];
-          const productLabel = items.length > 1 ? `${items[0]?.name ?? "Producto"} y ${items.length - 1} más` : items[0]?.name ?? "Producto";
-          void notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, {
-            title: `Nueva venta · ${formatPrice(existingOrder.total, store?.currency, store?.locale)}`,
-            body: `Pedido #${payment.external_reference.slice(0, 8)} · ${productLabel}`,
-            url: `/admin?order=${payment.external_reference}`,
-            icon: store?.faviconUrl,
-          });
-        }
         if (orderStatus === "paid" && adminEmails.length) {
           await sendNewOrderAdminEmail({
             apiKey: emailApiKey,

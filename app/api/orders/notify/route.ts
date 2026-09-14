@@ -13,7 +13,6 @@ export async function POST(request: Request) {
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
   const emailApiKey = env.BREVO_API_KEY as string | undefined;
   if (!supabaseUrl || !serviceRoleKey) return NextResponse.json({ ok: false }, { status: 503 });
-  if (!emailApiKey) return NextResponse.json({ ok: true }); // Sin proveedor de correo configurado, no hay correo que mandar.
 
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
@@ -33,7 +32,8 @@ export async function POST(request: Request) {
   }
   if (!body.orderId || !body.status) return NextResponse.json({ error: "Faltan datos." }, { status: 400 });
 
-  const { data: order } = await supabase.from("orders").select("customer_email, items, total").eq("id", body.orderId).maybeSingle();
+  const { data: order } = await supabase.from("orders").select("customer_email, items, total, status").eq("id", body.orderId).maybeSingle();
+  if (order && order.status !== body.status) return NextResponse.json({ error: "El estado cambió. Actualiza el pedido." }, { status: 409 });
   if (!order) return NextResponse.json({ error: "Pedido no encontrado." }, { status: 404 });
 
   try {
@@ -41,14 +41,14 @@ export async function POST(request: Request) {
     const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; lowStockThreshold?: number; currency?: string; locale?: string; faviconUrl?: string } | undefined;
     const brandName = store?.brandName || "Tu tienda";
     const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
-    await sendOrderStatusEmail({ apiKey: emailApiKey, to: order.customer_email, orderId: body.orderId, status: body.status, trackingNumber: body.trackingNumber, brandName, fromEmail });
+
 
     // Al confirmar un pago (típicamente una transferencia aprobada a mano),
     // revisa el stock igual que haría el webhook de Mercado Pago.
     if (body.status === "paid") {
       const items = (order.items ?? []) as OrderItem[];
       const productLabel = items.length > 1 ? `${items[0]?.name ?? "Producto"} y ${items.length - 1} más` : items[0]?.name ?? "Producto";
-      void notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, {
+      await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, {
         title: `Nueva venta · ${formatPrice(order.total, store?.currency, store?.locale)}`,
         body: `Pedido #${body.orderId.slice(0, 8)} · ${productLabel}`,
         url: `/admin?order=${body.orderId}`,
@@ -56,13 +56,14 @@ export async function POST(request: Request) {
       });
       const adminEmails = parseEmailList(store?.orderNotifyEmail);
       const productIds = [...new Set(((order.items ?? []) as OrderItem[]).map((item) => item.productId).filter(Boolean))];
-      if (adminEmails.length && productIds.length) {
+      if (emailApiKey && adminEmails.length && productIds.length) {
         const threshold = typeof store?.lowStockThreshold === "number" ? store.lowStockThreshold : 5;
         const { data: stockRows } = await supabase.from("products").select("name, stock").in("id", productIds);
         const low = (stockRows ?? []).filter((row): row is { name: string; stock: number } => typeof row.stock === "number" && row.stock <= threshold);
         if (low.length) await sendLowStockAdminEmail({ apiKey: emailApiKey, to: adminEmails, products: low, threshold, brandName, fromEmail });
       }
     }
+    if (emailApiKey) await sendOrderStatusEmail({ apiKey: emailApiKey, to: order.customer_email, orderId: body.orderId, status: body.status, trackingNumber: body.trackingNumber, brandName, fromEmail });
   } catch {
     /* El correo es un complemento; el cambio de estado ya se guardó antes de llamar aquí. */
   }

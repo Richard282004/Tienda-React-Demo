@@ -125,6 +125,7 @@ export async function sendWebPush(
       Authorization: `vapid t=${jwt}, k=${vapid.publicKey}`,
     },
     body: asBufferSource(body) as BodyInit,
+    signal: AbortSignal.timeout(8000),
   });
   if (response.ok) return { ok: true };
   return { ok: false, gone: response.status === 404 || response.status === 410, status: response.status };
@@ -149,9 +150,10 @@ export async function notifyAdminSubscribers(
   const { PUSH_VAPID_PUBLIC_KEY, PUSH_VAPID_PRIVATE_KEY_JWK, PUSH_VAPID_SUBJECT } = env;
   if (!PUSH_VAPID_PUBLIC_KEY || !PUSH_VAPID_PRIVATE_KEY_JWK || !PUSH_VAPID_SUBJECT) return;
 
-  const { data } = await supabase.from('push_subscriptions').select('endpoint, p256dh, auth_key') as {
-    data: PushSubscriptionRecord[] | null;
+  const { data, error } = await supabase.from('push_subscriptions').select('endpoint, p256dh, auth_key') as {
+    data: PushSubscriptionRecord[] | null; error?: unknown;
   };
+  if (error) { console.error('No se pudieron leer las suscripciones push'); return; }
   if (!data?.length) return;
 
   const vapid = { publicKey: PUSH_VAPID_PUBLIC_KEY, privateKeyJwk: PUSH_VAPID_PRIVATE_KEY_JWK, subject: PUSH_VAPID_SUBJECT };
@@ -159,11 +161,12 @@ export async function notifyAdminSubscribers(
     data.map(async (subscription) => {
       try {
         const result = await sendWebPush(subscription, payload, vapid);
+        if (!result.ok) console.error('Falló un envío push', result.status);
         if (!result.ok && result.gone) {
           await supabase.from('push_subscriptions').delete().eq('endpoint', subscription.endpoint);
         }
       } catch {
-        /* Un dispositivo fallando no debe tumbar el aviso a los demás. */
+        console.error('Falló un envío push: conexión o configuración');
       }
     }),
   );

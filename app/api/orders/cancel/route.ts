@@ -51,11 +51,8 @@ export async function POST(request: Request) {
     }
   }
 
-  try {
-    await supabase.rpc("restore_order_stock", { items: order.items });
-  } catch {
-    /* No crítico: el pedido igual queda cancelado, el stock se puede ajustar a mano. */
-  }
+  if (refundError) return NextResponse.json({ error: "No se canceló el pedido porque el reembolso falló. Revisa Mercado Pago antes de reintentar." }, { status: 502 });
+  if (order.mp_payment_id && !mpAccessToken) return NextResponse.json({ error: "No se puede reembolsar sin configurar Mercado Pago." }, { status: 503 });
 
   const { error: updateError } = await supabase
     .from("orders")

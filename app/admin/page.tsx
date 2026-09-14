@@ -34,6 +34,11 @@ const emptyDiscount = { code: '', type: 'percent' as 'percent' | 'fixed', value:
 export default function AdminPage() {
   const [state, setState] = useState<AdminState>('loading');
   const [activeTab, setActiveTab] = useState('products');
+  const [linkedOrder, setLinkedOrder] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('order');
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) { setLinkedOrder(id); setActiveTab('orders'); }
+  }, []);
   // Cambiar de pestaña no debe mover el scroll vertical de la página. El
   // navegador (y Base UI) llevan el botón/panel recién activo a la vista, lo
   // que en móvil arrastra la página hacia abajo pestaña tras pestaña. Se
@@ -60,6 +65,12 @@ export default function AdminPage() {
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
   const [orders, setOrders] = useState<Order[]>([]);
+  useEffect(() => {
+    if (linkedOrder && orders.length && activeTab === 'orders') {
+      const timer = setTimeout(() => document.getElementById(`order-${linkedOrder}`)?.scrollIntoView({ block: 'center' }), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [linkedOrder, orders, activeTab]);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [newShippingRegion, setNewShippingRegion] = useState('');
   const [newShippingCost, setNewShippingCost] = useState(0);
@@ -382,6 +393,7 @@ export default function AdminPage() {
       const { error } = await supabase.from('orders').update(patch).eq('id', orderId);
       if (error) { setMessage(error.message); await loadAdminData(); return; }
     }
+    await loadAdminData();
     if (patch.status) {
       const order = previous;
       const { data } = await supabase.auth.getSession();
@@ -776,7 +788,7 @@ export default function AdminPage() {
         {orders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Aún no hay pedidos</h3><p>Aquí aparecerán las compras pagadas con Mercado Pago.</p></div> : filteredOrders.length === 0 ? <div className="admin-empty"><PackagePlus size={34} /><h3>Sin resultados</h3><p>Ningún pedido calza con ese filtro.</p></div> : (
           <div className="orders-list">
             {filteredOrders.map((order) => (
-              <article className={`order-card${selectedOrderIds.includes(order.id) ? ' selected' : ''}`} key={order.id}>
+              <article id={`order-${order.id}`} className={`order-card${selectedOrderIds.includes(order.id) ? ' selected' : ''}`} key={order.id}>
                 <div className="order-card-header">
                   <div className="order-card-select"><input type="checkbox" checked={selectedOrderIds.includes(order.id)} onChange={() => toggleOrderSelected(order.id)} aria-label={`Seleccionar pedido #${order.id.slice(0, 8)}`} /><div><strong>#{order.id.slice(0, 8)}</strong><span>{new Date(order.created_at).toLocaleString('es-CL')}</span></div></div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -784,6 +796,7 @@ export default function AdminPage() {
                     <span className={`order-status-badge status-${order.status}`}>{orderStatusLabel[order.status]}</span>
                   </div>
                 </div>
+                {order.status === 'payment_review' && <p role="alert" className="admin-message error">Pago recibido después de liberar la reserva. Revisa el stock antes de confirmar o cancelar con reembolso.</p>}
                 {order.payment_method === 'transfer' && order.status === 'pending' && (
                   <div className="order-card-transfer-confirm">
                     <p>Pedido por transferencia sin confirmar. Revisa tu banco y, cuando llegue la plata, confírmalo.</p>

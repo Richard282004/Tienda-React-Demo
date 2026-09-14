@@ -1,6 +1,7 @@
-export type OrderStatus = 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'payment_review';
 
 export const orderStatusLabel: Record<OrderStatus, string> = {
+  payment_review: 'Pago recibido: revisar stock',
   pending: 'Pendiente de pago',
   paid: 'Pagado',
   shipped: 'Enviado',

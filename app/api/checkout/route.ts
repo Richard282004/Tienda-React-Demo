@@ -7,6 +7,7 @@ import {
 } from "@/lib/checkout-validation";
 import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderConfirmationEmail, sendTransferInstructionsEmail } from "@/lib/email";
 import { createMercadoPagoPreference } from "@/lib/mercadopago";
+import { notifyAdminSubscribers } from "@/lib/web-push";
 import { variantLabel } from "@/lib/orders";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -102,6 +103,11 @@ export async function POST(request: Request) {
         { error: "No pudimos consultar la colección. Inténtalo de nuevo." },
         { status: 503 },
       );
+    const { data: activeOptions, error: optionsError } = await supabase.from("product_variants").select("product_id").in("product_id", payload.items.map((item) => item.productId)).eq("active", true);
+    if (optionsError) return NextResponse.json({ error: "No pudimos consultar las opciones." }, { status: 503 });
+    if (payload.items.some((item) => !item.variantId && activeOptions?.some((option) => option.product_id === item.productId))) {
+      return NextResponse.json({ error: "Elige una opción de cada producto con variantes antes de pagar." }, { status: 409 });
+    }
     const orderItems = [];
     for (const item of payload.items) {
       const product = products?.find((product) => product.id === item.productId);
@@ -210,19 +216,10 @@ export async function POST(request: Request) {
     // pagado directamente.
     const isFreeOrder = total === 0;
 
-    const { error: reserveError } = await supabase.rpc("reserve_order_stock", {
-      items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity, variantId: item.variantId })),
-    });
-    if (reserveError) {
-      return NextResponse.json(
-        { error: "Uno de los productos ya no tiene stock suficiente. Actualiza tu bolsita." },
-        { status: 409 },
-      );
-    }
-
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
+        stock_reserved: false, // Exige la migración; el trigger reserva en la misma transacción.
         user_id: userId,
         customer_name: payload.customerName,
         customer_email: payload.customerEmail,
@@ -244,23 +241,13 @@ export async function POST(request: Request) {
       .select("id")
       .single();
     if (orderError || !order) {
-      await supabase.rpc("restore_order_stock", {
-        items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity, variantId: item.variantId })),
-      });
       return NextResponse.json(
-        { error: "No pudimos preparar tu pedido. Inténtalo de nuevo." },
+        { error: "No pudimos reservar tu pedido. Revisa el stock y vuelve a aplicar tu descuento si utilizaste uno." },
         { status: 503 },
       );
     }
-    if (discountCode) {
-      try {
-        await supabase.rpc("increment_discount_use", { discount_code: discountCode });
-      } catch {
-        /* No crítico: si falla, el uso simplemente no queda contabilizado. */
-      }
-    }
-
     if (isFreeOrder) {
+      await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, { title: "Nuevo pedido confirmado", body: `Pedido #${order.id.slice(0, 8)}`, url: `/admin?order=${order.id}` });
       const emailApiKey = env.BREVO_API_KEY;
       if (emailApiKey) {
         try {
@@ -341,9 +328,6 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ orderId: order.id, initPoint });
     } catch (mpError) {
-      await supabase.rpc("restore_order_stock", {
-        items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity, variantId: item.variantId })),
-      });
       await supabase.from("orders").update({ status: "cancelled" }).eq("id", order.id);
       return NextResponse.json(
         { error: mpError instanceof Error ? mpError.message : "No pudimos preparar el pago. Inténtalo más tarde." },

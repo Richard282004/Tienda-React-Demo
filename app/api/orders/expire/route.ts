@@ -29,6 +29,7 @@ export async function POST(request: Request) {
           .from("orders")
           .update({ abandoned_reminded_at: new Date().toISOString() })
           .eq("status", "pending")
+          .eq("payment_method", "mercadopago")
           .is("abandoned_reminded_at", null)
           .lt("created_at", cutoff)
           .select("id, customer_email, items");

@@ -5,6 +5,7 @@ import { Check, Clock, X } from "lucide-react";
 
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Order } from "@/lib/orders";
+import { removePurchasedEntries } from "@/lib/cart-lines";
 import { orderStatusLabel } from "@/lib/orders";
 import { defaultStoreContent, type StoreContent } from "@/lib/store-data";
 import { formatPrice as formatCurrency } from "@/lib/currency";
@@ -42,6 +43,17 @@ export default function ConfirmacionPage() {
         const row = Array.isArray(data) ? data[0] : null;
         if (active) {
           setOrder((row as Order) ?? null);
+          if (row && ['paid','shipped','delivered','payment_review'].includes(row.status)) {
+            try {
+              const snapshotKey = `milaloop-checkout-${orderId}`;
+              const purchased = JSON.parse(localStorage.getItem(snapshotKey) ?? 'null');
+              const bag = JSON.parse(localStorage.getItem('lumina-bag') ?? '[]');
+              if (Array.isArray(purchased) && Array.isArray(bag)) {
+                localStorage.setItem('lumina-bag', JSON.stringify(removePurchasedEntries(bag, purchased)));
+                localStorage.removeItem(snapshotKey);
+              }
+            } catch { /* La confirmación no depende del almacenamiento local. */ }
+          }
           setLoading(false);
         }
         if (active && (!row || row.status === "pending") && ++attempts < 10)
@@ -86,7 +98,9 @@ export default function ConfirmacionPage() {
             <h1>
               {completed
                 ? "¡Gracias por tu compra!"
-                : order.status === "cancelled"
+                : order.status === "payment_review"
+                  ? "Recibimos tu pago; estamos revisando la disponibilidad"
+                  : order.status === "cancelled"
                   ? "El pago no se completó"
                   : awaitingTransfer
                     ? "Falta tu transferencia"
@@ -144,6 +158,7 @@ export default function ConfirmacionPage() {
             La consulta de pedidos no está disponible por el momento.
           </p>
         )}
+        {order?.status === 'cancelled' && <a className="confirmation-back" href="/carrito">Volver al carrito para intentarlo de nuevo</a>}
         <a className="confirmation-back" href="/">
           Volver a la tienda
         </a>
