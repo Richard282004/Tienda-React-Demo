@@ -2,9 +2,11 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 
 import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderStatusEmail } from "@/lib/email";
+import { formatPrice } from "@/lib/currency";
 import { fetchMercadoPagoPayment } from "@/lib/mercadopago";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { notifyAdminSubscribers } from "@/lib/web-push";
 
 const paymentStatusToOrderStatus: Record<string, "paid" | "cancelled" | "pending"> = {
   approved: "paid",
@@ -65,11 +67,21 @@ export async function POST(request: Request) {
     if (emailApiKey && existingOrder && existingOrder.status !== orderStatus) {
       try {
         const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
-        const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; currency?: string; locale?: string; lowStockThreshold?: number } | undefined;
+        const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; currency?: string; locale?: string; lowStockThreshold?: number; faviconUrl?: string } | undefined;
         const brandName = store?.brandName || "Tu tienda";
         const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
         const adminEmails = parseEmailList(store?.orderNotifyEmail);
         await sendOrderStatusEmail({ apiKey: emailApiKey, to: existingOrder.customer_email, orderId: payment.external_reference, status: orderStatus, brandName, fromEmail });
+        if (orderStatus === "paid") {
+          const items = (existingOrder.items ?? []) as { name: string }[];
+          const productLabel = items.length > 1 ? `${items[0]?.name ?? "Producto"} y ${items.length - 1} más` : items[0]?.name ?? "Producto";
+          void notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, {
+            title: `Nueva venta · ${formatPrice(existingOrder.total, store?.currency, store?.locale)}`,
+            body: `Pedido #${payment.external_reference.slice(0, 8)} · ${productLabel}`,
+            url: `/admin?order=${payment.external_reference}`,
+            icon: store?.faviconUrl,
+          });
+        }
         if (orderStatus === "paid" && adminEmails.length) {
           await sendNewOrderAdminEmail({
             apiKey: emailApiKey,

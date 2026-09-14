@@ -794,3 +794,30 @@ grant insert on public.stock_alerts to anon, authenticated;
 drop policy if exists "stock_alerts_insert" on public.stock_alerts;
 create policy "stock_alerts_insert" on public.stock_alerts
 for insert to anon, authenticated with check (true);
+
+-- Suscripciones a notificaciones push del navegador (Web Push), una por
+-- dispositivo/instalación de la administradora. El envío real usa la llave
+-- de servicio desde el worker (app/api/mercadopago/webhook y
+-- app/api/orders/notify), así que aquí solo hace falta que cada quien pueda
+-- gestionar sus propias filas.
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth_key text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists push_subscriptions_user_id_idx on public.push_subscriptions (user_id);
+alter table public.push_subscriptions enable row level security;
+revoke all on public.push_subscriptions from anon, authenticated;
+grant select, insert, delete on public.push_subscriptions to authenticated;
+drop policy if exists "push_subscriptions_own_select" on public.push_subscriptions;
+create policy "push_subscriptions_own_select" on public.push_subscriptions
+for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "push_subscriptions_own_insert" on public.push_subscriptions;
+create policy "push_subscriptions_own_insert" on public.push_subscriptions
+for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "push_subscriptions_own_delete" on public.push_subscriptions;
+create policy "push_subscriptions_own_delete" on public.push_subscriptions
+for delete to authenticated using ((select auth.uid()) = user_id);

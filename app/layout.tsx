@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Analytics } from '@/components/analytics';
+import { ServiceWorkerRegister } from '@/components/sw-register';
 import { WhatsappGlobal } from '@/components/whatsapp-global';
 import { SITE_URL } from '@/lib/site-url';
 import './globals.css';
@@ -56,7 +57,10 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [{ url: '/og-image.jpg', width: 1122, height: 589, alt: 'Llaveros y peluches MilaLoop' }],
     },
     twitter: { card: 'summary_large_image', title: 'MilaLoop — Amiguitos tejidos a mano', description: 'Llaveros y peluches de crochet hechos a mano.', images: ['/og-image.jpg'] },
-    icons: { icon: favicon || '/favicon.svg' },
+    icons: { icon: favicon || '/favicon.svg', apple: favicon || '/favicon.svg' },
+    // Hace que Safari en iOS abra la PWA instalada sin la barra de
+    // direcciones (display: standalone) y le ponga un nombre corto al ícono.
+    appleWebApp: { capable: true, statusBarStyle: 'default', title: 'MilaLoop' },
   };
 }
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };
@@ -87,6 +91,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
         <Analytics />
+        <ServiceWorkerRegister />
         <WhatsappGlobal />
         {children}
       </body>

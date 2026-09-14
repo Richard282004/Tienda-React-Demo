@@ -9,5 +9,8 @@ declare namespace Cloudflare {
     BREVO_FROM_EMAIL?: string;
     VITE_SUPABASE_PUBLISHABLE_KEY?: string;
     CRON_SECRET?: string;
+    PUSH_VAPID_PUBLIC_KEY?: string;
+    PUSH_VAPID_PRIVATE_KEY_JWK?: string;
+    PUSH_VAPID_SUBJECT?: string;
   }
 }

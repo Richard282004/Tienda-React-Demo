@@ -2,7 +2,9 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 
 import { parseEmailList, sendLowStockAdminEmail, sendOrderStatusEmail } from "@/lib/email";
+import { formatPrice } from "@/lib/currency";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { notifyAdminSubscribers } from "@/lib/web-push";
 
 type OrderItem = { productId: string; name: string; quantity: number };
 
@@ -31,12 +33,12 @@ export async function POST(request: Request) {
   }
   if (!body.orderId || !body.status) return NextResponse.json({ error: "Faltan datos." }, { status: 400 });
 
-  const { data: order } = await supabase.from("orders").select("customer_email, items").eq("id", body.orderId).maybeSingle();
+  const { data: order } = await supabase.from("orders").select("customer_email, items, total").eq("id", body.orderId).maybeSingle();
   if (!order) return NextResponse.json({ error: "Pedido no encontrado." }, { status: 404 });
 
   try {
     const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
-    const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; lowStockThreshold?: number } | undefined;
+    const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; lowStockThreshold?: number; currency?: string; locale?: string; faviconUrl?: string } | undefined;
     const brandName = store?.brandName || "Tu tienda";
     const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
     await sendOrderStatusEmail({ apiKey: emailApiKey, to: order.customer_email, orderId: body.orderId, status: body.status, trackingNumber: body.trackingNumber, brandName, fromEmail });
@@ -44,6 +46,14 @@ export async function POST(request: Request) {
     // Al confirmar un pago (típicamente una transferencia aprobada a mano),
     // revisa el stock igual que haría el webhook de Mercado Pago.
     if (body.status === "paid") {
+      const items = (order.items ?? []) as OrderItem[];
+      const productLabel = items.length > 1 ? `${items[0]?.name ?? "Producto"} y ${items.length - 1} más` : items[0]?.name ?? "Producto";
+      void notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, {
+        title: `Nueva venta · ${formatPrice(order.total, store?.currency, store?.locale)}`,
+        body: `Pedido #${body.orderId.slice(0, 8)} · ${productLabel}`,
+        url: `/admin?order=${body.orderId}`,
+        icon: store?.faviconUrl,
+      });
       const adminEmails = parseEmailList(store?.orderNotifyEmail);
       const productIds = [...new Set(((order.items ?? []) as OrderItem[]).map((item) => item.productId).filter(Boolean))];
       if (adminEmails.length && productIds.length) {
