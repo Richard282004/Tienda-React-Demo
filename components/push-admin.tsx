@@ -13,7 +13,16 @@ function urlBase64ToUint8Array(base64url: string): Uint8Array {
   return bytes;
 }
 
-type Status = 'checking' | 'unsupported' | 'off' | 'on' | 'denied' | 'busy';
+type Status = 'checking' | 'unsupported' | 'needs-install' | 'off' | 'on' | 'denied' | 'busy';
+
+function isIos(): boolean {
+  // iPadOS finge ser Mac en el user agent; se distingue por tener pantalla táctil.
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function isStandalone(): boolean {
+  return window.matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+}
 
 // Botón para activar/desactivar los avisos push de "venta nueva" en este
 // navegador/dispositivo. Debe ser un clic explícito: iOS Safari solo deja
@@ -24,7 +33,13 @@ export function PushAdmin() {
 
   useEffect(() => {
     const check = async () => {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) { setStatus('unsupported'); return; }
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        // En iPhone/iPad, Push solo existe si la página corre instalada
+        // ("Agregar a inicio"): en Safari normal, PushManager ni siquiera
+        // existe, y sin este aviso el botón desaparecía sin explicación.
+        setStatus(isIos() && !isStandalone() ? 'needs-install' : 'unsupported');
+        return;
+      }
       if (Notification.permission === 'denied') { setStatus('denied'); return; }
       try {
         const registration = await navigator.serviceWorker.ready;
@@ -92,6 +107,9 @@ export function PushAdmin() {
   };
 
   if (status === 'unsupported') return null;
+  if (status === 'needs-install') {
+    return <span className="push-admin-hint">Para avisos: Compartir → Agregar a inicio, y abre la app desde ese ícono (no desde Safari).</span>;
+  }
   if (status === 'denied') {
     return <span className="push-admin-hint">Notificaciones bloqueadas: actívalas desde los ajustes de este navegador.</span>;
   }
