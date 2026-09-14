@@ -90,7 +90,8 @@ export default function ProductoPage() {
       // ninguna tiene) para que el precio/foto mostrados de entrada ya sean
       // los de una combinación válida.
       const pricedVariants = [...typedVariants].sort((a, b) => a.price - b.price);
-      const firstAvailable = pricedVariants.find((variant) => variant.stock === null || variant.stock > 0) ?? pricedVariants[0];
+      const requestedVariant = new URLSearchParams(window.location.search).get('variante');
+      const firstAvailable = typedVariants.find((variant) => variant.id === requestedVariant) ?? pricedVariants.find((variant) => variant.stock === null || variant.stock > 0) ?? pricedVariants[0];
       setSelectedColor(firstAvailable?.color ?? null);
       setSelectedSize(firstAvailable?.size ?? null);
       const gallery = [typedProduct.image_url, ...((imageRows ?? []) as ProductImage[]).map((image) => image.image_url)].filter(Boolean) as string[];

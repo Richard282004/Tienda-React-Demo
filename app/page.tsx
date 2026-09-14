@@ -1,6 +1,6 @@
 'use client';
 
-import { catalogPrice, type CatalogVariant } from '@/lib/product-variants';
+import { catalogPrice } from '@/lib/product-variants';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
@@ -27,6 +27,7 @@ import {
 
 import { CONSENT_EVENT, CONSENT_KEY } from '@/components/cookie-consent';
 import { ProductArtwork } from '@/components/product-artwork';
+import { CatalogVariantPreview, type PreviewVariant } from '@/components/catalog-variant-preview';
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -107,7 +108,7 @@ export default function Home() {
     });
   }, [search, products]);
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
-  const [catalogVariants, setCatalogVariants] = useState<CatalogVariant[]>([]);
+  const [catalogVariants, setCatalogVariants] = useState<PreviewVariant[]>([]);
   const [variantProductIds, setVariantProductIds] = useState<Set<string>>(new Set());
   // Producto con variantes: "hay stock" es cualquier variante con unidades
   // (o sin límite), no el campo stock del producto base (que con variantes
@@ -176,7 +177,7 @@ export default function Home() {
           client.from('reviews').select('*').order('created_at', { ascending: false }),
           client.from('showcase_items').select('*').eq('active', true).order('sort_order'),
           client.from('faqs').select('*').eq('active', true).order('sort_order'),
-          client.from('product_variants').select('product_id, stock, price').eq('active', true),
+          client.from('product_variants').select('id, product_id, stock, price, color, size, image_url').eq('active', true).order('sort_order'),
         ]);
         if (!active) return;
         if (catalog.error) { setStoreError('No pudimos cargar la colección. Intenta recargar la página.'); return; }
@@ -193,7 +194,7 @@ export default function Home() {
         setReviews(reviewsByProduct);
         setShowcaseItems((showcaseRows.data ?? []) as ShowcaseItem[]);
         setFaqs((faqRows.data ?? []) as Faq[]);
-        const variantData = (variantRows.data ?? []) as CatalogVariant[];
+        const variantData = (variantRows.data ?? []) as PreviewVariant[];
         setCatalogVariants(variantData);
         setVariantProductIds(new Set(variantData.map((row) => row.product_id)));
         const stockMap = new Map<string, boolean>();
@@ -521,24 +522,28 @@ export default function Home() {
           const lowStock = !hasVariants && !outOfStock && product.stock != null && product.stock <= 5;
           const productReviews = reviews[product.id] ?? [];
           const avgRating = productReviews.length ? productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length : null;
-          const goToProduct = () => { window.location.href = `/producto/${product.id}`; };
-          return <article className="product-card" id={`producto-${product.id}`} key={product.id}>
+          return <CatalogVariantPreview key={product.id} product={product} variants={catalogVariants.filter((variant) => variant.product_id === product.id)}>{({ artwork, variant, href, controls }) => {
+            const goToProduct = () => { window.location.href = href; };
+            const previewOutOfStock = product.active === false || (variant ? variant.stock !== null && variant.stock <= 0 : outOfStock);
+            return <>
             <div className="product-visual" style={{ backgroundColor: product.color }} onClick={goToProduct} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); goToProduct(); } }} role="link" tabIndex={0} aria-label={`Ver ${product.name}`}>
               {product.tag && <span className="product-tag">{product.tag}</span>}
               <button className={`heart-icon ${favorites.includes(product.id) ? 'liked' : ''}`} onClick={(event) => { event.stopPropagation(); const liked = !favorites.includes(product.id); setFavorites((current) => liked ? [...current, product.id] : current.filter((item) => item !== product.id)); syncFavoriteToggle(supabase, product.id, liked); }} aria-pressed={favorites.includes(product.id)} aria-label={favorites.includes(product.id) ? `Quitar ${product.name} de favoritos` : `Agregar ${product.name} a favoritos`}><Heart key={String(favorites.includes(product.id))} className="heart-pop" size={18} fill={favorites.includes(product.id) ? 'currentColor' : 'none'} /></button>
-              <ProductArtwork product={product} className="product-photo" defaultZoom={1.12} />
+              <ProductArtwork product={artwork} className="product-photo" defaultZoom={variant?.image_url ? 1 : 1.12} />
               <span className="yarn-shadow" />
             </div>
             <div className="product-info">
-              <h3><a className="product-name-link" href={`/producto/${product.id}`}>{product.name}</a></h3>
-              <strong>{catalogPrice(product, catalogVariants, formatPrice)}</strong>
+              <h3><a className="product-name-link" href={href}>{product.name}</a></h3>
+              {controls}
+              <strong>{variant ? formatPrice(variant.price) : formatPrice(product.price)}</strong>
               <div className="product-meta">
-                <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? 'Agotado' : lowStock ? `¡Últimas ${product.stock}!` : 'Disponible'}</span>
+                <span className={`availability-badge ${previewOutOfStock ? 'unavailable' : 'available'}`}>{previewOutOfStock ? 'Agotado' : lowStock ? `¡Últimas ${product.stock}!` : 'Disponible'}</span>
                 {avgRating !== null && <button className="reviews-link" onClick={() => openReviews(product)} aria-label={`Ver ${productReviews.length} reseñas de ${product.name}`}><Star size={13} fill="currentColor" /> {avgRating.toFixed(1)} ({productReviews.length})</button>}
               </div>
             </div>
-            <Button className="add-button" variant="outline" disabled={outOfStock} onClick={() => addToCart(product.id)}>{variantProductIds.has(product.id) ? 'Elegir opciones' : 'Agregar a la bolsita'} <Plus size={16} /></Button>
-          </article>;
+            <Button className="add-button" variant="outline" disabled={previewOutOfStock} onClick={() => variant ? goToProduct() : addToCart(product.id)}>{variantProductIds.has(product.id) ? 'Elegir opciones' : 'Agregar a la bolsita'} <Plus size={16} /></Button>
+          </>;
+          }}</CatalogVariantPreview>;
         })}</div>
       </section>
 
