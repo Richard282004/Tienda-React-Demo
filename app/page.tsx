@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { CONSENT_EVENT, CONSENT_KEY } from '@/components/cookie-consent';
 import { ProductArtwork } from '@/components/product-artwork';
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
@@ -282,13 +283,23 @@ export default function Home() {
   const [discountPopupOpen, setDiscountPopupOpen] = useState(false);
   const [discountPopupCopied, setDiscountPopupCopied] = useState(false);
 
+  const [consentDecided, setConsentDecided] = useState(false);
   useEffect(() => {
+    try { setConsentDecided(['accepted', 'rejected'].includes(localStorage.getItem(CONSENT_KEY) ?? '')); } catch { /* almacenamiento opcional */ }
+    const onConsent = () => setConsentDecided(true);
+    window.addEventListener(CONSENT_EVENT, onConsent);
+    return () => window.removeEventListener(CONSENT_EVENT, onConsent);
+  }, []);
+  const consentPending = Boolean(content.gaId || content.metaPixelId) && !consentDecided;
+
+  useEffect(() => {
+    if (storeLoading || consentPending) return;
     if (!content.popupDiscountEnabled || !content.popupDiscountCode) return;
     try { if (localStorage.getItem('milaloop-discount-popup-seen')) return; } catch { /* sin acceso a localStorage */ }
-    const delay = Math.max(0, content.popupDiscountDelaySeconds ?? 8) * 1000;
+    const delay = Math.max(15, content.popupDiscountDelaySeconds ?? 8) * 1000;
     const timer = window.setTimeout(() => setDiscountPopupOpen(true), delay);
     return () => window.clearTimeout(timer);
-  }, [content.popupDiscountEnabled, content.popupDiscountCode, content.popupDiscountDelaySeconds]);
+  }, [storeLoading, consentPending, content.popupDiscountEnabled, content.popupDiscountCode, content.popupDiscountDelaySeconds]);
 
   const closeDiscountPopup = () => {
     setDiscountPopupOpen(false);
@@ -411,7 +422,7 @@ export default function Home() {
   };
 
   return (
-    <main className="site-shell">
+    <main className="site-shell storefront-home">
       <a className="skip-link" href="#tienda">Saltar a la colección</a>
       <div className="utility-bar">
         <span><Truck size={15} /> Envíos a todo Chile</span>
@@ -452,7 +463,7 @@ export default function Home() {
           <a href="#inicio" onClick={() => setMenuOpen(false)}>Inicio</a>
           <a href="#tienda" onClick={() => setMenuOpen(false)}>Tienda</a>
           <a href="#nosotros" onClick={() => setMenuOpen(false)}>Sobre nosotros</a>
-          <a href="#contacto" onClick={() => setMenuOpen(false)}>Contáctanos</a><a href="/favoritos" onClick={() => setMenuOpen(false)}>Favoritos</a>
+          <a href="#contacto" onClick={() => setMenuOpen(false)}>Contáctanos</a><a className="mobile-favorites-link" href="/favoritos" onClick={() => setMenuOpen(false)}>Favoritos</a>
         </nav>
         <div className="header-actions">
           <Button aria-label={`Ver favoritos, ${favorites.length} guardados`} variant="ghost" size="icon" className="icon-button bag-button" onClick={() => { window.location.href = '/favoritos'; }}><Heart key={`fav-heart-${favorites.length}`} className="heart-pop" size={19} fill={favorites.length ? 'currentColor' : 'none'} />{favorites.length > 0 && <span key={`fav-badge-${favorites.length}`} className="bag-badge">{favorites.length}</span>}</Button>
@@ -491,6 +502,13 @@ export default function Home() {
 
       <section id="tienda" className="collection-section page-width">
         <div className="section-heading"><div><p className="section-kicker">La colección</p><h2>Elige tu nuevo <em>favorito</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'Todo' ? 'Todo' : item}</button>)}</div></div>
+        {discountPopupOpen && !consentPending && content.popupDiscountCode && (
+          <aside className="welcome-offer" aria-label="Descuento de bienvenida">
+            <div><strong>{content.popupDiscountPercent ?? 5}% de descuento en tu primera compra</strong><p>{content.popupDiscountMessage?.trim() || 'Un detalle de bienvenida para ti.'}</p></div>
+            <button type="button" className="welcome-offer-code" onClick={() => void copyDiscountCode()} aria-label={`Copiar código ${content.popupDiscountCode}`}><span>{content.popupDiscountCode}</span>{discountPopupCopied ? <Check size={16} /> : <Copy size={16} />}<small aria-live="polite">{discountPopupCopied ? 'Copiado' : 'Copiar código'}</small></button>
+            <button type="button" className="welcome-offer-close" onClick={closeDiscountPopup} aria-label="Cerrar descuento de bienvenida"><X size={18} /></button>
+          </aside>
+        )}
         {storeLoading && <p className="store-feedback" role="status">Preparando la colección…</p>}
         {storeError && <p className="store-feedback" role="alert">{storeError}</p>}
         {!storeLoading && !storeError && visibleProducts.length === 0 && <p className="empty-collection">Pronto habrá nuevos amiguitos por aquí. Vuelve a visitarnos.</p>}
@@ -505,20 +523,16 @@ export default function Home() {
             <div className="product-visual" style={{ backgroundColor: product.color }} onClick={goToProduct} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); goToProduct(); } }} role="link" tabIndex={0} aria-label={`Ver ${product.name}`}>
               {product.tag && <span className="product-tag">{product.tag}</span>}
               <button className={`heart-icon ${favorites.includes(product.id) ? 'liked' : ''}`} onClick={(event) => { event.stopPropagation(); const liked = !favorites.includes(product.id); setFavorites((current) => liked ? [...current, product.id] : current.filter((item) => item !== product.id)); syncFavoriteToggle(supabase, product.id, liked); }} aria-pressed={favorites.includes(product.id)} aria-label={favorites.includes(product.id) ? `Quitar ${product.name} de favoritos` : `Agregar ${product.name} a favoritos`}><Heart key={String(favorites.includes(product.id))} className="heart-pop" size={18} fill={favorites.includes(product.id) ? 'currentColor' : 'none'} /></button>
-              <ProductArtwork product={product} className="product-photo" />
+              <ProductArtwork product={product} className="product-photo" defaultZoom={1.12} />
               <span className="yarn-shadow" />
             </div>
             <div className="product-info">
-              <div>
-                <h3 className="product-name-link" onClick={goToProduct}>{product.name}</h3>
-                <p>{product.type} · tejido a mano</p>
-                {product.description && <p className="product-description">{product.description}</p>}
-                <button className="reviews-link" onClick={() => openReviews(product)}>
-                  {avgRating ? <><Star size={13} fill="currentColor" /> {avgRating.toFixed(1)} ({productReviews.length})</> : 'Sé el primero en opinar'}
-                </button>
-                <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? 'Agotado' : lowStock ? `¡Últimas ${product.stock}!` : 'Disponible'}</span>
-              </div>
+              <h3><a className="product-name-link" href={`/producto/${product.id}`}>{product.name}</a></h3>
               <strong>{formatPrice(product.price)}</strong>
+              <div className="product-meta">
+                <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? 'Agotado' : lowStock ? `¡Últimas ${product.stock}!` : 'Disponible'}</span>
+                {avgRating !== null && <button className="reviews-link" onClick={() => openReviews(product)} aria-label={`Ver ${productReviews.length} reseñas de ${product.name}`}><Star size={13} fill="currentColor" /> {avgRating.toFixed(1)} ({productReviews.length})</button>}
+              </div>
             </div>
             <Button className="add-button" variant="outline" disabled={outOfStock} onClick={() => addToCart(product.id)}>Agregar a la bolsita <Plus size={16} /></Button>
           </article>;
@@ -527,27 +541,18 @@ export default function Home() {
 
       <section className="category-strip page-width" aria-label="Categorías destacadas"><div><span className="category-icon pink">♡</span><span>{content.categoryText1}</span></div><div><span className="category-icon yellow">✳</span><span>{content.categoryText2}</span></div><div><span className="category-icon lilac">⌁</span><span>{content.categoryText3}</span></div></section>
 
-      <section className="work-showcase" aria-label="Trabajos recientes">
+      {showcaseItems.length > 0 && <section className="work-showcase" aria-label="Trabajos recientes">
         <div className="showcase-heading page-width"><div><p className="section-kicker">Trabajos recientes</p><h2>Hechos para <em>acompañarte</em></h2></div><div className="carousel-controls"><button className="pause-carousel" aria-label={carouselPaused ? 'Reanudar carrusel automático' : 'Pausar carrusel automático'} onClick={() => setCarouselPaused((paused) => !paused)}>{carouselPaused ? <Play size={16} /> : <Pause size={16} />}</button><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
         <Carousel setApi={setCarouselApi} opts={{ loop: true, align: 'start' }} className="work-carousel page-width" onMouseEnter={() => setCarouselHovering(true)} onMouseLeave={() => setCarouselHovering(false)}>
           <CarouselContent className="carousel-track">
-            {showcaseItems.length > 0
-              ? showcaseItems.map((item) => (
-                <CarouselItem className="work-slide" key={item.id}>
-                  <article className="work-card work-card-photo"><img src={item.image_url} alt={item.title} /><div><h3>{item.title}</h3>{item.subtitle && <p>{item.subtitle}</p>}</div></article>
-                </CarouselItem>
-              ))
-              : products.map((product, index) => (
-                <CarouselItem className="work-slide" key={`${product.id}-${index}`}>
-                  <article className="work-card" style={{ backgroundColor: product.color, cursor: 'pointer' }} onClick={() => { window.location.href = `/producto/${product.id}`; }} role="link" tabIndex={0} aria-label={`Ver ${product.name}`} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.location.href = `/producto/${product.id}`; } }}>
-                    <div className="work-art"><ProductArtwork product={product} /></div>
-                    <h3>{product.name}</h3>
-                  </article>
-                </CarouselItem>
-              ))}
+            {showcaseItems.map((item) => (
+              <CarouselItem className="work-slide" key={item.id}>
+                <article className="work-card work-card-photo"><img src={item.image_url} alt={item.title} loading="lazy" /><div><h3>{item.title}</h3>{item.subtitle && <p>{item.subtitle}</p>}</div></article>
+              </CarouselItem>
+            ))}
           </CarouselContent>
         </Carousel>
-      </section>
+      </section>}
 
       {faqs.length > 0 && <section className="faq-section page-width" aria-label="Preguntas frecuentes">
         <div className="showcase-heading"><div><p className="section-kicker">Ayuda</p><h2>Preguntas frecuentes</h2></div></div>
@@ -632,21 +637,6 @@ export default function Home() {
 
       {notice && <div className="notice" role="status"><Check size={16} /> {notice}</div>}
 
-      {discountPopupOpen && content.popupDiscountCode && (
-        <div className="discount-popup-overlay" onClick={closeDiscountPopup} aria-hidden="true" />
-      )}
-      {discountPopupOpen && content.popupDiscountCode && (
-        <div className="discount-popup" role="dialog" aria-modal="true" aria-label="Descuento de bienvenida">
-          <button type="button" className="discount-popup-close" onClick={closeDiscountPopup} aria-label="Cerrar"><X size={18} /></button>
-          <Sparkles size={26} className="discount-popup-icon" />
-          <h3>{content.popupDiscountPercent ?? 5}% de descuento</h3>
-          <p>{content.popupDiscountMessage?.trim() || '¿Primera vez por aquí? Llévate un descuento en tu compra.'}</p>
-          <button type="button" className="discount-popup-code" onClick={() => void copyDiscountCode()}>
-            {content.popupDiscountCode} {discountPopupCopied ? <Check size={15} /> : <Copy size={15} />}
-          </button>
-          <small>{discountPopupCopied ? 'Código copiado' : 'Toca para copiar el código'}</small>
-        </div>
-      )}
 
     </main>
   );
