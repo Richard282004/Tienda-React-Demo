@@ -9,7 +9,14 @@ export function PriceCalculator() {
   const [feeIncludesVat, setFeeIncludesVat] = useState(false);
   const [chargeByHour, setChargeByHour] = useState(false);
   const [values, setValues] = useState({ costs: '', shippingCost: '0', shippingCharged: '0', feePercent: '', fixedFee: '0', inputVatCredit: '0', reservePercent: '0', hours: '0', hourlyPay: '0', extraProfit: '', currentPrice: '' });
-  const field = (key: keyof typeof values, label: string, hint?: string) => <label>{label}<Input type="number" min="0" step="any" inputMode="decimal" value={values[key]} onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))} />{hint && <small>{hint}</small>}</label>;
+  // El teclado numérico decimal de iOS solo tiene coma, no punto; type="number"
+  // la rechaza en silencio. Con type="text" se acepta coma o punto y se
+  // normaliza a punto para el resto del cálculo.
+  const field = (key: keyof typeof values, label: string, hint?: string) => <label>{label}<Input type="text" inputMode="decimal" value={values[key]} onChange={(event) => {
+    const raw = event.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
+    if ((raw.match(/\./g) ?? []).length > 1) return;
+    setValues((current) => ({ ...current, [key]: raw }));
+  }} />{hint && <small>{hint}</small>}</label>;
   const input: PricingInput = { costs: Number(values.costs), shippingCost: Number(values.shippingCost), shippingCharged: Number(values.shippingCharged), feePercent: Number(values.feePercent), fixedFee: Number(values.fixedFee), feeIncludesVat, vatPercent: tax === 'iva' ? 19 : 0, inputVatCredit: tax === 'iva' ? Number(values.inputVatCredit) : 0, reservePercent: Number(values.reservePercent), hours: chargeByHour ? Number(values.hours) : 0, hourlyPay: chargeByHour ? Number(values.hourlyPay) : 0, extraProfit: Number(values.extraProfit || 0) };
   const requiredFields = ['costs', 'feePercent', 'extraProfit'] as const;
   const ready = tax !== '' && requiredFields.every((key) => values[key].trim() !== '') && (!chargeByHour || (values.hours.trim() !== '' && values.hourlyPay.trim() !== ''));
