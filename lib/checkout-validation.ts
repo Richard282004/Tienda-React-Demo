@@ -1,5 +1,5 @@
 export type CheckoutPayload = {
-  items: { productId: string; quantity: number }[];
+  items: { productId: string; quantity: number; variantId?: string }[];
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -41,7 +41,7 @@ export function parseCheckoutPayload(value: unknown): CheckoutPayload {
   if (!Array.isArray(record.items) || !record.items.length || record.items.length > 100) {
     throw new Error("La bolsita debe contener entre 1 y 100 productos.");
   }
-  const quantities = new Map<string, number>();
+  const quantities = new Map<string, { productId: string; variantId?: string; quantity: number }>();
   for (const item of record.items) {
     if (
       !item ||
@@ -49,16 +49,22 @@ export function parseCheckoutPayload(value: unknown): CheckoutPayload {
       typeof item.productId !== "string" ||
       !item.productId.trim() ||
       item.productId.length > 100 ||
+      (item.variantId !== undefined && (typeof item.variantId !== "string" || item.variantId.length > 100)) ||
       !Number.isInteger(item.quantity) ||
       item.quantity < 1 ||
       item.quantity > 99
     ) {
       throw new Error("Revisa los productos y sus cantidades.");
     }
-    const id = item.productId.trim();
-    const quantity = (quantities.get(id) ?? 0) + item.quantity;
+    const productId = item.productId.trim();
+    const variantId = typeof item.variantId === "string" && item.variantId.trim() ? item.variantId.trim() : undefined;
+    // Dos variantes del mismo producto son líneas distintas: se agrupan por
+    // producto+variante, no solo por producto.
+    const key = variantId ? `${productId}::${variantId}` : productId;
+    const existing = quantities.get(key);
+    const quantity = (existing?.quantity ?? 0) + item.quantity;
     if (quantity > 99) throw new Error("Puedes pedir hasta 99 unidades de cada producto.");
-    quantities.set(id, quantity);
+    quantities.set(key, { productId, variantId, quantity });
   }
   const field = (key: string, max: number, optional = false) => {
     const raw = record[key];
@@ -78,7 +84,7 @@ export function parseCheckoutPayload(value: unknown): CheckoutPayload {
   const rawRut = field("customerRut", 12);
   if (!isValidRut(rawRut)) throw new Error("Ingresa un RUT válido.");
   return {
-    items: [...quantities].map(([productId, quantity]) => ({ productId, quantity })),
+    items: [...quantities.values()].map(({ productId, variantId, quantity }) => (variantId ? { productId, variantId, quantity } : { productId, quantity })),
     paymentMethod,
     customerName: field("customerName", 120),
     customerEmail,

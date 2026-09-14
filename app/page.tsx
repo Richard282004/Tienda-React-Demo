@@ -30,6 +30,7 @@ import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { decodeCartEntry } from '@/lib/cart';
 import { defaultProducts, defaultStoreContent, readCachedStoreContent, writeCachedStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { type Faq, type Review, type ShowcaseItem } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -104,6 +105,11 @@ export default function Home() {
     });
   }, [search, products]);
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
+  const [variantProductIds, setVariantProductIds] = useState<Set<string>>(new Set());
+  // Producto con variantes: "hay stock" es cualquier variante con unidades
+  // (o sin límite), no el campo stock del producto base (que con variantes
+  // ya no se usa para vender).
+  const [variantStockAvailable, setVariantStockAvailable] = useState<Map<string, boolean>>(new Map());
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Record<string, Review[]>>({});
@@ -116,6 +122,9 @@ export default function Home() {
   const addToCart = (id: string) => {
     const product = products.find((item) => item.id === id);
     if (!product || product.active === false) return;
+    // Este producto tiene color/talla: no se puede agregar "a ciegas" desde
+    // la grilla, hay que elegir la combinación en su propia página.
+    if (variantProductIds.has(id)) { window.location.href = `/producto/${id}`; return; }
     const inCart = cart.filter((item) => item === id).length;
     if (product.stock != null && inCart >= product.stock) { setNotice('No quedan más unidades disponibles'); window.setTimeout(() => setNotice(''), 2200); return; }
     setCart((current) => [...current, id]);
@@ -158,18 +167,19 @@ export default function Home() {
     };
     const loadStore = async () => {
       try {
-        const [catalog, settings, reviewRows, showcaseRows, faqRows] = await Promise.all([
+        const [catalog, settings, reviewRows, showcaseRows, faqRows, variantRows] = await Promise.all([
           client.from('products').select('*').eq('active', true).order('sort_order'),
           client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
           client.from('reviews').select('*').order('created_at', { ascending: false }),
           client.from('showcase_items').select('*').eq('active', true).order('sort_order'),
           client.from('faqs').select('*').eq('active', true).order('sort_order'),
+          client.from('product_variants').select('product_id, stock').eq('active', true),
         ]);
         if (!active) return;
         if (catalog.error) { setStoreError('No pudimos cargar la colección. Intenta recargar la página.'); return; }
         setProducts((catalog.data ?? []) as Product[]);
         const available = new Set((catalog.data ?? []).map((product) => product.id));
-        setCart((current) => current.filter((id) => available.has(id)));
+        setCart((current) => current.filter((entry) => available.has(decodeCartEntry(entry).productId)));
         if (settings.data?.value) {
           const merged = { ...defaultStoreContent, ...(settings.data.value as Partial<StoreContent>) };
           setContent(merged);
@@ -180,6 +190,15 @@ export default function Home() {
         setReviews(reviewsByProduct);
         setShowcaseItems((showcaseRows.data ?? []) as ShowcaseItem[]);
         setFaqs((faqRows.data ?? []) as Faq[]);
+        const variantData = (variantRows.data ?? []) as { product_id: string; stock: number | null }[];
+        setVariantProductIds(new Set(variantData.map((row) => row.product_id)));
+        const stockMap = new Map<string, boolean>();
+        for (const row of variantData) {
+          const available = row.stock === null || row.stock > 0;
+          if (available) stockMap.set(row.product_id, true);
+          else if (!stockMap.has(row.product_id)) stockMap.set(row.product_id, false);
+        }
+        setVariantStockAvailable(stockMap);
       } catch {
         if (active) setStoreError('No pudimos conectar con la tienda. Intenta recargar la página.');
       } finally {
@@ -501,8 +520,9 @@ export default function Home() {
         {storeError && <p className="store-feedback" role="alert">{storeError}</p>}
         {!storeLoading && !storeError && visibleProducts.length === 0 && <p className="empty-collection">Pronto habrá nuevos amiguitos por aquí. Vuelve a visitarnos.</p>}
         <div className="product-grid" key={category}>{visibleProducts.map((product) => {
-          const outOfStock = product.active === false || (product.stock != null && product.stock <= 0);
-          const lowStock = !outOfStock && product.stock != null && product.stock <= 5;
+          const hasVariants = variantProductIds.has(product.id);
+          const outOfStock = product.active === false || (hasVariants ? variantStockAvailable.get(product.id) === false : product.stock != null && product.stock <= 0);
+          const lowStock = !hasVariants && !outOfStock && product.stock != null && product.stock <= 5;
           const productReviews = reviews[product.id] ?? [];
           const avgRating = productReviews.length ? productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length : null;
           const goToProduct = () => { window.location.href = `/producto/${product.id}`; };

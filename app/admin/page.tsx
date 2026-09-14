@@ -13,7 +13,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
-import { orderStatusLabel, type DiscountCode, type Faq, type Order, type OrderStatus, type Profile, type ProductImage, type Review, type ShippingRate, type ShowcaseItem } from '@/lib/orders';
+import { orderStatusLabel, variantLabel, type DiscountCode, type Faq, type Order, type OrderStatus, type Profile, type ProductImage, type ProductVariant, type Review, type ShippingRate, type ShowcaseItem } from '@/lib/orders';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { supabase } from '@/lib/supabase';
 import './admin.css';
@@ -74,8 +74,11 @@ export default function AdminPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [gallery, setGallery] = useState<ProductImage[]>([]);
   const [galleryBusy, setGalleryBusy] = useState(false);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [variantBusy, setVariantBusy] = useState(false);
   const [cropQueue, setCropQueue] = useState<File[]>([]);
-  const [cropTarget, setCropTarget] = useState<'product' | 'gallery' | 'showcase' | null>(null);
+  const [cropTarget, setCropTarget] = useState<'product' | 'gallery' | 'showcase' | 'variant' | null>(null);
+  const [cropVariantId, setCropVariantId] = useState<string | null>(null);
   const [draggedProductId, setDraggedProductId] = useState<string | null>(null);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatus | 'all'>('all');
@@ -293,7 +296,7 @@ export default function AdminPage() {
       order.region,
       order.comuna,
       `${order.address}${order.address_extra ? `, ${order.address_extra}` : ''}`,
-      order.items.map((item) => `${item.quantity}x ${item.name}`).join(' | '),
+      order.items.map((item) => `${item.quantity}x ${item.name}${item.variantLabel ? ` (${item.variantLabel})` : ''}`).join(' | '),
       String(order.subtotal),
       String(order.shipping_cost),
       String(order.discount_amount),
@@ -337,7 +340,7 @@ export default function AdminPage() {
         <div class="row"><span>Teléfono</span>${escapeHtml(order.customer_phone)}</div>
         ${order.customer_rut ? `<div class="row"><span>RUT</span>${escapeHtml(order.customer_rut)}</div>` : ''}
         ${order.tracking_number ? `<div class="row"><span>N° de seguimiento</span>${escapeHtml(order.tracking_number)}</div>` : ''}
-        <div class="note">${order.items.map((item) => `${item.quantity}× ${escapeHtml(item.name)}`).join(' · ')}</div>
+        <div class="note">${order.items.map((item) => `${item.quantity}× ${escapeHtml(item.name)}${item.variantLabel ? ` (${escapeHtml(item.variantLabel)})` : ''}`).join(' · ')}</div>
       </div>
       <script>window.onload = () => window.print();</script>
     </body></html>`);
@@ -475,6 +478,7 @@ export default function AdminPage() {
     setImageFile(null);
     setImagePreview(null);
     setGallery([]);
+    setVariants([]);
     setProductOpen(true);
   };
 
@@ -483,10 +487,69 @@ export default function AdminPage() {
     setImageFile(null);
     setImagePreview(null);
     setGallery([]);
+    setVariants([]);
     setProductOpen(true);
     if (!supabase) return;
-    const { data } = await supabase.from('product_images').select('*').eq('product_id', product.id).order('sort_order');
+    const [{ data }, { data: variantRows }] = await Promise.all([
+      supabase.from('product_images').select('*').eq('product_id', product.id).order('sort_order'),
+      supabase.from('product_variants').select('*').eq('product_id', product.id).order('sort_order'),
+    ]);
     setGallery((data ?? []) as ProductImage[]);
+    setVariants((variantRows ?? []) as ProductVariant[]);
+  };
+
+  const addVariant = async () => {
+    if (!supabase || !draft.id) return;
+    setVariantBusy(true);
+    const { data, error } = await supabase
+      .from('product_variants')
+      .insert({ product_id: draft.id, color: '', size: '', price: draft.price, stock: null, sort_order: variants.length })
+      .select('*')
+      .single();
+    setVariantBusy(false);
+    if (error || !data) { setMessage(error?.message ?? 'No pudimos crear la variante.'); return; }
+    setVariants((current) => [...current, data as ProductVariant]);
+  };
+
+  const updateVariantField = async (id: string, patch: Partial<ProductVariant>) => {
+    setVariants((current) => current.map((variant) => (variant.id === id ? { ...variant, ...patch } : variant)));
+    if (!supabase) return;
+    const previous = variants.find((variant) => variant.id === id);
+    await supabase.from('product_variants').update(patch).eq('id', id);
+    // Si el stock de esta variante pasó de agotado a disponible, avisa a
+    // quienes dejaron su correo esperando justo esa combinación.
+    if (draft.id && previous && 'stock' in patch) {
+      const wasOut = previous.stock != null && previous.stock <= 0;
+      const nowIn = patch.stock === null || (typeof patch.stock === 'number' && patch.stock > 0);
+      if (wasOut && nowIn) {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (token) {
+          void fetch('/api/products/restock-notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ productId: draft.id, variantId: id }),
+          }).catch(() => {});
+        }
+      }
+    }
+  };
+
+  const deleteVariant = async (id: string) => {
+    const ok = await askConfirm('¿Eliminar esta variante? Ya no aparecerá en la tienda.');
+    if (!ok || !supabase) return;
+    const { error } = await supabase.from('product_variants').delete().eq('id', id);
+    if (error) { setMessage(error.message); return; }
+    setVariants((current) => current.filter((variant) => variant.id !== id));
+  };
+
+  const uploadVariantPhoto = async (variantId: string, file: File) => {
+    if (!supabase) return;
+    const path = `${crypto.randomUUID()}-variante.jpg`;
+    const { error: uploadError } = await supabase.storage.from('products').upload(path, file, { cacheControl: '3600' });
+    if (uploadError) { setMessage(uploadError.message); return; }
+    const imageUrl = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
+    await updateVariantField(variantId, { image_url: imageUrl });
   };
 
   const handleImageFile = (file: File | null) => {
@@ -497,10 +560,11 @@ export default function AdminPage() {
   // Toda foto nueva (producto, galería o vitrina) pasa primero por el
   // recorte cuadrado obligatorio, para que se vea igual de bien en la
   // tarjeta grande, la miniatura del carrito y la galería.
-  const startCrop = (files: File[], target: 'product' | 'gallery' | 'showcase') => {
+  const startCrop = (files: File[], target: 'product' | 'gallery' | 'showcase' | 'variant', variantId?: string) => {
     if (!files.length) return;
     setCropQueue(files);
     setCropTarget(target);
+    if (target === 'variant' && variantId) setCropVariantId(variantId);
   };
   const onCropCancel = () => { setCropQueue([]); setCropTarget(null); };
   const uploadSingleGalleryPhoto = async (file: File) => {
@@ -518,9 +582,10 @@ export default function AdminPage() {
     if (cropTarget === 'product') handleImageFile(file);
     if (cropTarget === 'showcase') setShowcaseFile(file);
     if (cropTarget === 'gallery') { setGalleryBusy(true); await uploadSingleGalleryPhoto(file); }
+    if (cropTarget === 'variant' && cropVariantId) { setVariantBusy(true); await uploadVariantPhoto(cropVariantId, file); }
     setCropQueue((current) => {
       const next = current.slice(1);
-      if (!next.length) { setCropTarget(null); setGalleryBusy(false); }
+      if (!next.length) { setCropTarget(null); setGalleryBusy(false); setVariantBusy(false); setCropVariantId(null); }
       return next;
     });
   };
@@ -692,7 +757,7 @@ export default function AdminPage() {
                 <div className="order-card-body">
                   <div className="order-card-row"><span><User size={14} /> Cliente</span><p>{order.customer_name} · {order.customer_email} · {order.customer_phone}{order.customer_rut ? ` · RUT ${order.customer_rut}` : ''}</p></div>
                   <div className="order-card-row"><span><MapPin size={14} /> Dirección</span><p>{order.address}{order.address_extra ? `, ${order.address_extra}` : ''}, {order.comuna}, {order.region}</p></div>
-                  <div className="order-card-row"><span><ShoppingBag size={14} /> Productos</span><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}>{item.quantity}× {item.name} — {formatPrice(item.unitPrice * item.quantity)}{lowStockProductIds.has(item.productId) && <span className="order-item-lowstock"><AlertTriangle size={11} /> stock bajo</span>}</li>)}</ul></div>
+                  <div className="order-card-row"><span><ShoppingBag size={14} /> Productos</span><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}>{item.quantity}× {item.name}{item.variantLabel ? ` (${item.variantLabel})` : ''} — {formatPrice(item.unitPrice * item.quantity)}{lowStockProductIds.has(item.productId) && <span className="order-item-lowstock"><AlertTriangle size={11} /> stock bajo</span>}</li>)}</ul></div>
                   <div className="order-card-row order-card-total"><span><DollarSign size={14} /> Total</span><p><strong>{formatPrice(order.total)}</strong> <em>(envío {formatPrice(order.shipping_cost)})</em></p></div>
                 </div>
                 <div className="order-card-actions">
@@ -988,6 +1053,27 @@ export default function AdminPage() {
     {gallery.map((image) => <div className="gallery-manager-item" key={image.id}><img src={image.image_url} alt="" /><button type="button" onClick={() => deleteGalleryPhoto(image.id)} aria-label="Eliminar foto"><Trash2 size={14} /></button></div>)}
     <label className="gallery-manager-add">{galleryBusy ? '...' : <><Upload size={16} /> Agregar</>}<input type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={galleryBusy} onChange={(event) => { addGalleryPhotos(event.target.files); event.target.value = ''; }} /></label>
   </div>
+</div>}
+{draft.id && <div className="full variant-manager">
+  <span className="gallery-manager-label">Variantes (color / talla)</span>
+  <p className="admin-section-note">Cada variante tiene su propio precio, stock y foto. Si un producto no tiene variantes, sigue funcionando con el precio/stock de arriba.</p>
+  {variants.length > 0 && <div className="variant-manager-list">
+    {variants.map((variant) => (
+      <div className="variant-manager-row" key={variant.id}>
+        <label className="variant-manager-photo">
+          {variant.image_url ? <img src={variant.image_url} alt="" /> : <span><Upload size={14} /></span>}
+          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) startCrop([file], 'variant', variant.id); event.target.value = ''; }} />
+        </label>
+        <Input placeholder="Color (ej: Rosa)" value={variant.color ?? ''} onChange={(event) => setVariants((current) => current.map((item) => (item.id === variant.id ? { ...item, color: event.target.value } : item)))} onBlur={(event) => void updateVariantField(variant.id, { color: event.target.value || null })} />
+        <Input placeholder="Talla (ej: M)" value={variant.size ?? ''} onChange={(event) => setVariants((current) => current.map((item) => (item.id === variant.id ? { ...item, size: event.target.value } : item)))} onBlur={(event) => void updateVariantField(variant.id, { size: event.target.value || null })} />
+        <Input type="number" min="0" placeholder="Precio" value={variant.price} onChange={(event) => setVariants((current) => current.map((item) => (item.id === variant.id ? { ...item, price: Number(event.target.value) } : item)))} onBlur={(event) => void updateVariantField(variant.id, { price: Number(event.target.value) || 0 })} />
+        <Input type="number" min="0" placeholder="Sin límite" value={variant.stock ?? ''} onChange={(event) => setVariants((current) => current.map((item) => (item.id === variant.id ? { ...item, stock: event.target.value === '' ? null : Number(event.target.value) } : item)))} onBlur={(event) => void updateVariantField(variant.id, { stock: event.target.value === '' ? null : Number(event.target.value) })} />
+        <label className="variant-manager-active"><input type="checkbox" checked={variant.active} onChange={(event) => void updateVariantField(variant.id, { active: event.target.checked })} /> Activa</label>
+        <button type="button" onClick={() => void deleteVariant(variant.id)} aria-label={`Eliminar variante ${variantLabel(variant)}`}><Trash2 size={14} /></button>
+      </div>
+    ))}
+  </div>}
+  <Button type="button" variant="outline" disabled={variantBusy} onClick={() => void addVariant()}><PackagePlus size={16} /> Agregar variante</Button>
 </div>}
 </div>{message && <p className="admin-message">{message}</p>}<Button disabled={busy} type="submit" className="save-product"><Save size={17} /> {busy ? 'Guardando…' : 'Guardar producto'}</Button></form></DialogContent></Dialog>
 

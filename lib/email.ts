@@ -77,7 +77,7 @@ export async function sendOrderConfirmationEmail(opts: {
   apiKey: string;
   to: string;
   orderId: string;
-  items: { name: string; unitPrice: number; quantity: number }[];
+  items: { name: string; unitPrice: number; quantity: number; variantLabel?: string }[];
   total: number;
   brandName?: string;
   fromEmail?: string;
@@ -87,7 +87,7 @@ export async function sendOrderConfirmationEmail(opts: {
   const brandName = opts.brandName || 'Tu tienda';
   const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
   const price = (value: number) => formatPrice(value, opts.currency, opts.locale);
-  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name} — ${price(item.unitPrice * item.quantity)}</li>`).join('');
+  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name}${item.variantLabel ? ` (${item.variantLabel})` : ''} — ${price(item.unitPrice * item.quantity)}</li>`).join('');
   const html = wrap(
     brandName,
     'Recibimos tu pedido',
@@ -103,7 +103,7 @@ export async function sendTransferInstructionsEmail(opts: {
   apiKey: string;
   to: string;
   orderId: string;
-  items: { name: string; unitPrice: number; quantity: number }[];
+  items: { name: string; unitPrice: number; quantity: number; variantLabel?: string }[];
   total: number;
   transferDetails: string;
   holdHours: number;
@@ -116,7 +116,7 @@ export async function sendTransferInstructionsEmail(opts: {
   const brandName = opts.brandName || 'Tu tienda';
   const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
   const price = (value: number) => formatPrice(value, opts.currency, opts.locale);
-  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name} — ${price(item.unitPrice * item.quantity)}</li>`).join('');
+  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name}${item.variantLabel ? ` (${item.variantLabel})` : ''} — ${price(item.unitPrice * item.quantity)}</li>`).join('');
   const detailsHtml = opts.transferDetails.replace(/</g, '&lt;').replace(/\n/g, '<br>');
   const html = wrap(
     brandName,
@@ -151,7 +151,7 @@ export async function sendNewOrderAdminEmail(opts: {
   comuna: string;
   address: string;
   addressExtra?: string | null;
-  items: { name: string; unitPrice: number; quantity: number }[];
+  items: { name: string; unitPrice: number; quantity: number; variantLabel?: string }[];
   total: number;
   brandName?: string;
   fromEmail?: string;
@@ -162,7 +162,7 @@ export async function sendNewOrderAdminEmail(opts: {
   const brandName = opts.brandName || 'Tu tienda';
   const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
   const price = (value: number) => formatPrice(value, opts.currency, opts.locale);
-  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name} — ${price(item.unitPrice * item.quantity)}</li>`).join('');
+  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name}${item.variantLabel ? ` (${item.variantLabel})` : ''} — ${price(item.unitPrice * item.quantity)}</li>`).join('');
   const addressLine = [opts.address, opts.addressExtra].filter(Boolean).join(', ');
   const lead = opts.pendingTransfer
     ? `<p>Nuevo pedido <strong>por transferencia</strong> #${opts.orderId.slice(0, 8)} — <strong>pendiente de pago</strong>. Confírmalo en Admin → Pedidos cuando llegue la plata.</p>`
@@ -209,14 +209,14 @@ export async function sendAbandonedCartEmail(opts: {
   apiKey: string;
   to: string;
   orderId: string;
-  items: { name: string; quantity: number }[];
+  items: { name: string; quantity: number; variantLabel?: string }[];
   storeUrl: string;
   brandName?: string;
   fromEmail?: string;
 }) {
   const brandName = opts.brandName || 'Tu tienda';
   const from = `${brandName} <${opts.fromEmail || DEFAULT_FROM}>`;
-  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name}</li>`).join('');
+  const itemsHtml = opts.items.map((item) => `<li>${item.quantity}× ${item.name}${item.variantLabel ? ` (${item.variantLabel})` : ''}</li>`).join('');
   const html = wrap(
     brandName,
     '¿Se te quedó algo en la bolsita?',

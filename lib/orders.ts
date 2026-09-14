@@ -8,7 +8,7 @@ export const orderStatusLabel: Record<OrderStatus, string> = {
   cancelled: 'Cancelado',
 };
 
-export type OrderItem = { productId: string; name: string; unitPrice: number; quantity: number };
+export type OrderItem = { productId: string; name: string; unitPrice: number; quantity: number; variantId?: string; variantLabel?: string };
 
 export type Order = {
   id: string;
@@ -58,6 +58,24 @@ export type DiscountCode = {
 };
 
 export type ProductImage = { id: string; product_id: string; image_url: string; sort_order: number };
+
+export type ProductVariant = {
+  id: string;
+  product_id: string;
+  color: string | null;
+  size: string | null;
+  price: number;
+  stock: number | null;
+  image_url: string | null;
+  active: boolean;
+  sort_order: number;
+};
+
+// Etiqueta legible para una variante, ej. "Rosa / M", "Rosa" o "M" según qué
+// atributos tenga configurados.
+export function variantLabel(variant: Pick<ProductVariant, 'color' | 'size'>): string {
+  return [variant.color, variant.size].filter(Boolean).join(' / ');
+}
 
 export type Review = {
   id: string;

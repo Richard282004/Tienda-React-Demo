@@ -27,6 +27,13 @@
 .producto-tag { position: static; display: inline-block; margin-bottom: 10px; }
 .producto-price { display: block; font-family: Georgia, serif; font-size: 28px; color: var(--plum); margin-bottom: 10px; }
 .producto-info .availability-badge { margin-bottom: 18px; }
+.producto-variants { display: grid; gap: 14px; margin-bottom: 22px; }
+.producto-variant-group { display: grid; gap: 8px; }
+.producto-variant-label { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.producto-variant-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.producto-variant-swatch, .producto-variant-chip { border: 1px solid var(--border); border-radius: 99px; padding: 8px 16px; background: #fff; color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out); }
+.producto-variant-swatch.active, .producto-variant-chip.active { border-color: var(--plum); background: var(--plum); color: #fff; }
+.producto-variant-missing { margin: 0; color: #a43d52; font-size: 12.5px; }
 .producto-description { max-width: 480px; color: var(--muted); font-size: 15.5px; line-height: 1.75; margin: 0 0 28px; }
 .producto-actions { display: flex; align-items: center; gap: 14px; }
 .producto-actions .primary-button { min-height: 48px; padding: 0 28px !important; }

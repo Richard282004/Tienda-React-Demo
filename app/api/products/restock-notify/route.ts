@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
   if (profile?.role !== "admin") return NextResponse.json({ error: "No autorizado." }, { status: 403 });
 
-  let body: { productId?: string };
+  let body: { productId?: string; variantId?: string };
   try {
     body = await request.json();
   } catch {
@@ -32,12 +32,11 @@ export async function POST(request: Request) {
 
   if (!emailApiKey) return NextResponse.json({ ok: true, sent: 0 });
 
-  const { data: claimed } = await supabase
-    .from("stock_alerts")
-    .update({ notified_at: new Date().toISOString() })
-    .eq("product_id", body.productId)
-    .is("notified_at", null)
-    .select("email");
+  // Si vuelve stock de una variante puntual, solo avisa a quien pidió esa
+  // variante (no a quien esperaba otro color/talla del mismo producto).
+  let claimQuery = supabase.from("stock_alerts").update({ notified_at: new Date().toISOString() }).eq("product_id", body.productId).is("notified_at", null);
+  claimQuery = body.variantId ? claimQuery.eq("variant_id", body.variantId) : claimQuery.is("variant_id", null);
+  const { data: claimed } = await claimQuery.select("email");
   if (!claimed || !claimed.length) return NextResponse.json({ ok: true, sent: 0 });
 
   const { data: product } = await supabase.from("products").select("name").eq("id", body.productId).maybeSingle();

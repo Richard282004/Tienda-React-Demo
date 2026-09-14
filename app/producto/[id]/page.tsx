@@ -6,9 +6,10 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Mail, Phone, Plus, Shoppin
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ProductArtwork } from '@/components/product-artwork';
+import { encodeCartEntry } from '@/lib/cart';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { defaultProducts, defaultStoreContent, readCachedStoreContent, writeCachedStoreContent, type Product, type StoreContent } from '@/lib/store-data';
-import { type ProductImage } from '@/lib/orders';
+import { type ProductImage, type ProductVariant } from '@/lib/orders';
 import { supabase } from '@/lib/supabase';
 import { initFavorites, syncFavoriteToggle, writeLocalFavorites } from '@/lib/favorites';
 import './producto.css';
@@ -20,6 +21,10 @@ export default function ProductoPage() {
   const [otherProducts, setOtherProducts] = useState<Product[]>([]);
   const [images, setImages] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState(0);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [otherVariantProductIds, setOtherVariantProductIds] = useState<Set<string>>(new Set());
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   // Arranca en el default (igual en servidor y cliente, sin desajuste de
   // hidratación) y aplica la caché justo antes de pintar, así no se ve el
   // parpadeo del logo por defecto.
@@ -58,11 +63,13 @@ export default function ProductoPage() {
         setLoading(false);
         return;
       }
-      const [{ data: productRow }, { data: imageRows }, { data: settings }, { data: otherRows }] = await Promise.all([
+      const [{ data: productRow }, { data: imageRows }, { data: settings }, { data: otherRows }, { data: variantRows }, { data: otherVariantRows }] = await Promise.all([
         supabase.from('products').select('*').eq('id', id).maybeSingle(),
         supabase.from('product_images').select('*').eq('product_id', id).order('sort_order'),
         supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
         supabase.from('products').select('*').eq('active', true).neq('id', id).order('sort_order').limit(12),
+        supabase.from('product_variants').select('*').eq('product_id', id).eq('active', true).order('sort_order'),
+        supabase.from('product_variants').select('product_id').eq('active', true),
       ]);
       if (settings?.value) {
         const merged = { ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) };
@@ -73,6 +80,15 @@ export default function ProductoPage() {
       const typedProduct = productRow as Product;
       setProduct(typedProduct);
       setOtherProducts((otherRows ?? []) as Product[]);
+      setOtherVariantProductIds(new Set(((otherVariantRows ?? []) as { product_id: string }[]).map((row) => row.product_id)));
+      const typedVariants = (variantRows ?? []) as ProductVariant[];
+      setVariants(typedVariants);
+      // Preselecciona la primera variante con stock (o la primera de todas si
+      // ninguna tiene) para que el precio/foto mostrados de entrada ya sean
+      // los de una combinación válida.
+      const firstAvailable = typedVariants.find((variant) => variant.stock === null || variant.stock > 0) ?? typedVariants[0];
+      setSelectedColor(firstAvailable?.color ?? null);
+      setSelectedSize(firstAvailable?.size ?? null);
       const gallery = [typedProduct.image_url, ...((imageRows ?? []) as ProductImage[]).map((image) => image.image_url)].filter(Boolean) as string[];
       setImages(gallery);
       setActiveImage(0);
@@ -92,11 +108,11 @@ export default function ProductoPage() {
     });
   };
 
-  const quickAdd = (productId: string, name: string) => {
+  const quickAdd = (productId: string, name: string, variantId?: string) => {
     try {
       const saved = JSON.parse(localStorage.getItem('lumina-bag') ?? '[]');
       const cart = Array.isArray(saved) ? saved : [];
-      const next = [...cart, productId];
+      const next = [...cart, encodeCartEntry(productId, variantId)];
       localStorage.setItem('lumina-bag', JSON.stringify(next));
       setCartCount(next.length);
     } catch { /* no crítico */ }
@@ -104,18 +120,29 @@ export default function ProductoPage() {
     window.setTimeout(() => setNotice(''), 2200);
   };
 
+  // Colores/tallas disponibles y la variante que resulta de combinarlos.
+  // Un producto puede tener solo color, solo talla, ambos, o ninguno (sin
+  // variantes: se comporta exactamente como antes).
+  const colors = [...new Set(variants.map((variant) => variant.color).filter((color): color is string => Boolean(color)))];
+  const sizes = [...new Set(variants.map((variant) => variant.size).filter((size): size is string => Boolean(size)))];
+  const selectedVariant = variants.length
+    ? variants.find((variant) => (variant.color ?? null) === selectedColor && (variant.size ?? null) === selectedSize)
+    : undefined;
+  const hasVariants = variants.length > 0;
+
   const addToCart = () => {
     if (!product) return;
-    quickAdd(product.id, product.name);
+    if (hasVariants && !selectedVariant) return;
+    quickAdd(product.id, product.name, selectedVariant?.id);
   };
 
   const requestStockAlert = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase || !product || !alertEmail.trim()) return;
     setAlertStatus('busy');
-    const { error } = await supabase.from('stock_alerts').insert({ product_id: product.id, email: alertEmail.trim() });
-    // Código 23505 = ya había dejado su correo para este producto; lo tratamos
-    // igual como éxito, no como error.
+    const { error } = await supabase.from('stock_alerts').insert({ product_id: product.id, variant_id: selectedVariant?.id ?? null, email: alertEmail.trim() });
+    // Código 23505 = ya había dejado su correo para este producto (o
+    // variante); lo tratamos igual como éxito, no como error.
     if (error && error.code !== '23505') { setAlertStatus('error'); return; }
     setAlertStatus('done');
   };
@@ -136,9 +163,14 @@ export default function ProductoPage() {
     );
   }
 
-  const outOfStock = product.active === false || (product.stock != null && product.stock <= 0);
-  const lowStock = !outOfStock && product.stock != null && product.stock <= 3;
+  const effectivePrice = selectedVariant?.price ?? product.price;
+  const effectiveStock = hasVariants ? (selectedVariant?.stock ?? null) : product.stock;
+  const outOfStock = product.active === false || (hasVariants && !selectedVariant) || (effectiveStock != null && effectiveStock <= 0);
+  const lowStock = !outOfStock && effectiveStock != null && effectiveStock <= 3;
   const isLiked = favorites.includes(product.id);
+  // La foto de la variante elegida va primero; el resto de la galería del
+  // producto sigue disponible detrás.
+  const displayImages = selectedVariant?.image_url ? [selectedVariant.image_url, ...images.filter((image) => image !== selectedVariant.image_url)] : images;
 
   return (
     <main className="cart-page-shell producto-page">
@@ -175,21 +207,21 @@ export default function ProductoPage() {
       <div className="page-width producto-layout">
         <div className="producto-gallery">
           <div className="producto-gallery-main" style={{ backgroundColor: product.color }}>
-            {images.length > 0 ? (
-              <img src={images[activeImage]} alt={product.name} />
+            {displayImages.length > 0 ? (
+              <img src={displayImages[Math.min(activeImage, displayImages.length - 1)]} alt={product.name} />
             ) : (
               <ProductArtwork product={product} />
             )}
-            {images.length > 1 && (
+            {displayImages.length > 1 && (
               <>
-                <button className="producto-gallery-nav prev" aria-label="Imagen anterior" onClick={() => setActiveImage((current) => (current - 1 + images.length) % images.length)}><ChevronLeft size={20} /></button>
-                <button className="producto-gallery-nav next" aria-label="Imagen siguiente" onClick={() => setActiveImage((current) => (current + 1) % images.length)}><ChevronRight size={20} /></button>
+                <button className="producto-gallery-nav prev" aria-label="Imagen anterior" onClick={() => setActiveImage((current) => (current - 1 + displayImages.length) % displayImages.length)}><ChevronLeft size={20} /></button>
+                <button className="producto-gallery-nav next" aria-label="Imagen siguiente" onClick={() => setActiveImage((current) => (current + 1) % displayImages.length)}><ChevronRight size={20} /></button>
               </>
             )}
           </div>
-          {images.length > 1 && (
+          {displayImages.length > 1 && (
             <div className="producto-thumbs" role="tablist" aria-label="Imágenes del producto">
-              {images.map((image, index) => (
+              {displayImages.map((image, index) => (
                 <button key={image + index} className={index === activeImage ? 'active' : ''} role="tab" aria-selected={index === activeImage} aria-label={`Ver imagen ${index + 1}`} onClick={() => setActiveImage(index)}>
                   <img src={image} alt="" />
                 </button>
@@ -201,8 +233,49 @@ export default function ProductoPage() {
           {product.tag && <span className="product-tag producto-tag">{product.tag}</span>}
           <p className="section-kicker">{product.type} · tejido a mano</p>
           <h1>{product.name}</h1>
-          <strong className="producto-price">{formatPrice(product.price)}</strong>
-          <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? 'Agotado' : lowStock ? `¡Últimas ${product.stock}!` : 'Disponible'}</span>
+          <strong className="producto-price">{formatPrice(effectivePrice)}</strong>
+          <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? 'Agotado' : lowStock ? `¡Últimas ${effectiveStock}!` : 'Disponible'}</span>
+          {hasVariants && (
+            <div className="producto-variants">
+              {colors.length > 0 && (
+                <div className="producto-variant-group">
+                  <span className="producto-variant-label">Color</span>
+                  <div className="producto-variant-options">
+                    {colors.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={`producto-variant-swatch ${selectedColor === color ? 'active' : ''}`}
+                        aria-pressed={selectedColor === color}
+                        onClick={() => setSelectedColor(color)}
+                      >
+                        {color}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {sizes.length > 0 && (
+                <div className="producto-variant-group">
+                  <span className="producto-variant-label">Talla</span>
+                  <div className="producto-variant-options">
+                    {sizes.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        className={`producto-variant-chip ${selectedSize === size ? 'active' : ''}`}
+                        aria-pressed={selectedSize === size}
+                        onClick={() => setSelectedSize(size)}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!selectedVariant && <p className="producto-variant-missing">Esa combinación no existe. Elige otra.</p>}
+            </div>
+          )}
           {product.description && <p className="producto-description">{product.description}</p>}
           <div className="producto-actions">
             <Button className="primary-button" disabled={outOfStock} onClick={addToCart}>Agregar a la bolsita <Plus size={16} /></Button>
@@ -251,7 +324,7 @@ export default function ProductoPage() {
                           className="producto-more-add"
                           disabled={itemOutOfStock}
                           aria-label={`Agregar ${item.name} a la bolsita`}
-                          onClick={() => quickAdd(item.id, item.name)}
+                          onClick={() => (otherVariantProductIds.has(item.id) ? (window.location.href = `/producto/${item.id}`) : quickAdd(item.id, item.name))}
                         >
                           <Plus size={14} />
                         </button>

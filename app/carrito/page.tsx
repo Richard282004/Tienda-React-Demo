@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { ProductArtwork } from '@/components/product-artwork';
+import { decodeCartEntry, encodeCartEntry } from '@/lib/cart';
 import { calculateShipping } from '@/lib/checkout-validation';
-import { type Address, type ShippingRate } from '@/lib/orders';
+import { variantLabel, type Address, type ProductVariant, type ShippingRate } from '@/lib/orders';
 import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -35,6 +36,7 @@ function isValidRut(raw: string): boolean {
 
 export default function CarritoPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
   const [cart, setCart] = useState<string[]>([]);
@@ -68,12 +70,14 @@ export default function CarritoPage() {
     const client = supabase;
     const load = async () => {
       if (!client) { setLoading(false); return; }
-      const [{ data: productRows }, { data: rateRows }, { data: settings }] = await Promise.all([
+      const [{ data: productRows }, { data: variantRows }, { data: rateRows }, { data: settings }] = await Promise.all([
         client.from('products').select('id, name, price, color, art, image_url, stock, active').order('sort_order'),
+        client.from('product_variants').select('*'),
         client.from('shipping_rates').select('region, cost, requires_address, warning'),
         client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
       ]);
       setProducts((productRows ?? []) as Product[]);
+      setVariants((variantRows ?? []) as ProductVariant[]);
       setShippingRates((rateRows ?? []) as ShippingRate[]);
       if (settings?.value) setContent({ ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) });
       const { data: userData } = await client.auth.getUser();
@@ -99,15 +103,24 @@ export default function CarritoPage() {
     void load();
   }, []);
 
-  const cartProducts = cart.map((id) => products.find((product) => product.id === id)).filter(Boolean) as Product[];
+  // Cada entrada del carrito es "productId" o "productId::variantId" (ver
+  // lib/cart.ts). Se agrupa por esa clave exacta: dos variantes del mismo
+  // producto son líneas distintas, con su propio precio y stock.
   const groupedCart = useMemo(() => {
     const counts = new Map<string, number>();
-    cart.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
-    return [...counts.entries()]
-      .map(([id, quantity]) => ({ product: products.find((product) => product.id === id), quantity }))
-      .filter((group): group is { product: Product; quantity: number } => !!group.product);
-  }, [cart, products]);
-  const total = cartProducts.reduce((sum, product) => sum + product.price, 0);
+    cart.forEach((entry) => counts.set(entry, (counts.get(entry) ?? 0) + 1));
+    const lines: { key: string; product: Product; variant?: ProductVariant; quantity: number }[] = [];
+    for (const [key, quantity] of counts) {
+      const { productId, variantId } = decodeCartEntry(key);
+      const product = products.find((item) => item.id === productId);
+      if (!product) continue;
+      const variant = variantId ? variants.find((item) => item.id === variantId) : undefined;
+      lines.push({ key, product, variant, quantity });
+    }
+    return lines;
+  }, [cart, products, variants]);
+  const cartProducts = groupedCart.flatMap(({ product, variant, quantity }) => Array(quantity).fill({ ...product, price: variant?.price ?? product.price }) as Product[]);
+  const total = groupedCart.reduce((sum, { product, variant, quantity }) => sum + (variant?.price ?? product.price) * quantity, 0);
   const selectedRate = shippingRates.find((rate) => rate.region === shipping.region);
   const requiresAddress = selectedRate?.requires_address ?? true;
   const shippingCost = calculateShipping(total, selectedRate?.cost);
@@ -147,16 +160,18 @@ export default function CarritoPage() {
   const discountAmount = appliedDiscount ? Math.min(total, appliedDiscount.amount) : 0;
   const grandTotal = total - discountAmount + (shippingCost ?? 0);
 
-  const incrementCartItem = (id: string) => {
-    const product = products.find((item) => item.id === id);
-    const inCart = cart.filter((item) => item === id).length;
-    if (product?.stock != null && inCart >= product.stock) return;
-    setCart((current) => [...current, id]);
+  const incrementCartItem = (key: string) => {
+    const { variantId } = decodeCartEntry(key);
+    const variant = variantId ? variants.find((item) => item.id === variantId) : undefined;
+    const stock = variant ? variant.stock : products.find((item) => item.id === decodeCartEntry(key).productId)?.stock;
+    const inCart = cart.filter((item) => item === key).length;
+    if (stock != null && inCart >= stock) return;
+    setCart((current) => [...current, key]);
   };
-  const decrementCartItem = (id: string) => {
-    setCart((current) => { const at = current.indexOf(id); if (at === -1) return current; return current.filter((_, i) => i !== at); });
+  const decrementCartItem = (key: string) => {
+    setCart((current) => { const at = current.indexOf(key); if (at === -1) return current; return current.filter((_, i) => i !== at); });
   };
-  const removeFromCart = (id: string) => setCart((current) => current.filter((item) => item !== id));
+  const removeFromCart = (key: string) => setCart((current) => current.filter((item) => item !== key));
 
   const applyDiscountCode = async () => {
     if (!supabase || !discountInput.trim()) return;
@@ -174,8 +189,6 @@ export default function CarritoPage() {
     if (!cartProducts.length || !shippingComplete || shippingCost === null) return;
     setCheckoutBusy(true);
     setCheckoutError('');
-    const counts = new Map<string, number>();
-    cart.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1));
     try {
       const { data: sessionData } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
       const token = sessionData.session?.access_token;
@@ -183,7 +196,7 @@ export default function CarritoPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
-          items: [...counts.entries()].map(([productId, quantity]) => ({ productId, quantity })),
+          items: groupedCart.map(({ product, variant, quantity }) => (variant ? { productId: product.id, variantId: variant.id, quantity } : { productId: product.id, quantity })),
           customerName: shipping.name,
           customerEmail: shipping.email,
           customerPhone: shipping.phone,
@@ -240,22 +253,28 @@ export default function CarritoPage() {
               <h1>Tu carrito <small>({cartProducts.length} producto{cartProducts.length === 1 ? '' : 's'})</small></h1>
               <button type="button" className="clear-cart" onClick={() => setCart([])}><Trash2 size={13} /> Vaciar carrito</button>
             </div>
-            {groupedCart.map(({ product, quantity }) => (
-              <div className="cart-page-item" key={product.id}>
-                <div className="cart-thumb" style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></div>
-                <div className="cart-page-item-info">
-                  <h3>{product.name}</h3>
-                  <p>{formatPrice(product.price)}</p>
+            {groupedCart.map(({ key, product, variant, quantity }) => {
+              const unitPrice = variant?.price ?? product.price;
+              const unitStock = variant ? variant.stock : product.stock;
+              return (
+                <div className="cart-page-item" key={key}>
+                  <div className="cart-thumb" style={{ backgroundColor: product.color }}>
+                    {variant?.image_url ? <img src={variant.image_url} alt="" /> : <ProductArtwork product={product} />}
+                  </div>
+                  <div className="cart-page-item-info">
+                    <h3>{product.name}{variant && <small className="cart-page-item-variant"> · {variantLabel(variant)}</small>}</h3>
+                    <p>{formatPrice(unitPrice)}</p>
+                  </div>
+                  <div className="cart-qty">
+                    <button aria-label={`Quitar una unidad de ${product.name}`} onClick={() => decrementCartItem(key)}><Minus size={14} /></button>
+                    <span>{quantity}</span>
+                    <button aria-label={`Agregar una unidad de ${product.name}`} disabled={unitStock != null && quantity >= unitStock} onClick={() => incrementCartItem(key)}><Plus size={14} /></button>
+                  </div>
+                  <strong className="cart-page-item-total">{formatPrice(unitPrice * quantity)}</strong>
+                  <button type="button" className="cart-page-item-remove" aria-label={`Quitar ${product.name} del carrito`} onClick={() => removeFromCart(key)}><Trash2 size={15} /></button>
                 </div>
-                <div className="cart-qty">
-                  <button aria-label={`Quitar una unidad de ${product.name}`} onClick={() => decrementCartItem(product.id)}><Minus size={14} /></button>
-                  <span>{quantity}</span>
-                  <button aria-label={`Agregar una unidad de ${product.name}`} disabled={product.stock != null && quantity >= product.stock} onClick={() => incrementCartItem(product.id)}><Plus size={14} /></button>
-                </div>
-                <strong className="cart-page-item-total">{formatPrice(product.price * quantity)}</strong>
-                <button type="button" className="cart-page-item-remove" aria-label={`Quitar ${product.name} del carrito`} onClick={() => removeFromCart(product.id)}><Trash2 size={15} /></button>
-              </div>
-            ))}
+              );
+            })}
           </section>
 
           <aside className="cart-page-summary">

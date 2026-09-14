@@ -115,7 +115,7 @@ export default function ConfirmacionPage() {
               {order.items.map((item, index) => (
                 <li key={`${item.productId}-${index}`}>
                   <span>
-                    {item.quantity}× {item.name}
+                    {item.quantity}× {item.name}{item.variantLabel ? ` (${item.variantLabel})` : ''}
                   </span>
                   <span>{formatPrice(item.unitPrice * item.quantity)}</span>
                 </li>

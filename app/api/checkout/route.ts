@@ -7,6 +7,7 @@ import {
 } from "@/lib/checkout-validation";
 import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderConfirmationEmail, sendTransferInstructionsEmail } from "@/lib/email";
 import { createMercadoPagoPreference } from "@/lib/mercadopago";
+import { variantLabel } from "@/lib/orders";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -92,15 +93,49 @@ export async function POST(request: Request) {
         { error: "No pudimos consultar la colección. Inténtalo de nuevo." },
         { status: 503 },
       );
+    const variantIds = payload.items.map((item) => item.variantId).filter((id): id is string => Boolean(id));
+    const { data: variants, error: variantsError } = variantIds.length
+      ? await supabase.from("product_variants").select("id, product_id, color, size, price, stock, active").in("id", variantIds)
+      : { data: [] as { id: string; product_id: string; color: string | null; size: string | null; price: number; stock: number | null; active: boolean }[], error: null };
+    if (variantsError)
+      return NextResponse.json(
+        { error: "No pudimos consultar la colección. Inténtalo de nuevo." },
+        { status: 503 },
+      );
     const orderItems = [];
     for (const item of payload.items) {
       const product = products?.find((product) => product.id === item.productId);
-      if (
-        !product ||
-        product.active === false ||
-        !Number.isSafeInteger(product.price) ||
-        product.price < 0
-      ) {
+      if (!product || product.active === false) {
+        return NextResponse.json(
+          { error: "Uno de los productos ya no está disponible. Actualiza tu bolsita." },
+          { status: 409 },
+        );
+      }
+      if (item.variantId) {
+        const variant = variants?.find((variant) => variant.id === item.variantId && variant.product_id === item.productId);
+        if (!variant || variant.active === false || !Number.isSafeInteger(variant.price) || variant.price < 0) {
+          return NextResponse.json(
+            { error: "Una de las variantes ya no está disponible. Actualiza tu bolsita." },
+            { status: 409 },
+          );
+        }
+        if (variant.stock !== null && variant.stock < item.quantity) {
+          return NextResponse.json(
+            { error: `Solo quedan ${variant.stock} unidades de "${product.name}" (${variantLabel(variant)}). Ajusta tu bolsita.` },
+            { status: 409 },
+          );
+        }
+        orderItems.push({
+          productId: product.id as string,
+          name: product.name as string,
+          unitPrice: variant.price,
+          quantity: item.quantity,
+          variantId: variant.id,
+          variantLabel: variantLabel(variant),
+        });
+        continue;
+      }
+      if (!Number.isSafeInteger(product.price) || product.price < 0) {
         return NextResponse.json(
           { error: "Uno de los productos ya no está disponible. Actualiza tu bolsita." },
           { status: 409 },
@@ -176,7 +211,7 @@ export async function POST(request: Request) {
     const isFreeOrder = total === 0;
 
     const { error: reserveError } = await supabase.rpc("reserve_order_stock", {
-      items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+      items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity, variantId: item.variantId })),
     });
     if (reserveError) {
       return NextResponse.json(
@@ -210,7 +245,7 @@ export async function POST(request: Request) {
       .single();
     if (orderError || !order) {
       await supabase.rpc("restore_order_stock", {
-        items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+        items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity, variantId: item.variantId })),
       });
       return NextResponse.json(
         { error: "No pudimos preparar tu pedido. Inténtalo de nuevo." },
@@ -307,7 +342,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ orderId: order.id, initPoint });
     } catch (mpError) {
       await supabase.rpc("restore_order_stock", {
-        items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+        items: orderItems.map((item) => ({ productId: item.productId, quantity: item.quantity, variantId: item.variantId })),
       });
       await supabase.from("orders").update({ status: "cancelled" }).eq("id", order.id);
       return NextResponse.json(

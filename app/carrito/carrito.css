@@ -12,6 +12,7 @@
 .cart-page-item { display: grid; grid-template-columns: 58px 1fr auto auto auto; align-items: center; gap: 14px; padding: 18px 0; border-bottom: 1px solid #eadfd8; }
 .cart-page-item:last-child { border-bottom: none; }
 .cart-page-item-info h3 { margin: 0 0 4px; font-family: Georgia, serif; font-size: 16px; font-weight: 400; }
+.cart-page-item-variant { color: var(--muted); font-family: sans-serif; font-size: 12px; font-weight: 400; }
 .cart-page-item-info p { margin: 0; color: var(--muted); font-size: 12px; }
 .cart-page-item-total { min-width: 78px; text-align: right; color: var(--plum); font-size: 14px; }
 .cart-page-item-remove { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--muted); }

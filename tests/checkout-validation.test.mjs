@@ -22,6 +22,22 @@ test("normaliza datos y agrupa productos repetidos", () => {
   assert.equal(parsed.customerName, "Cliente");
   assert.deepEqual(parsed.items, [{ productId: "toy", quantity: 5 }]);
 });
+test("agrupa por producto+variante, no solo por producto", () => {
+  const parsed = parseCheckoutPayload({
+    ...valid(),
+    items: [
+      { productId: "toy", variantId: "rosa", quantity: 2 },
+      { productId: "toy", variantId: "rosa", quantity: 1 },
+      { productId: "toy", variantId: "azul", quantity: 1 },
+      { productId: "toy", quantity: 1 },
+    ],
+  });
+  assert.deepEqual(parsed.items, [
+    { productId: "toy", variantId: "rosa", quantity: 3 },
+    { productId: "toy", variantId: "azul", quantity: 1 },
+    { productId: "toy", quantity: 1 },
+  ]);
+});
 test("rechaza cantidades negativas, decimales, nulas y desbordadas", () => {
   for (const quantity of [-1, 0, 1.5, "2", null, 100])
     assert.throws(() =>

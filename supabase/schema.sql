@@ -309,8 +309,25 @@ as $$
 declare
   item jsonb;
   affected integer;
+  variant_id uuid;
 begin
   for item in select * from jsonb_array_elements(items) loop
+    -- Si el item trae variantId, el stock que se descuenta es el de la
+    -- variante (color/talla), no el del producto genérico.
+    variant_id := nullif(item->>'variantId', '')::uuid;
+    if variant_id is not null then
+      if (select stock from public.product_variants where id = variant_id) is null then
+        continue; -- stock null = sin control de stock para esta variante
+      end if;
+      update public.product_variants
+      set stock = stock - (item->>'quantity')::integer
+      where id = variant_id and stock >= (item->>'quantity')::integer;
+      get diagnostics affected = row_count;
+      if affected = 0 then
+        raise exception 'insufficient_stock:%', variant_id;
+      end if;
+      continue;
+    end if;
     if (select stock from public.products where id = (item->>'productId')::uuid) is null then
       continue; -- stock null = sin control de stock para este producto
     end if;
@@ -333,8 +350,16 @@ security definer set search_path = public
 as $$
 declare
   item jsonb;
+  variant_id uuid;
 begin
   for item in select * from jsonb_array_elements(items) loop
+    variant_id := nullif(item->>'variantId', '')::uuid;
+    if variant_id is not null then
+      update public.product_variants
+      set stock = stock + (item->>'quantity')::integer
+      where id = variant_id and stock is not null;
+      continue;
+    end if;
     update public.products
     set stock = stock + (item->>'quantity')::integer
     where id = (item->>'productId')::uuid and stock is not null;
@@ -403,6 +428,42 @@ create policy "product_images_admin_update" on public.product_images
 for update to authenticated using (public.is_admin()) with check (public.is_admin());
 drop policy if exists "product_images_admin_delete" on public.product_images;
 create policy "product_images_admin_delete" on public.product_images
+for delete to authenticated using (public.is_admin());
+
+-- ── Variantes de producto (color/talla), cada una con su propio precio,
+-- stock y foto ───────────────────────────────────────────────────────────
+
+create table if not exists public.product_variants (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  color text,
+  size text,
+  price integer not null check (price >= 0),
+  stock integer check (stock is null or stock >= 0),
+  image_url text,
+  active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists product_variants_product_idx on public.product_variants (product_id, sort_order);
+
+alter table public.product_variants enable row level security;
+revoke all on public.product_variants from anon, authenticated;
+grant select on public.product_variants to anon, authenticated;
+grant insert, update, delete on public.product_variants to authenticated;
+
+drop policy if exists "product_variants_public_read" on public.product_variants;
+create policy "product_variants_public_read" on public.product_variants
+for select to anon, authenticated using (active or public.is_admin());
+drop policy if exists "product_variants_admin_insert" on public.product_variants;
+create policy "product_variants_admin_insert" on public.product_variants
+for insert to authenticated with check (public.is_admin());
+drop policy if exists "product_variants_admin_update" on public.product_variants;
+create policy "product_variants_admin_update" on public.product_variants
+for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "product_variants_admin_delete" on public.product_variants;
+create policy "product_variants_admin_delete" on public.product_variants
 for delete to authenticated using (public.is_admin());
 
 -- ── Códigos de descuento ────────────────────────────────────────────────────
@@ -783,11 +844,16 @@ grant execute on function public.admin_cancel_order(uuid) to authenticated;
 create table if not exists public.stock_alerts (
   id uuid primary key default gen_random_uuid(),
   product_id uuid not null references public.products(id) on delete cascade,
+  variant_id uuid references public.product_variants(id) on delete cascade,
   email text not null,
   created_at timestamptz not null default now(),
   notified_at timestamptz
 );
-create unique index if not exists stock_alerts_unique_pending on public.stock_alerts (product_id, lower(email)) where notified_at is null;
+alter table public.stock_alerts add column if not exists variant_id uuid references public.product_variants(id) on delete cascade;
+-- coalesce(variant_id, product_id) para que "sin variante" siga contando como
+-- una sola clave de "pendiente" por email, igual que antes de agregar variantes.
+drop index if exists stock_alerts_unique_pending;
+create unique index if not exists stock_alerts_unique_pending on public.stock_alerts (product_id, coalesce(variant_id, '00000000-0000-0000-0000-000000000000'::uuid), lower(email)) where notified_at is null;
 alter table public.stock_alerts enable row level security;
 revoke all on public.stock_alerts from anon, authenticated;
 grant insert on public.stock_alerts to anon, authenticated;
