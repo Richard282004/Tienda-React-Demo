@@ -29,10 +29,7 @@ async function customFavicon(): Promise<string | null> {
   try {
     const res = await fetch(`${base}/rest/v1/site_content?select=value&key=eq.store&limit=1`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
-      // El logo cambia rara vez; evita pegarle a Supabase en cada visita.
-      cache: 'force-cache',
-      next: { revalidate: 300 },
-    } as RequestInit);
+    });
     if (!res.ok) return null;
     const rows = (await res.json()) as { value?: { faviconUrl?: string } }[];
     return rows[0]?.value?.faviconUrl || null;
