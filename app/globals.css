@@ -508,8 +508,8 @@ h2 { font-size: clamp(34px, 3.6vw, 50px); line-height: 1.13; }
 .storefront-home .hero-notes { margin-top: 22px; padding-top: 18px; }
 .storefront-home .hero-image-wrap { max-width: 450px; }
 .storefront-home .hero-image { height: clamp(320px, 32vw, 410px); min-height: 0; }
-.storefront-home .hero-sticker { width: 80px; height: 80px; font-size: 12px; right: -5px; bottom: 22px; padding: 12px; }
-.storefront-home .hero-sticker strong { font-size: 15px; }
+.storefront-home .hero-sticker { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; width: 112px; height: 112px; padding: 10px; right: 4px; bottom: 22px; font-size: 14px; line-height: 1.15; text-align: center; }
+.storefront-home .hero-sticker strong { display: block; font-size: 17px; line-height: 1.15; white-space: nowrap; }
 .storefront-home .collection-section { padding-top: 28px; }
 .storefront-home .product-visual { aspect-ratio: 1 / 1; min-height: 0; }
 .storefront-home .product-info { display: grid; grid-template-rows: auto auto 1fr; gap: 10px; padding: 16px 4px; }
@@ -547,12 +547,38 @@ h2 { font-size: clamp(34px, 3.6vw, 50px); line-height: 1.13; }
   .storefront-home .hero-image-wrap { max-width: 300px; width: calc(100% - 32px); padding: 8px; }
   .storefront-home .hero-image { height: 220px; aspect-ratio: auto; object-position: center 65%; }
   .storefront-home .hero-scribble { top: 12px; left: -16px; font-size: 12px; }
-  .storefront-home .hero-sticker { width: 62px; height: 62px; font-size: 10px; right: -10px; bottom: 14px; }
-  .storefront-home .hero-sticker strong { font-size: 12px; }
+  .storefront-home .hero-sticker { width: 92px; height: 92px; font-size: 12px; right: 0; bottom: 14px; }
+  .storefront-home .hero-sticker strong { font-size: 14px; }
   .storefront-home .collection-section { padding-top: 20px; }
   .storefront-home .product-info { gap: 8px; padding: 12px 2px; }
   .storefront-home .product-info h3 { font-size: 19px; }
   .welcome-offer { flex-wrap: wrap; gap: 12px; padding: 16px; position: relative; }
   .welcome-offer > div { flex-basis: 100%; padding-right: 32px; }
   .welcome-offer-close { position: absolute; top: 4px; right: 4px; width: 44px; }
+}
+
+/* Respuesta breve al puntero y al toque; sin movimiento continuo. */
+.storefront-home :is(.add-button, .header-actions button, .category-tabs button, .welcome-offer-code) {
+  transition: transform 160ms var(--ease-out), background-color 160ms ease, color 160ms ease !important;
+}
+.storefront-home :is(.primary-button, .add-button, .text-link) > svg {
+  transition: transform 160ms var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .storefront-home :is(.primary-button, .add-button):not(:disabled):hover { transform: translateY(-2px); }
+  .storefront-home :is(.primary-button, .text-link):hover > svg { transform: translateX(3px); }
+  .storefront-home .add-button:not(:disabled):hover > svg { transform: rotate(90deg); }
+  .storefront-home :is(.header-actions button, .welcome-offer-code):not(:disabled):hover { transform: translateY(-2px); }
+  .storefront-home .category-tabs button:hover { transform: translateY(-1px); }
+  .storefront-home .product-card:hover { transform: translateY(-3px); }
+  .storefront-home .product-card:hover .product-visual { box-shadow: none; }
+}
+.storefront-home :is(.primary-button, .add-button, .header-actions button, .category-tabs button, .welcome-offer-code):not(:disabled):active {
+  transform: scale(.97) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .storefront-home :is(.primary-button, .add-button, .header-actions button, .category-tabs button, .welcome-offer-code, .text-link > svg, .primary-button > svg, .add-button > svg, .product-card, .product-visual, .heart-icon) {
+    transition: background-color 160ms ease, color 160ms ease !important;
+    transform: none !important;
+  }
 }
