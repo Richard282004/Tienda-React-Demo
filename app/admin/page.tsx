@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, BarChart3, Check, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Printer, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
 
 import { VariantFields } from '@/components/variant-fields';
-import { sameVariantOptions, variantValidation, type VariantValues } from '@/lib/product-variants';
+import { catalogPrice, sameVariantOptions, variantValidation, type VariantValues } from '@/lib/product-variants';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ImageCropDialog } from '@/components/image-crop-dialog';
@@ -1110,11 +1110,11 @@ export default function AdminPage() {
 </section>
 <section className="product-editor-section" aria-labelledby="product-price-heading">
 <h3 id="product-price-heading">Precio y disponibilidad</h3>
-{variants.some((variant) => variant.active) && <p className="product-editor-hint">Este producto tiene opciones activas: cada una usa su propio precio y stock. Edita esos valores en “Colores y tamaños”.</p>}
+{variants.some((variant) => variant.active) && <p className="product-editor-hint">El precio y las unidades se administran en “Colores y tamaños”. El producto general no se agrega automáticamente como otra opción. Para vender el original, créalo también allí (por ejemplo, Amarillo).</p>}
 <div className="form-grid">
-<label>Precio ({content.currency})<Input required min="0" step="any" type="number" inputMode="decimal" value={Number.isNaN(draft.price) ? '' : draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value === '' ? NaN : Number(event.target.value) })} /><small>{Number.isFinite(draft.price) ? `Se mostrará como ${formatPrice(draft.price)}` : 'Escribe el precio de venta.'}</small></label>
-<label>Unidades disponibles<Input required={draft.stock !== null} disabled={draft.stock === null} min="0" step="1" type="number" inputMode="numeric" value={draft.stock == null || Number.isNaN(draft.stock) ? '' : draft.stock} placeholder={draft.stock === null ? 'Sin límite' : 'Ej: 5'} onChange={(event) => setDraft({ ...draft, stock: event.target.value === '' ? NaN : Number(event.target.value) })} /><small>0 unidades muestra el producto como agotado.</small></label>
-<label className="full product-editor-toggle"><input type="checkbox" checked={draft.stock === null} onChange={(event) => setDraft({ ...draft, stock: event.target.checked ? null : 0 })} /> No limitar unidades disponibles</label>
+<label>{variants.some((variant) => variant.active) ? "Precio general (no se usa al vender opciones)" : `Precio (${content.currency})`}<Input disabled={variants.some((variant) => variant.active)} required min="0" step="any" type="number" inputMode="decimal" value={Number.isNaN(draft.price) ? '' : draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value === '' ? NaN : Number(event.target.value) })} /><small>{variants.some((variant) => variant.active) ? `En el catálogo: ${catalogPrice({ id: draft.id ?? '', price: draft.price }, variants.filter((variant) => variant.active), formatPrice)}` : Number.isFinite(draft.price) ? `Se mostrará como ${formatPrice(draft.price)}` : 'Escribe el precio de venta.'}</small></label>
+<label>Unidades disponibles<Input required={draft.stock !== null} disabled={draft.stock === null || variants.some((variant) => variant.active)} min="0" step="1" type="number" inputMode="numeric" value={draft.stock == null || Number.isNaN(draft.stock) ? '' : draft.stock} placeholder={draft.stock === null ? 'Sin límite' : 'Ej: 5'} onChange={(event) => setDraft({ ...draft, stock: event.target.value === '' ? NaN : Number(event.target.value) })} /><small>{variants.some((variant) => variant.active) ? 'Las unidades se controlan en cada opción.' : '0 unidades muestra el producto como agotado.'}</small></label>
+<label className="full product-editor-toggle"><input type="checkbox" disabled={variants.some((variant) => variant.active)} checked={draft.stock === null} onChange={(event) => setDraft({ ...draft, stock: event.target.checked ? null : 0 })} /> No limitar unidades disponibles</label>
 <label className="full product-editor-toggle"><input type="checkbox" checked={draft.active ?? true} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} /> Mostrar este producto en la tienda</label>
 </div>
 </section>

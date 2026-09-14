@@ -6,7 +6,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Mail, Phone, Plus, Shoppin
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ProductArtwork } from '@/components/product-artwork';
-import { variantForColor } from '@/lib/product-variants';
+import { catalogPrice, type CatalogVariant, variantForColor } from '@/lib/product-variants';
 import { encodeCartEntry } from '@/lib/cart';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { defaultProducts, defaultStoreContent, readCachedStoreContent, writeCachedStoreContent, type Product, type StoreContent } from '@/lib/store-data';
@@ -23,6 +23,7 @@ export default function ProductoPage() {
   const [images, setImages] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState(0);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [catalogVariants, setCatalogVariants] = useState<CatalogVariant[]>([]);
   const [otherVariantProductIds, setOtherVariantProductIds] = useState<Set<string>>(new Set());
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export default function ProductoPage() {
         supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
         supabase.from('products').select('*').eq('active', true).neq('id', id).order('sort_order').limit(12),
         supabase.from('product_variants').select('*').eq('product_id', id).eq('active', true).order('sort_order'),
-        supabase.from('product_variants').select('product_id').eq('active', true),
+        supabase.from('product_variants').select('product_id, price, stock').eq('active', true),
       ]);
       if (settings?.value) {
         const merged = { ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) };
@@ -81,13 +82,15 @@ export default function ProductoPage() {
       const typedProduct = productRow as Product;
       setProduct(typedProduct);
       setOtherProducts((otherRows ?? []) as Product[]);
+      setCatalogVariants((otherVariantRows ?? []) as CatalogVariant[]);
       setOtherVariantProductIds(new Set(((otherVariantRows ?? []) as { product_id: string }[]).map((row) => row.product_id)));
       const typedVariants = ((variantRows ?? []) as ProductVariant[]).map((variant) => ({ ...variant, color: variant.color?.trim() || null, size: variant.size?.trim() || null }));
       setVariants(typedVariants);
       // Preselecciona la primera variante con stock (o la primera de todas si
       // ninguna tiene) para que el precio/foto mostrados de entrada ya sean
       // los de una combinación válida.
-      const firstAvailable = typedVariants.find((variant) => variant.stock === null || variant.stock > 0) ?? typedVariants[0];
+      const pricedVariants = [...typedVariants].sort((a, b) => a.price - b.price);
+      const firstAvailable = pricedVariants.find((variant) => variant.stock === null || variant.stock > 0) ?? pricedVariants[0];
       setSelectedColor(firstAvailable?.color ?? null);
       setSelectedSize(firstAvailable?.size ?? null);
       const gallery = [typedProduct.image_url, ...((imageRows ?? []) as ProductImage[]).map((image) => image.image_url)].filter(Boolean) as string[];
@@ -326,7 +329,7 @@ export default function ProductoPage() {
                         <span className="producto-more-name">{item.name}</span>
                       </a>
                       <div className="producto-more-footer">
-                        <strong>{formatPrice(item.price)}</strong>
+                        <strong>{catalogPrice(item, catalogVariants, formatPrice)}</strong>
                         <button
                           type="button"
                           className="producto-more-add"

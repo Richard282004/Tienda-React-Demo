@@ -24,3 +24,16 @@ test('permite consultar opciones agotadas y variantes solo por tamaño', () => {
   const rows = [option(null, 'Pequeño', 0), option(null, 'Grande', 0)];
   assert.equal(variantForColor(rows, null, 'Grande'), rows[1]);
 });
+
+import { catalogPrice } from '../lib/product-variants.ts';
+const money = (price) => `$${price}`;
+const product = { id: 'p', price: 3000 };
+test('el catálogo usa precios de opciones, no el precio general', () => {
+  assert.equal(catalogPrice(product, [], money), '$3000');
+  assert.equal(catalogPrice(product, [{ product_id: 'p', price: 4000, stock: 2 }], money), '$4000');
+  assert.equal(catalogPrice(product, [{ product_id: 'p', price: 4000, stock: 2 }, { product_id: 'p', price: 3000, stock: 1 }], money), 'Desde $3000');
+});
+test('no anuncia un precio menor de una opción agotada', () => {
+  assert.equal(catalogPrice(product, [{ product_id: 'p', price: 4000, stock: 2 }, { product_id: 'p', price: 3000, stock: 0 }], money), '$4000');
+  assert.equal(catalogPrice(product, [{ product_id: 'p', price: 4000, stock: 0 }], money), '$4000');
+});

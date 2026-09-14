@@ -17,3 +17,13 @@ export function variantForColor<T extends VariantValues>(variants: T[], color: s
     ?? matches.find((variant) => (variant.size || null) === size)
     ?? matches[0];
 }
+
+export type CatalogVariant = { product_id: string; price: number; stock: number | null };
+export function catalogPrice(product: { id: string; price: number }, variants: CatalogVariant[], format: (price: number) => string): string {
+  const options = variants.filter((variant) => variant.product_id === product.id);
+  if (!options.length) return format(product.price);
+  const available = options.filter((variant) => variant.stock === null || variant.stock > 0);
+  const prices = (available.length ? available : options).map((variant) => variant.price);
+  const minimum = Math.min(...prices);
+  return `${prices.some((price) => price !== minimum) ? 'Desde ' : ''}${format(minimum)}`;
+}

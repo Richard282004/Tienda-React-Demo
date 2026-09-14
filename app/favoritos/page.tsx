@@ -1,5 +1,6 @@
 'use client';
 
+import { catalogPrice, type CatalogVariant } from '@/lib/product-variants';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Heart, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import './favoritos.css';
 export default function FavoritosPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [catalogVariants, setCatalogVariants] = useState<CatalogVariant[]>([]);
   const [variantProductIds, setVariantProductIds] = useState<Set<string>>(new Set());
   const [variantStockAvailable, setVariantStockAvailable] = useState<Map<string, boolean>>(new Map());
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
@@ -29,10 +31,11 @@ export default function FavoritosPage() {
       const [{ data: productRows }, { data: settings }, { data: variantRows }] = await Promise.all([
         supabase.from('products').select('*').eq('active', true).order('sort_order'),
         supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
-        supabase.from('product_variants').select('product_id, stock').eq('active', true),
+        supabase.from('product_variants').select('product_id, stock, price').eq('active', true),
       ]);
       setProducts((productRows ?? []) as Product[]);
-      const variantData = (variantRows ?? []) as { product_id: string; stock: number | null }[];
+      const variantData = (variantRows ?? []) as CatalogVariant[];
+        setCatalogVariants(variantData);
       setVariantProductIds(new Set(variantData.map((row) => row.product_id)));
       const stockMap = new Map<string, boolean>();
       for (const row of variantData) {
@@ -103,7 +106,7 @@ export default function FavoritosPage() {
                       <p>{product.type} · tejido a mano</p>
                       <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? 'Agotado' : 'Disponible'}</span>
                     </div>
-                    <strong>{formatPrice(product.price)}</strong>
+                    <strong>{catalogPrice(product, catalogVariants, formatPrice)}</strong>
                   </div>
                   <Button className="add-button" variant="outline" disabled={outOfStock} onClick={() => addToCart(product.id)}>Agregar <Plus size={16} /></Button>
                 </article>

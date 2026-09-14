@@ -1,5 +1,6 @@
 'use client';
 
+import { catalogPrice, type CatalogVariant } from '@/lib/product-variants';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
@@ -106,6 +107,7 @@ export default function Home() {
     });
   }, [search, products]);
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
+  const [catalogVariants, setCatalogVariants] = useState<CatalogVariant[]>([]);
   const [variantProductIds, setVariantProductIds] = useState<Set<string>>(new Set());
   // Producto con variantes: "hay stock" es cualquier variante con unidades
   // (o sin límite), no el campo stock del producto base (que con variantes
@@ -174,7 +176,7 @@ export default function Home() {
           client.from('reviews').select('*').order('created_at', { ascending: false }),
           client.from('showcase_items').select('*').eq('active', true).order('sort_order'),
           client.from('faqs').select('*').eq('active', true).order('sort_order'),
-          client.from('product_variants').select('product_id, stock').eq('active', true),
+          client.from('product_variants').select('product_id, stock, price').eq('active', true),
         ]);
         if (!active) return;
         if (catalog.error) { setStoreError('No pudimos cargar la colección. Intenta recargar la página.'); return; }
@@ -191,7 +193,8 @@ export default function Home() {
         setReviews(reviewsByProduct);
         setShowcaseItems((showcaseRows.data ?? []) as ShowcaseItem[]);
         setFaqs((faqRows.data ?? []) as Faq[]);
-        const variantData = (variantRows.data ?? []) as { product_id: string; stock: number | null }[];
+        const variantData = (variantRows.data ?? []) as CatalogVariant[];
+        setCatalogVariants(variantData);
         setVariantProductIds(new Set(variantData.map((row) => row.product_id)));
         const stockMap = new Map<string, boolean>();
         for (const row of variantData) {
@@ -482,7 +485,7 @@ export default function Home() {
           <div className="search-panel-inner page-width">
             <div className="search-field"><Search size={19} /><Input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busca llaveros, peluches o un personaje..." aria-label="Buscar en la tienda" /><button onClick={() => { setSearchOpen(false); setSearch(''); }} aria-label="Cerrar buscador"><X size={18} /></button></div>
             <div className="search-results">
-              {searchResults.length ? searchResults.map((product) => <button key={product.id} onClick={() => { setSearchOpen(false); setSearch(''); setCategory('Todo'); window.setTimeout(() => document.getElementById(`producto-${product.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0); }}><span style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></span><span><strong>{product.name}</strong><small>{product.type} · {formatPrice(product.price)}</small></span><ArrowRight size={15} /></button>) : <p>No encontramos productos con ese nombre.</p>}
+              {searchResults.length ? searchResults.map((product) => <button key={product.id} onClick={() => { setSearchOpen(false); setSearch(''); setCategory('Todo'); window.setTimeout(() => document.getElementById(`producto-${product.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0); }}><span style={{ backgroundColor: product.color }}><ProductArtwork product={product} /></span><span><strong>{product.name}</strong><small>{product.type} · {catalogPrice(product, catalogVariants, formatPrice)}</small></span><ArrowRight size={15} /></button>) : <p>No encontramos productos con ese nombre.</p>}
             </div>
           </div>
         </section>
@@ -528,13 +531,13 @@ export default function Home() {
             </div>
             <div className="product-info">
               <h3><a className="product-name-link" href={`/producto/${product.id}`}>{product.name}</a></h3>
-              <strong>{formatPrice(product.price)}</strong>
+              <strong>{catalogPrice(product, catalogVariants, formatPrice)}</strong>
               <div className="product-meta">
                 <span className={`availability-badge ${outOfStock ? 'unavailable' : 'available'}`}>{outOfStock ? 'Agotado' : lowStock ? `¡Últimas ${product.stock}!` : 'Disponible'}</span>
                 {avgRating !== null && <button className="reviews-link" onClick={() => openReviews(product)} aria-label={`Ver ${productReviews.length} reseñas de ${product.name}`}><Star size={13} fill="currentColor" /> {avgRating.toFixed(1)} ({productReviews.length})</button>}
               </div>
             </div>
-            <Button className="add-button" variant="outline" disabled={outOfStock} onClick={() => addToCart(product.id)}>Agregar a la bolsita <Plus size={16} /></Button>
+            <Button className="add-button" variant="outline" disabled={outOfStock} onClick={() => addToCart(product.id)}>{variantProductIds.has(product.id) ? 'Elegir opciones' : 'Agregar a la bolsita'} <Plus size={16} /></Button>
           </article>;
         })}</div>
       </section>
