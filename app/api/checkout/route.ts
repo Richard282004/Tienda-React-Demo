@@ -283,6 +283,8 @@ export async function POST(request: Request) {
       await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, { title: "Pedido pendiente de transferencia", body: `Pedido #${order.id.slice(0, 8)} · esperando tu confirmación`, url: `/admin?order=${order.id}` });
       const emailApiKey = env.BREVO_API_KEY;
       if (emailApiKey) {
+        // Cada correo en su propio try: si Brevo rechaza uno (ej. el del
+        // cliente, por su dominio de correo), el otro igual debe intentarse.
         try {
           await sendTransferInstructionsEmail({
             apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id,
@@ -291,6 +293,10 @@ export async function POST(request: Request) {
             holdHours: typeof storeSettings.transferHoldHours === "number" && storeSettings.transferHoldHours > 0 ? storeSettings.transferHoldHours : 48,
             storeUrl: siteUrl, shippingPayment: dispatchMethod, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale,
           });
+        } catch (error) {
+          console.error("sendTransferInstructionsEmail falló:", error instanceof Error ? error.message : error);
+        }
+        try {
           const adminEmails = parseEmailList(storeSettings.orderNotifyEmail);
           if (adminEmails.length) {
             await sendNewOrderAdminEmail({
@@ -300,8 +306,8 @@ export async function POST(request: Request) {
               items: orderItems, total, shippingPayment: dispatchMethod, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale, pendingTransfer: true,
             });
           }
-        } catch {
-          /* El correo es un complemento: el pedido ya quedó creado. */
+        } catch (error) {
+          console.error("sendNewOrderAdminEmail (transferencia) falló:", error instanceof Error ? error.message : error);
         }
       }
       return NextResponse.json({ orderId: order.id, initPoint: `${siteUrl}/pedido/confirmacion?order=${order.id}` });
