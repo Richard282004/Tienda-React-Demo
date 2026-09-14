@@ -71,6 +71,8 @@ export default function AdminPage() {
   const askConfirm = (confirmMessage: string) => new Promise<boolean>((resolve) => setConfirmState({ message: confirmMessage, resolve }));
   const closeConfirm = (ok: boolean) => { confirmState?.resolve(ok); setConfirmState(null); };
   const [productOpen, setProductOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const productSnapshot = useRef('');
   const [draft, setDraft] = useState<ProductDraft>(emptyProduct);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -476,7 +478,10 @@ export default function AdminPage() {
   };
 
   const openNewProduct = () => {
-    setDraft({ ...emptyProduct, type: content.categories[0] ?? '', sort_order: products.length + 1 });
+    setMessage('');
+    const nextDraft = { ...emptyProduct, stock: 0, type: content.categories[0] ?? '', sort_order: products.length + 1 };
+    productSnapshot.current = JSON.stringify(nextDraft);
+    setDraft(nextDraft);
     setImageFile(null);
     setImagePreview(null);
     setGallery([]);
@@ -485,7 +490,10 @@ export default function AdminPage() {
   };
 
   const openEditProduct = async (product: Product) => {
-    setDraft({ ...product, image_position_x: product.image_position_x ?? 50, image_position_y: product.image_position_y ?? 50, image_zoom: product.image_zoom ?? 1 });
+    setMessage('');
+    const nextDraft = { ...product, image_position_x: product.image_position_x ?? 50, image_position_y: product.image_position_y ?? 50, image_zoom: product.image_zoom ?? 1 };
+    productSnapshot.current = JSON.stringify(nextDraft);
+    setDraft(nextDraft);
     setImageFile(null);
     setImagePreview(null);
     setGallery([]);
@@ -578,18 +586,21 @@ export default function AdminPage() {
   // tarjeta grande, la miniatura del carrito y la galería.
   const startCrop = (files: File[], target: 'product' | 'gallery' | 'showcase' | 'variant', variantId?: string) => {
     if (!files.length) return;
+    if (files.some((file) => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024)) { setMessage('Elige fotos JPG, PNG o WebP de hasta 5 MB cada una.'); return; }
+    setMessage('');
     setCropQueue(files);
     setCropTarget(target);
     if (target === 'variant' && variantId) setCropVariantId(variantId);
   };
-  const onCropCancel = () => { setCropQueue([]); setCropTarget(null); };
+  const onCropCancel = () => { setCropQueue([]); setCropTarget(null); setGalleryBusy(false); setVariantBusy(false); };
   const uploadSingleGalleryPhoto = async (file: File) => {
     if (!supabase || !draft.id) return;
     const path = `${crypto.randomUUID()}-foto.jpg`;
     const { error: uploadError } = await supabase.storage.from('products').upload(path, file, { cacheControl: '3600' });
     if (uploadError) { setMessage(uploadError.message); return; }
     const imageUrl = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
-    await supabase.from('product_images').insert({ product_id: draft.id, image_url: imageUrl, sort_order: gallery.length });
+    const { error: galleryError } = await supabase.from('product_images').insert({ product_id: draft.id, image_url: imageUrl, sort_order: gallery.length });
+    if (galleryError) { setMessage('No pudimos añadir la foto. Inténtalo nuevamente.'); return; }
     const { data } = await supabase.from('product_images').select('*').eq('product_id', draft.id).order('sort_order');
     setGallery((data ?? []) as ProductImage[]);
   };
@@ -613,14 +624,17 @@ export default function AdminPage() {
 
   const deleteGalleryPhoto = async (id: string) => {
     if (!supabase) return;
-    await supabase.from('product_images').delete().eq('id', id);
+    const { error } = await supabase.from('product_images').delete().eq('id', id);
+    if (error) { setMessage('No pudimos quitar la foto. Inténtalo nuevamente.'); return; }
     setGallery((current) => current.filter((image) => image.id !== id));
   };
 
   const saveProduct = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!supabase) return;
+    if (!draft.name.trim() || !draft.type || !Number.isFinite(draft.price) || draft.price < 0 || (draft.stock != null && (!Number.isInteger(draft.stock) || draft.stock < 0))) { setMessage('Revisa el nombre, categoría, precio y unidades disponibles.'); return; }
     setBusy(true); setMessage('');
+    try {
     let imageUrl = draft.image_url ?? null;
     if (imageFile) {
       const safeName = imageFile.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
@@ -629,11 +643,11 @@ export default function AdminPage() {
       if (uploadError) { setBusy(false); setMessage(uploadError.message); return; }
       imageUrl = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
     }
-    const payload = { name: draft.name, description: draft.description || null, type: draft.type, price: Number(draft.price), color: draft.color, art: draft.art, image_url: imageUrl, image_position_x: Math.round(draft.image_position_x ?? 50), image_position_y: Math.round(draft.image_position_y ?? 50), image_zoom: draft.image_zoom ?? 1, tag: draft.tag || null, active: draft.active ?? true, sort_order: Number(draft.sort_order ?? 0), stock: draft.stock === null || draft.stock === undefined || Number.isNaN(Number(draft.stock)) ? null : Number(draft.stock), updated_at: new Date().toISOString() };
+    const payload = { name: draft.name.trim(), description: draft.description || null, type: draft.type, price: Number(draft.price), color: draft.color, art: draft.art, image_url: imageUrl, image_position_x: Math.round(draft.image_position_x ?? 50), image_position_y: Math.round(draft.image_position_y ?? 50), image_zoom: draft.image_zoom ?? 1, tag: draft.tag || null, active: draft.active ?? true, sort_order: Number(draft.sort_order ?? 0), stock: draft.stock === null || draft.stock === undefined || Number.isNaN(Number(draft.stock)) ? null : Number(draft.stock), updated_at: new Date().toISOString() };
     const previousStock = draft.id ? products.find((product) => product.id === draft.id)?.stock : undefined;
     const result = draft.id
-      ? await supabase.from('products').update(payload).eq('id', draft.id)
-      : await supabase.from('products').insert(payload);
+      ? await supabase.from('products').update(payload).eq('id', draft.id).select('*').single()
+      : await supabase.from('products').insert(payload).select('*').single();
     setBusy(false);
     if (result.error) { setMessage(result.error.message); return; }
     // Volvió a haber stock de algo que estaba agotado: avisa a quienes lo
@@ -651,9 +665,12 @@ export default function AdminPage() {
         }).catch(() => {});
       }
     }
-    setProductOpen(false);
-    setMessage('Producto guardado correctamente.');
+    if (result.data) { productSnapshot.current = JSON.stringify(result.data); setDraft(result.data as Product); }
+    handleImageFile(null);
+    setMessage(draft.id ? 'Cambios guardados correctamente.' : 'Producto guardado. Ya puedes añadir más fotos y opciones.');
     await loadAdminData();
+    } catch { setMessage('No pudimos completar el guardado. Revisa tu conexión y vuelve a intentarlo.'); }
+    finally { setBusy(false); }
   };
 
   const deleteProduct = async (product: Product) => {
@@ -739,7 +756,8 @@ export default function AdminPage() {
               {(Object.keys(orderStatusLabel) as OrderStatus[]).map((status) => <NativeSelectOption key={status} value={status}>{orderStatusLabel[status]}</NativeSelectOption>)}
             </NativeSelect>
             <Input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="Buscar por cliente, correo o N° de pedido" />
-            {lowStockCount > 0 && (
+            <label className="admin-product-search">Buscar producto<Input type="search" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Escribe el nombre o la categoría" /></label>
+        {lowStockCount > 0 && (
               <button type="button" className={`admin-lowstock-filter${orderLowStockOnly ? ' active' : ''}`} onClick={() => setOrderLowStockOnly((current) => !current)}>
                 <AlertTriangle size={14} /> Con stock bajo
               </button>
@@ -889,8 +907,8 @@ export default function AdminPage() {
           </button>
         )}
         {products.length > 1 && <p className="admin-section-note">Arrastra las tarjetas por el ícono <GripVertical size={12} /> para cambiar el orden en que aparecen en la tienda.</p>}
-        {(() => { const visibleProducts = showLowStockOnly ? products.filter((product) => product.stock != null && product.stock <= 5) : products; return (
-        <div className="admin-product-grid">{visibleProducts.length ? visibleProducts.map((product) => <article className={`admin-product${draggedProductId === product.id ? ' dragging' : ''}${product.stock != null && product.stock <= 5 ? ' low-stock' : ''}`} key={product.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (draggedProductId) void reorderProducts(draggedProductId, product.id); setDraggedProductId(null); }}><button type="button" className="admin-product-handle" aria-label={`Arrastrar para reordenar ${product.name}`} draggable onDragStart={() => setDraggedProductId(product.id)} onDragEnd={() => setDraggedProductId(null)}><GripVertical size={16} /></button><div className="admin-product-image" style={{ backgroundColor: product.color }}>{product.image_url ? <img src={product.image_url} alt={product.name} style={{ objectPosition: `${product.image_position_x ?? 50}% ${product.image_position_y ?? 50}%`, transform: `scale(${product.image_zoom ?? 1})` }} /> : product.art}</div><div className="admin-product-info"><span>{product.type} · {product.active ? 'Publicado' : 'Oculto'}</span><h3>{product.name}</h3><strong>{formatPrice(product.price)}</strong>{product.stock != null && product.stock <= 5 && <small className="admin-product-lowstock-badge"><AlertTriangle size={11} /> Quedan {product.stock}</small>}</div><div className="admin-product-actions"><Button size="icon-sm" variant="outline" onClick={() => openEditProduct(product)} aria-label={`Editar ${product.name}`}><Pencil /></Button><Button size="icon-sm" variant="destructive" onClick={() => deleteProduct(product)} aria-label={`Eliminar ${product.name}`}><Trash2 /></Button></div></article>) : showLowStockOnly ? <div className="admin-empty"><AlertTriangle size={34} /><h3>Sin stock bajo</h3><p>Ningún producto está en el umbral de stock bajo ahora mismo.</p></div> : <div className="admin-empty"><ImagePlus size={34} /><h3>Aún no hay productos</h3><p>Crea el primero para mostrarlo en la tienda.</p><Button onClick={openNewProduct}>Crear producto</Button></div>}</div>); })()}
+        {(() => { const visibleProducts = products.filter((product) => (!showLowStockOnly || (product.stock != null && product.stock <= 5)) && `${product.name} ${product.type}`.toLocaleLowerCase('es').includes(productSearch.trim().toLocaleLowerCase('es'))); return (
+        <div className="admin-product-grid">{visibleProducts.length ? visibleProducts.map((product) => <article className={`admin-product${draggedProductId === product.id ? ' dragging' : ''}${product.stock != null && product.stock <= 5 ? ' low-stock' : ''}`} key={product.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (draggedProductId) void reorderProducts(draggedProductId, product.id); setDraggedProductId(null); }}><button type="button" className="admin-product-handle" aria-label={`Arrastrar para reordenar ${product.name}`} draggable onDragStart={() => setDraggedProductId(product.id)} onDragEnd={() => setDraggedProductId(null)}><GripVertical size={16} /></button><div className="admin-product-image" style={{ backgroundColor: product.color }}>{product.image_url ? <img src={product.image_url} alt={product.name} style={{ objectPosition: `${product.image_position_x ?? 50}% ${product.image_position_y ?? 50}%`, transform: `scale(${product.image_zoom ?? 1})` }} /> : product.art}</div><div className="admin-product-info"><span>{product.type} · {product.active ? 'Publicado' : 'Oculto'}</span><h3>{product.name}</h3><strong>{formatPrice(product.price)}</strong>{product.stock != null && product.stock <= 5 && <small className="admin-product-lowstock-badge"><AlertTriangle size={11} /> Quedan {product.stock}</small>}</div><div className="admin-product-actions"><Button size="sm" variant="outline" onClick={() => openEditProduct(product)} aria-label={`Editar ${product.name}`}><Pencil /> Editar</Button><Button size="icon-sm" variant="destructive" onClick={() => deleteProduct(product)} aria-label={`Eliminar ${product.name}`}><Trash2 /></Button></div></article>) : productSearch.trim() ? <div className="admin-empty"><h3>No encontramos ese producto</h3><p>Prueba con otro nombre o borra la búsqueda.</p><Button variant="outline" onClick={() => setProductSearch('')}>Borrar búsqueda</Button></div> : showLowStockOnly ? <div className="admin-empty"><AlertTriangle size={34} /><h3>Sin stock bajo</h3><p>Ningún producto está en el umbral de stock bajo ahora mismo.</p></div> : <div className="admin-empty"><ImagePlus size={34} /><h3>Aún no hay productos</h3><p>Crea el primero para mostrarlo en la tienda.</p><Button onClick={openNewProduct}>Crear producto</Button></div>}</div>); })()}
       </TabsContent>
       <TabsContent value="discounts">
         <div className="admin-section-heading"><div><h2>Códigos de descuento</h2><p>{discounts.length} códigos creados</p></div></div>
@@ -1061,15 +1079,46 @@ export default function AdminPage() {
       </TabsContent>
     </Tabs>
 
-    <Dialog open={productOpen} onOpenChange={setProductOpen}><DialogContent className="product-dialog"><DialogHeader><DialogTitle>{draft.id ? 'Editar producto' : 'Nuevo producto'}</DialogTitle><DialogDescription>Los cambios publicados aparecerán en la tienda.</DialogDescription></DialogHeader><form className="product-form" onSubmit={saveProduct}><div className="form-grid"><label>Nombre<Input required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label><label className="full">Descripción<Textarea value={draft.description ?? ''} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Describe el producto: material, tamaño, detalles..." /></label><label>Categoría<NativeSelect className="admin-select" value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })}>{content.categories.map((item) => <NativeSelectOption key={item} value={item}>{item}</NativeSelectOption>)}</NativeSelect></label><label>Precio en {content.currency}<Input required min="0" type="number" inputMode="numeric" value={draft.price} onChange={(event) => setDraft({ ...draft, price: Number(event.target.value) })} /></label><label>Stock (vacío = sin límite)<Input min="0" type="number" inputMode="numeric" value={draft.stock ?? ''} placeholder="Sin límite" onChange={(event) => setDraft({ ...draft, stock: event.target.value === '' ? null : Number(event.target.value) })} /></label><label>Color<Input type="color" value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })} /></label><label>Emoji<Input value={draft.art} onChange={(event) => setDraft({ ...draft, art: event.target.value })} /></label><label>Etiqueta<Input value={draft.tag ?? ''} placeholder="Nuevo, Más vendido…" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} /></label><label>Visibilidad<NativeSelect className="admin-select" value={draft.active ? 'active' : 'hidden'} onChange={(event) => setDraft({ ...draft, active: event.target.value === 'active' })}><NativeSelectOption value="active">Publicado</NativeSelectOption><NativeSelectOption value="hidden">Oculto</NativeSelectOption></NativeSelect></label><label className="full upload-field"><span>Fotografía</span><div><Upload size={18} /><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) startCrop([file], 'product'); event.target.value = ''; }} /><small>{imageFile?.name ?? (draft.image_url ? 'Se conservará la foto actual' : 'PNG, JPG o WebP · máximo 5 MB')}</small></div></label>
-{(imagePreview ?? draft.image_url) && <div className="full image-adjust-preview"><img src={imagePreview ?? draft.image_url ?? ''} alt="Vista previa" style={{ objectPosition: `${draft.image_position_x ?? 50}% ${draft.image_position_y ?? 50}%`, transformOrigin: `${draft.image_position_x ?? 50}% ${draft.image_position_y ?? 50}%`, transform: `scale(${draft.image_zoom ?? 1})` }} /></div>}
+    <Dialog open={productOpen} onOpenChange={async (open) => {
+      if (busy || galleryBusy || variantBusy) return;
+      if (!open && (imageFile || JSON.stringify(draft) !== productSnapshot.current) && !(await askConfirm('Hay cambios del producto sin guardar. ¿Cerrar y descartarlos? Las fotos adicionales y opciones ya guardadas se conservarán.'))) return;
+      setProductOpen(open);
+    }}><DialogContent className="product-dialog"><DialogHeader><DialogTitle>{draft.id ? 'Editar producto' : 'Agregar producto'}</DialogTitle><DialogDescription>Completa lo esencial. Puedes añadir más fotos y opciones después.</DialogDescription></DialogHeader><form className="product-form product-editor" onSubmit={saveProduct}><div className="product-editor-scroll">
+<section className="product-editor-section" aria-labelledby="product-photos-heading">
+  <h3 id="product-photos-heading">Fotos</h3>
+  <p>La foto principal aparece en el catálogo. Elige una imagen clara donde se vea completo el producto.</p>
+  <div className="product-photo-editor">
+    <div className="product-photo-preview">{(imagePreview ?? draft.image_url) ? <img src={imagePreview ?? draft.image_url ?? ''} alt="Foto principal del producto" style={{ objectPosition: `${draft.image_position_x ?? 50}% ${draft.image_position_y ?? 50}%`, transformOrigin: `${draft.image_position_x ?? 50}% ${draft.image_position_y ?? 50}%`, transform: `scale(${draft.image_zoom ?? 1})` }} /> : <ImagePlus size={42} />}</div>
+    <div><label className="product-photo-upload"><Upload size={18} /> {(imagePreview ?? draft.image_url) ? 'Cambiar foto principal' : 'Subir foto principal'}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) startCrop([file], 'product'); event.target.value = ''; }} /></label><small>JPG, PNG o WebP · hasta 5 MB. Podrás ajustar el recorte antes de usarla.</small>{imageFile && <p className="product-photo-pending">Foto lista. Se subirá al guardar el producto.</p>}</div>
+  </div>
 {draft.id && <div className="full gallery-manager">
-  <span className="gallery-manager-label">Fotos adicionales (galería)</span>
+  <span className="gallery-manager-label">Más fotos del producto</span><p className="admin-section-note">Puedes seleccionar varias. Se guardan al terminar cada recorte.</p>
   <div className="gallery-manager-grid">
     {gallery.map((image) => <div className="gallery-manager-item" key={image.id}><img src={image.image_url} alt="" /><button type="button" onClick={() => deleteGalleryPhoto(image.id)} aria-label="Eliminar foto"><Trash2 size={14} /></button></div>)}
     <label className="gallery-manager-add">{galleryBusy ? '...' : <><Upload size={16} /> Agregar</>}<input type="file" multiple accept="image/png,image/jpeg,image/webp" disabled={galleryBusy} onChange={(event) => { addGalleryPhotos(event.target.files); event.target.value = ''; }} /></label>
   </div>
 </div>}
+{!draft.id && <p className="admin-section-note">Guarda el producto para añadir más fotos desde aquí, sin cerrar esta ventana.</p>}
+</section>
+<section className="product-editor-section" aria-labelledby="product-details-heading">
+<h3 id="product-details-heading">Datos del producto</h3>
+<div className="form-grid">
+<label className="full">Nombre del producto<Input required maxLength={160} value={draft.name} placeholder="Ej: Llavero de conejito" onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+<label>Categoría<NativeSelect required className="admin-select" value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })}>{content.categories.map((item) => <NativeSelectOption key={item} value={item}>{item}</NativeSelectOption>)}</NativeSelect></label>
+<label className="full">Descripción <span className="product-field-optional">Opcional</span><Textarea rows={3} value={draft.description ?? ''} onChange={(event) => setDraft({ ...draft, description: event.target.value })} placeholder="Cuenta de qué está hecho, cuánto mide y qué incluye." /></label>
+</div>
+</section>
+<section className="product-editor-section" aria-labelledby="product-price-heading">
+<h3 id="product-price-heading">Precio y disponibilidad</h3>
+{variants.some((variant) => variant.active) && <p className="product-editor-hint">Este producto tiene opciones activas: cada una usa su propio precio y stock. Edita esos valores en “Colores y tamaños”.</p>}
+<div className="form-grid">
+<label>Precio ({content.currency})<Input required min="0" step="any" type="number" inputMode="decimal" value={Number.isNaN(draft.price) ? '' : draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value === '' ? NaN : Number(event.target.value) })} /><small>{Number.isFinite(draft.price) ? `Se mostrará como ${formatPrice(draft.price)}` : 'Escribe el precio de venta.'}</small></label>
+<label>Unidades disponibles<Input required={draft.stock !== null} disabled={draft.stock === null} min="0" step="1" type="number" inputMode="numeric" value={draft.stock == null || Number.isNaN(draft.stock) ? '' : draft.stock} placeholder={draft.stock === null ? 'Sin límite' : 'Ej: 5'} onChange={(event) => setDraft({ ...draft, stock: event.target.value === '' ? NaN : Number(event.target.value) })} /><small>0 unidades muestra el producto como agotado.</small></label>
+<label className="full product-editor-toggle"><input type="checkbox" checked={draft.stock === null} onChange={(event) => setDraft({ ...draft, stock: event.target.checked ? null : 0 })} /> No limitar unidades disponibles</label>
+<label className="full product-editor-toggle"><input type="checkbox" checked={draft.active ?? true} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} /> Mostrar este producto en la tienda</label>
+</div>
+</section>
+<details className="product-editor-extra"><summary>Colores y tamaños <span>Opcional{variants.length ? ` · ${variants.length} opciones` : ''}</span></summary><div className="product-editor-extra-body">
 {!draft.id && <p className="full admin-section-note">¿Este diseño tiene colores o tamaños? Guarda primero el producto; después podrás crear sus opciones con precio, stock y foto propios.</p>}
 {draft.id && <div className="full variant-manager">
   <span className="gallery-manager-label">Opciones del producto</span>
@@ -1090,7 +1139,9 @@ export default function AdminPage() {
   <p className="admin-section-note">0 unidades significa agotado. “No limitar unidades” permite vender sin descontar existencias. Guarda cada opción con su propio botón; la foto y “Activa” se guardan al cambiarlas.</p>
   <VariantFields key={draft.id} creating initial={{ color: null, size: null, price: draft.price, stock: 0 }} onSave={addVariant} />
 </div>}
-</div>{message && <p className="admin-message">{message}</p>}<Button disabled={busy} type="submit" className="save-product"><Save size={17} /> {busy ? 'Guardando…' : 'Guardar producto'}</Button></form></DialogContent></Dialog>
+</div></details>
+<details className="product-editor-extra"><summary>Detalles de apariencia <span>Opcional</span></summary><div className="product-editor-extra-body form-grid"><label className="full">Etiqueta sobre la foto<Input value={draft.tag ?? ''} placeholder="Ej: Nuevo" onChange={(event) => setDraft({ ...draft, tag: event.target.value })} /></label><label>Fondo de la tarjeta<Input type="color" value={draft.color} onChange={(event) => setDraft({ ...draft, color: event.target.value })} /></label><label>Símbolo si no hay foto<Input value={draft.art} onChange={(event) => setDraft({ ...draft, art: event.target.value })} /></label></div></details>
+</div><div className="product-editor-footer">{message && <p className="admin-message" role="status">{message}</p>}<p>{draft.active ? 'Al guardar, los cambios serán visibles en la tienda.' : 'Se guardará oculto. Podrás mostrarlo cuando esté listo.'}</p><Button disabled={busy || galleryBusy || variantBusy || cropQueue.length > 0} type="submit" className="save-product"><Save size={17} /> {busy ? 'Guardando…' : draft.id ? 'Guardar cambios' : 'Guardar y continuar'}</Button></div></form></DialogContent></Dialog>
 
     <ImageCropDialog file={cropQueue[0] ?? null} onCancel={onCropCancel} onConfirm={onCropConfirm} />
 
