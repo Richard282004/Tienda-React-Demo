@@ -489,30 +489,6 @@ export default function Home() {
         <div className="hero-image-wrap"><div className="hero-scribble">para regalar<br />o regalarte <span>♡</span></div><img src="/lumina-hero.jpg" alt="Tres productos de crochet: un conejo, un oso y un hongo" className="hero-image" width={1122} height={1402} fetchPriority="high" /><div className="hero-sticker">nuevos<br /><strong>amiguitos</strong></div></div>
       </section>
 
-      <section className="work-showcase" aria-label="Trabajos recientes">
-        <div className="showcase-heading page-width"><div><p className="section-kicker">Trabajos recientes</p><h2>Hechos para <em>acompañarte</em></h2></div><div className="carousel-controls"><button className="pause-carousel" aria-label={carouselPaused ? 'Reanudar carrusel automático' : 'Pausar carrusel automático'} onClick={() => setCarouselPaused((paused) => !paused)}>{carouselPaused ? <Play size={16} /> : <Pause size={16} />}</button><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
-        <Carousel setApi={setCarouselApi} opts={{ loop: true, align: 'start' }} className="work-carousel page-width" onMouseEnter={() => setCarouselHovering(true)} onMouseLeave={() => setCarouselHovering(false)}>
-          <CarouselContent className="carousel-track">
-            {showcaseItems.length > 0
-              ? showcaseItems.map((item) => (
-                <CarouselItem className="work-slide" key={item.id}>
-                  <article className="work-card work-card-photo"><img src={item.image_url} alt={item.title} /><div><h3>{item.title}</h3>{item.subtitle && <p>{item.subtitle}</p>}</div></article>
-                </CarouselItem>
-              ))
-              : products.map((product, index) => (
-                <CarouselItem className="work-slide" key={`${product.id}-${index}`}>
-                  <article className="work-card" style={{ backgroundColor: product.color, cursor: 'pointer' }} onClick={() => { window.location.href = `/producto/${product.id}`; }} role="link" tabIndex={0} aria-label={`Ver ${product.name}`} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.location.href = `/producto/${product.id}`; } }}>
-                    <div className="work-art"><ProductArtwork product={product} /></div>
-                    <h3>{product.name}</h3>
-                  </article>
-                </CarouselItem>
-              ))}
-          </CarouselContent>
-        </Carousel>
-      </section>
-
-      <section className="category-strip page-width" aria-label="Categorías destacadas"><div><span className="category-icon pink">♡</span><span>{content.categoryText1}</span></div><div><span className="category-icon yellow">✳</span><span>{content.categoryText2}</span></div><div><span className="category-icon lilac">⌁</span><span>{content.categoryText3}</span></div></section>
-
       <section id="tienda" className="collection-section page-width">
         <div className="section-heading"><div><p className="section-kicker">La colección</p><h2>Elige tu nuevo <em>favorito</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'Todo' ? 'Todo' : item}</button>)}</div></div>
         {storeLoading && <p className="store-feedback" role="status">Preparando la colección…</p>}
@@ -547,6 +523,30 @@ export default function Home() {
             <Button className="add-button" variant="outline" disabled={outOfStock} onClick={() => addToCart(product.id)}>Agregar a la bolsita <Plus size={16} /></Button>
           </article>;
         })}</div>
+      </section>
+
+      <section className="category-strip page-width" aria-label="Categorías destacadas"><div><span className="category-icon pink">♡</span><span>{content.categoryText1}</span></div><div><span className="category-icon yellow">✳</span><span>{content.categoryText2}</span></div><div><span className="category-icon lilac">⌁</span><span>{content.categoryText3}</span></div></section>
+
+      <section className="work-showcase" aria-label="Trabajos recientes">
+        <div className="showcase-heading page-width"><div><p className="section-kicker">Trabajos recientes</p><h2>Hechos para <em>acompañarte</em></h2></div><div className="carousel-controls"><button className="pause-carousel" aria-label={carouselPaused ? 'Reanudar carrusel automático' : 'Pausar carrusel automático'} onClick={() => setCarouselPaused((paused) => !paused)}>{carouselPaused ? <Play size={16} /> : <Pause size={16} />}</button><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
+        <Carousel setApi={setCarouselApi} opts={{ loop: true, align: 'start' }} className="work-carousel page-width" onMouseEnter={() => setCarouselHovering(true)} onMouseLeave={() => setCarouselHovering(false)}>
+          <CarouselContent className="carousel-track">
+            {showcaseItems.length > 0
+              ? showcaseItems.map((item) => (
+                <CarouselItem className="work-slide" key={item.id}>
+                  <article className="work-card work-card-photo"><img src={item.image_url} alt={item.title} /><div><h3>{item.title}</h3>{item.subtitle && <p>{item.subtitle}</p>}</div></article>
+                </CarouselItem>
+              ))
+              : products.map((product, index) => (
+                <CarouselItem className="work-slide" key={`${product.id}-${index}`}>
+                  <article className="work-card" style={{ backgroundColor: product.color, cursor: 'pointer' }} onClick={() => { window.location.href = `/producto/${product.id}`; }} role="link" tabIndex={0} aria-label={`Ver ${product.name}`} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.location.href = `/producto/${product.id}`; } }}>
+                    <div className="work-art"><ProductArtwork product={product} /></div>
+                    <h3>{product.name}</h3>
+                  </article>
+                </CarouselItem>
+              ))}
+          </CarouselContent>
+        </Carousel>
       </section>
 
       {faqs.length > 0 && <section className="faq-section page-width" aria-label="Preguntas frecuentes">
