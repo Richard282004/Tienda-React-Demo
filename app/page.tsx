@@ -501,10 +501,9 @@ export default function Home() {
               ))
               : products.map((product, index) => (
                 <CarouselItem className="work-slide" key={`${product.id}-${index}`}>
-                  <article className="work-card" style={{ backgroundColor: product.color }}>
+                  <article className="work-card" style={{ backgroundColor: product.color, cursor: 'pointer' }} onClick={() => { window.location.href = `/producto/${product.id}`; }} role="link" tabIndex={0} aria-label={`Ver ${product.name}`} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.location.href = `/producto/${product.id}`; } }}>
                     <div className="work-art"><ProductArtwork product={product} /></div>
-                    <div><span>{product.type}</span><h3>{product.name}</h3><p>{formatPrice(product.price)}</p></div>
-                    <Button aria-label={`Agregar ${product.name} al carrito`} size="icon" className="quick-add" onClick={() => addToCart(product.id)}><Plus size={17} /></Button>
+                    <h3>{product.name}</h3>
                   </article>
                 </CarouselItem>
               ))}
