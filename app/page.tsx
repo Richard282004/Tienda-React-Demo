@@ -577,9 +577,13 @@ export default function Home() {
         <div className="faq-list">
           {faqs.map((faq) => {
             const isOpen = openFaq === faq.id;
+            const answerId = `faq-answer-${faq.id}`;
             return <div className={`faq-item ${isOpen ? 'open' : ''}`} key={faq.id}>
-              <button type="button" onClick={() => setOpenFaq(isOpen ? null : faq.id)} aria-expanded={isOpen}>{faq.question}<Plus size={16} className="faq-toggle-icon" /></button>
-              {isOpen && <p>{faq.answer}</p>}
+              <button type="button" onClick={() => setOpenFaq(isOpen ? null : faq.id)} aria-expanded={isOpen} aria-controls={answerId}>
+                <span>{faq.question}</span>
+                <span className="faq-toggle-icon"><Plus size={16} /></span>
+              </button>
+              <div className="faq-answer" id={answerId} aria-hidden={!isOpen}><div className="faq-answer-inner"><p>{faq.answer}</p></div></div>
             </div>;
           })}
         </div>
