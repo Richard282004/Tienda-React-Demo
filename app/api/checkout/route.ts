@@ -6,6 +6,7 @@ import {
   type CheckoutPayload,
 } from "@/lib/checkout-validation";
 import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderConfirmationEmail, sendTransferInstructionsEmail } from "@/lib/email";
+import { getIntegrationSecrets } from "@/lib/integrations";
 import { createMercadoPagoPreference } from "@/lib/mercadopago";
 import { notifyAdminSubscribers } from "@/lib/web-push";
 import { variantLabel } from "@/lib/orders";
@@ -25,8 +26,7 @@ export async function POST(request: Request) {
 
   const supabaseUrl = env.VITE_SUPABASE_URL;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
-  const mpAccessToken = env.MP_ACCESS_TOKEN;
-  if (!supabaseUrl || !serviceRoleKey || !mpAccessToken) {
+  if (!supabaseUrl || !serviceRoleKey) {
     return NextResponse.json(
       { error: "El pago no está disponible por el momento. Inténtalo más tarde." },
       { status: 503 },
@@ -53,6 +53,7 @@ export async function POST(request: Request) {
   }
   try {
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+    const { mpAccessToken, brevoApiKey: emailApiKey, brevoFromEmail: fromEmail } = await getIntegrationSecrets(supabase, env as Record<string, string | undefined>);
     // Si el cliente tiene sesión iniciada, el pedido queda vinculado a su
     // cuenta para que aparezca en "Mis pedidos". Sin token, el pedido igual
     // se crea normalmente (compra como invitado).
@@ -252,10 +253,9 @@ export async function POST(request: Request) {
     }
     if (isFreeOrder) {
       await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, { title: "Nuevo pedido confirmado", body: `Pedido #${order.id.slice(0, 8)}`, url: `/admin?order=${order.id}` });
-      const emailApiKey = env.BREVO_API_KEY;
       if (emailApiKey) {
         try {
-          await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, shippingPayment: dispatchMethod, fromEmail: env.BREVO_FROM_EMAIL });
+          await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, shippingPayment: dispatchMethod, fromEmail });
           // Pedido gratis (100% descuento): no pasa por el webhook de Mercado
           // Pago, así que el aviso al admin y el de stock bajo van desde aquí.
           const adminEmails = parseEmailList(storeSettings.orderNotifyEmail);
@@ -264,12 +264,12 @@ export async function POST(request: Request) {
               apiKey: emailApiKey, to: adminEmails, orderId: order.id,
               customerName: payload.customerName, customerEmail: payload.customerEmail, customerPhone: payload.customerPhone,
               region: payload.region, comuna: payload.comuna, address: payload.address, addressExtra: payload.addressExtra || null,
-              items: orderItems, total, shippingPayment: dispatchMethod, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale,
+              items: orderItems, total, shippingPayment: dispatchMethod, brandName, fromEmail, currency, locale,
             });
             const threshold = typeof storeSettings.lowStockThreshold === "number" ? storeSettings.lowStockThreshold : 5;
             const { data: stockRows } = await supabase.from("products").select("name, stock").in("id", orderItems.map((item) => item.productId));
             const low = (stockRows ?? []).filter((row): row is { name: string; stock: number } => typeof row.stock === "number" && row.stock <= threshold);
-            if (low.length) await sendLowStockAdminEmail({ apiKey: emailApiKey, to: adminEmails, products: low, threshold, brandName, fromEmail: env.BREVO_FROM_EMAIL });
+            if (low.length) await sendLowStockAdminEmail({ apiKey: emailApiKey, to: adminEmails, products: low, threshold, brandName, fromEmail });
           }
         } catch {
           /* El correo es un complemento: si falla, el pedido sigue su curso normal. */
@@ -281,7 +281,6 @@ export async function POST(request: Request) {
     if (isTransfer) {
       const siteUrl = new URL(request.url).origin;
       await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, { title: "Pedido pendiente de transferencia", body: `Pedido #${order.id.slice(0, 8)} · esperando tu confirmación`, url: `/admin?order=${order.id}` });
-      const emailApiKey = env.BREVO_API_KEY;
       if (emailApiKey) {
         // Cada correo en su propio try: si Brevo rechaza uno (ej. el del
         // cliente, por su dominio de correo), el otro igual debe intentarse.
@@ -291,7 +290,7 @@ export async function POST(request: Request) {
             items: orderItems, total,
             transferDetails: storeSettings.transferDetails!.trim(),
             holdHours: typeof storeSettings.transferHoldHours === "number" && storeSettings.transferHoldHours > 0 ? storeSettings.transferHoldHours : 48,
-            storeUrl: siteUrl, shippingPayment: dispatchMethod, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale,
+            storeUrl: siteUrl, shippingPayment: dispatchMethod, brandName, fromEmail, currency, locale,
           });
         } catch (error) {
           console.error("sendTransferInstructionsEmail falló:", error instanceof Error ? error.message : error);
@@ -303,7 +302,7 @@ export async function POST(request: Request) {
               apiKey: emailApiKey, to: adminEmails, orderId: order.id,
               customerName: payload.customerName, customerEmail: payload.customerEmail, customerPhone: payload.customerPhone,
               region: payload.region, comuna: payload.comuna, address: payload.address, addressExtra: payload.addressExtra || null,
-              items: orderItems, total, shippingPayment: dispatchMethod, brandName, fromEmail: env.BREVO_FROM_EMAIL, currency, locale, pendingTransfer: true,
+              items: orderItems, total, shippingPayment: dispatchMethod, brandName, fromEmail, currency, locale, pendingTransfer: true,
             });
           }
         } catch (error) {
@@ -313,6 +312,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ orderId: order.id, initPoint: `${siteUrl}/pedido/confirmacion?order=${order.id}` });
     }
 
+    if (!mpAccessToken) {
+      await supabase.from("orders").update({ status: "cancelled" }).eq("id", order.id);
+      return NextResponse.json({ error: "El pago no está disponible por el momento. Inténtalo más tarde." }, { status: 503 });
+    }
     try {
       const { preferenceId, initPoint } = await createMercadoPagoPreference({
         accessToken: mpAccessToken,
@@ -329,10 +332,9 @@ export async function POST(request: Request) {
         currency,
       });
       await supabase.from("orders").update({ mp_preference_id: preferenceId }).eq("id", order.id);
-      const emailApiKey = env.BREVO_API_KEY;
       if (emailApiKey) {
         try {
-          await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, shippingPayment: dispatchMethod, fromEmail: env.BREVO_FROM_EMAIL });
+          await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, shippingPayment: dispatchMethod, fromEmail });
         } catch {
           /* El correo es un complemento: si falla, el pedido sigue su curso normal. */
         }

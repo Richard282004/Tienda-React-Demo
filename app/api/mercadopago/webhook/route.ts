@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderStatusEmail, sendReceiptEmail } from "@/lib/email";
 import { formatPrice } from "@/lib/currency";
+import { getIntegrationSecrets } from "@/lib/integrations";
 import { fetchMercadoPagoPayment } from "@/lib/mercadopago";
 import { generateReceiptPdf, uint8ToBase64 } from "@/lib/receipt";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -28,8 +29,7 @@ export async function POST(request: Request) {
 
   const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-  const mpAccessToken = env.MP_ACCESS_TOKEN as string | undefined;
-  if (!supabaseUrl || !serviceRoleKey || !mpAccessToken)
+  if (!supabaseUrl || !serviceRoleKey)
     return NextResponse.json({ ok: false }, { status: 503 });
 
   const url = new URL(request.url);
@@ -42,9 +42,11 @@ export async function POST(request: Request) {
   if (!/^\d+$/.test(paymentId)) return NextResponse.json({ ok: false }, { status: 400 });
 
   try {
+    const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+    const { mpAccessToken, brevoApiKey: emailApiKey, brevoFromEmail: fromEmail } = await getIntegrationSecrets(supabase, env as Record<string, string | undefined>);
+    if (!mpAccessToken) return NextResponse.json({ ok: false }, { status: 503 });
     const payment = await fetchMercadoPagoPayment(mpAccessToken, paymentId);
     const orderStatus = paymentStatusToOrderStatus[payment.status] ?? "pending";
-    const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
     const { data: existingOrder } = await supabase
       .from("orders")
       .select("status, items, total, customer_name, customer_email, customer_phone, region, comuna, address, address_extra, shipping_payment, shipping_carrier")
@@ -65,13 +67,11 @@ export async function POST(request: Request) {
         url: `/admin?order=${payment.external_reference}`,
       });
     }
-    const emailApiKey = env.BREVO_API_KEY as string | undefined;
     if (emailApiKey && existingOrder && effectiveStatus !== "payment_review") {
       try {
         const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
         const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; currency?: string; locale?: string; lowStockThreshold?: number; faviconUrl?: string } | undefined;
         const brandName = store?.brandName || "Tu tienda";
-        const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
         const adminEmails = parseEmailList(store?.orderNotifyEmail);
         if (orderStatus === "paid") {
           // El comprobante con el detalle del pago reemplaza el correo

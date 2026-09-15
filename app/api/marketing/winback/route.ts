@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { sendWinbackEmail } from "@/lib/email";
+import { getIntegrationSecrets } from "@/lib/integrations";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 // Correo "vuelve" a clientes que compraron hace entre 30 y 120 días y no han
@@ -28,11 +29,11 @@ export async function POST(request: Request) {
 
   const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-  const emailApiKey = env.BREVO_API_KEY as string | undefined;
   if (!supabaseUrl || !serviceRoleKey) return NextResponse.json({ ok: false }, { status: 503 });
-  if (!emailApiKey) return NextResponse.json({ ok: true, sent: 0, note: "sin correo" });
 
   const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+  const { brevoApiKey: emailApiKey, brevoFromEmail: fromEmail } = await getIntegrationSecrets(supabase, env as Record<string, string | undefined>);
+  if (!emailApiKey) return NextResponse.json({ ok: true, sent: 0, note: "sin correo" });
   const since = new Date(Date.now() - MAX_DAYS * 86_400_000).toISOString();
   const { data: rows } = await supabase
     .from("orders")
@@ -76,7 +77,6 @@ export async function POST(request: Request) {
   const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
   const store = settings?.value as { brandName?: string; winbackCode?: string } | undefined;
   const brandName = store?.brandName || "Tu tienda";
-  const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
   const storeUrl = new URL(request.url).origin;
 
   let sent = 0;

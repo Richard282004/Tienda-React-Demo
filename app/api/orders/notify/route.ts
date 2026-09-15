@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { parseEmailList, sendLowStockAdminEmail, sendNewOrderAdminEmail, sendOrderStatusEmail } from "@/lib/email";
 import { formatPrice } from "@/lib/currency";
+import { getIntegrationSecrets } from "@/lib/integrations";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { notifyAdminSubscribers } from "@/lib/web-push";
 
@@ -11,13 +12,13 @@ type OrderItem = { productId: string; name: string; quantity: number };
 export async function POST(request: Request) {
   const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-  const emailApiKey = env.BREVO_API_KEY as string | undefined;
   if (!supabaseUrl || !serviceRoleKey) return NextResponse.json({ ok: false }, { status: 503 });
 
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
 
   const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+  const { brevoApiKey: emailApiKey, brevoFromEmail: fromEmail } = await getIntegrationSecrets(supabase, env as Record<string, string | undefined>);
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData.user) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
 
@@ -40,8 +41,6 @@ export async function POST(request: Request) {
     const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
     const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; lowStockThreshold?: number; currency?: string; locale?: string; faviconUrl?: string } | undefined;
     const brandName = store?.brandName || "Tu tienda";
-    const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
-
 
     // Al confirmar un pago (típicamente una transferencia aprobada a mano),
     // revisa el stock igual que haría el webhook de Mercado Pago.

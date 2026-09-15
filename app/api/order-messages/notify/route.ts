@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 
 import { parseEmailList, sendOrderChatMessageEmail } from "@/lib/email";
+import { getIntegrationSecrets } from "@/lib/integrations";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 // El mensaje ya se guardó (insert directo desde el cliente vía Supabase, para
@@ -10,14 +11,15 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 export async function POST(request: Request) {
   const supabaseUrl = env.VITE_SUPABASE_URL;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
-  const emailApiKey = env.BREVO_API_KEY;
-  if (!supabaseUrl || !serviceRoleKey || !emailApiKey) return NextResponse.json({ ok: false }, { status: 503 });
+  if (!supabaseUrl || !serviceRoleKey) return NextResponse.json({ ok: false }, { status: 503 });
 
   const payload = (await request.json().catch(() => null)) as { orderId?: string; senderRole?: "admin" | "customer"; body?: string } | null;
   if (!payload?.orderId || !payload.senderRole || !payload.body?.trim()) return NextResponse.json({ ok: false }, { status: 400 });
 
   try {
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+    const { brevoApiKey: emailApiKey, brevoFromEmail: fromEmail } = await getIntegrationSecrets(supabase, env as Record<string, string | undefined>);
+    if (!emailApiKey) return NextResponse.json({ ok: false }, { status: 503 });
     const [{ data: order }, { data: settings }] = await Promise.all([
       supabase.from("orders").select("customer_email").eq("id", payload.orderId).maybeSingle(),
       supabase.from("site_content").select("value").eq("key", "store").maybeSingle(),
@@ -25,7 +27,6 @@ export async function POST(request: Request) {
     if (!order) return NextResponse.json({ ok: false }, { status: 404 });
     const store = settings?.value as { brandName?: string; orderNotifyEmail?: string } | undefined;
     const brandName = store?.brandName || "Tu tienda";
-    const fromEmail = env.BREVO_FROM_EMAIL;
     // Cliente escribe -> avisa a la tienda (uno o varios correos); tienda
     // escribe -> avisa al cliente.
     const to: string | string[] =

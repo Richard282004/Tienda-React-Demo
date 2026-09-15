@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 
 import { sendOrderStatusEmail } from "@/lib/email";
+import { getIntegrationSecrets } from "@/lib/integrations";
 import { refundMercadoPagoPayment } from "@/lib/mercadopago";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -11,13 +12,13 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 export async function POST(request: Request) {
   const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-  const mpAccessToken = env.MP_ACCESS_TOKEN as string | undefined;
   if (!supabaseUrl || !serviceRoleKey) return NextResponse.json({ error: "No disponible." }, { status: 503 });
 
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
 
   const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+  const { mpAccessToken, brevoApiKey: emailApiKey, brevoFromEmail: fromEmail } = await getIntegrationSecrets(supabase, env as Record<string, string | undefined>);
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData.user) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
 
@@ -60,12 +61,11 @@ export async function POST(request: Request) {
     .eq("id", body.orderId);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
-  const emailApiKey = env.BREVO_API_KEY as string | undefined;
   if (emailApiKey) {
     try {
       const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
       const brandName = (settings?.value as { brandName?: string } | undefined)?.brandName || "Tu tienda";
-      await sendOrderStatusEmail({ apiKey: emailApiKey, to: order.customer_email, orderId: body.orderId, status: "cancelled", trackingNumber: order.tracking_number, brandName, fromEmail: env.BREVO_FROM_EMAIL as string | undefined });
+      await sendOrderStatusEmail({ apiKey: emailApiKey, to: order.customer_email, orderId: body.orderId, status: "cancelled", trackingNumber: order.tracking_number, brandName, fromEmail });
     } catch {
       /* El correo es un complemento. */
     }

@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { sendAbandonedCartEmail } from "@/lib/email";
+import { getIntegrationSecrets } from "@/lib/integrations";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const STALE_MINUTES = 10;
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     // Antes de cancelarlos, avisa por correo a quien dejó un pedido a medias.
     // El update-con-returning "reclama" cada pedido (deja de ser null), así que
     // aunque esta ruta se llame en paralelo, el correo sale una sola vez.
-    const emailApiKey = env.BREVO_API_KEY;
+    const { brevoApiKey: emailApiKey, brevoFromEmail: fromEmail } = await getIntegrationSecrets(supabase, env as Record<string, string | undefined>);
     if (emailApiKey) {
       try {
         const cutoff = new Date(Date.now() - STALE_MINUTES * 60_000).toISOString();
@@ -37,7 +38,6 @@ export async function POST(request: Request) {
           const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
           const store = settings?.value as { brandName?: string } | undefined;
           const brandName = store?.brandName || "Tu tienda";
-          const fromEmail = env.BREVO_FROM_EMAIL;
           const storeUrl = new URL(request.url).origin;
           for (const order of claimed) {
             if (!order.customer_email) continue;

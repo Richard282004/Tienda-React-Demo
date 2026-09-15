@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { NextResponse } from "next/server";
 import { sendBackInStockEmail } from "@/lib/email";
+import { getIntegrationSecrets } from "@/lib/integrations";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 // La admin sube el stock de un producto agotado y esta ruta avisa a quienes
@@ -9,13 +10,13 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 export async function POST(request: Request) {
   const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-  const emailApiKey = env.BREVO_API_KEY as string | undefined;
   if (!supabaseUrl || !serviceRoleKey) return NextResponse.json({ ok: false }, { status: 503 });
 
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
 
   const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
+  const { brevoApiKey: emailApiKey, brevoFromEmail: fromEmail } = await getIntegrationSecrets(supabase, env as Record<string, string | undefined>);
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData.user) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
 
@@ -45,7 +46,6 @@ export async function POST(request: Request) {
   const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
   const store = settings?.value as { brandName?: string } | undefined;
   const brandName = store?.brandName || "Tu tienda";
-  const fromEmail = env.BREVO_FROM_EMAIL as string | undefined;
   const productUrl = `${new URL(request.url).origin}/producto/${body.productId}`;
 
   let sent = 0;
