@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { getComunasForRegion } from '@/lib/comunas-chile';
 import { orderStatusLabel, type Address, type Order, type ShippingRate } from '@/lib/orders';
 import { defaultStoreContent, type StoreContent } from '@/lib/store-data';
 import { formatPrice as formatCurrency } from '@/lib/currency';
@@ -204,11 +205,21 @@ export default function MiCuentaPage() {
                 <form onSubmit={saveAddress} className="account-page-form">
                   <label>Nombre de quien recibe<Input required value={addressForm.full_name} onChange={(event) => setAddressForm({ ...addressForm, full_name: event.target.value })} /></label>
                   <label>Teléfono<Input required type="tel" inputMode="tel" value={addressForm.phone} onChange={(event) => setAddressForm({ ...addressForm, phone: event.target.value })} placeholder="+56 9 ..." /></label>
-                  <label>Región<NativeSelect required className="admin-select" value={addressForm.region} onChange={(event) => setAddressForm({ ...addressForm, region: event.target.value })}>
+                  <label>Región<NativeSelect required className="admin-select" value={addressForm.region} onChange={(event) => setAddressForm({ ...addressForm, region: event.target.value, comuna: '' })}>
                     <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
                     {shippingRates.map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
                   </NativeSelect></label>
-                  <label>Comuna / ciudad<Input required value={addressForm.comuna} onChange={(event) => setAddressForm({ ...addressForm, comuna: event.target.value })} /></label>
+                  {(() => {
+                    const comunas = getComunasForRegion(addressForm.region);
+                    return comunas.length ? (
+                      <label>Comuna / ciudad<NativeSelect required className="admin-select" value={addressForm.comuna} onChange={(event) => setAddressForm({ ...addressForm, comuna: event.target.value })}>
+                        <NativeSelectOption value="">Selecciona tu comuna</NativeSelectOption>
+                        {comunas.map((comuna) => <NativeSelectOption key={comuna} value={comuna}>{comuna}</NativeSelectOption>)}
+                      </NativeSelect></label>
+                    ) : (
+                      <label>Comuna / ciudad<Input required value={addressForm.comuna} onChange={(event) => setAddressForm({ ...addressForm, comuna: event.target.value })} /></label>
+                    );
+                  })()}
                   <label>Dirección<Input required value={addressForm.address} onChange={(event) => setAddressForm({ ...addressForm, address: event.target.value })} placeholder="Calle, número" /></label>
                   <label>Depto / referencia (opcional)<Input value={addressForm.address_extra} onChange={(event) => setAddressForm({ ...addressForm, address_extra: event.target.value })} /></label>
                   {message && <p className="account-message">{message}</p>}

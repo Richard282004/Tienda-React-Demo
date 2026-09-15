@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { ProductArtwork } from '@/components/product-artwork';
 import { decodeCartEntry } from '@/lib/cart';
+import { getComunasForRegion } from '@/lib/comunas-chile';
 import { resolveCartLines } from '@/lib/cart-lines';
 import { shippingPayment, shippingCharge, COLLECT_NOTICE } from '@/lib/shipping';
 import { variantLabel, type Address, type ProductVariant, type ShippingRate } from '@/lib/orders';
@@ -316,7 +317,7 @@ export default function CarritoPage() {
                 </div>
               )}
               {deliveryMethod === 'shipping' || pickupZones.length === 0 ? (
-                <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value })}>
+                <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value, comuna: '' })}>
                   <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
                   {(pickupZones.length > 0 ? shippingZones : shippingRates).map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
                 </NativeSelect><small className="field-required">Campo obligatorio</small></label>
@@ -330,13 +331,23 @@ export default function CarritoPage() {
                 <p className="cart-page-pickup-note">Entrega personal: no necesitas comuna ni dirección. Coordinamos el punto de entrega directo contigo (por WhatsApp o el chat del pedido).</p>
               )}
               {selectedRate?.warning && <p className="cart-shipping-warning" role="alert">⚠ {selectedRate.warning}</p>}
-              {requiresAddress && (
-                <>
-                  <label>Comuna / ciudad<Input required maxLength={120} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
-                  <label>Dirección<Input required autoComplete="address-line1" maxLength={250} value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /><small className="field-required">Campo obligatorio</small></label>
-                  <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
-                </>
-              )}
+              {requiresAddress && (() => {
+                const comunas = getComunasForRegion(shipping.region);
+                return (
+                  <>
+                    {comunas.length ? (
+                      <label>Comuna / ciudad<NativeSelect required className="admin-select" value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })}>
+                        <NativeSelectOption value="">Selecciona tu comuna</NativeSelectOption>
+                        {comunas.map((comuna) => <NativeSelectOption key={comuna} value={comuna}>{comuna}</NativeSelectOption>)}
+                      </NativeSelect><small className="field-required">Campo obligatorio</small></label>
+                    ) : (
+                      <label>Comuna / ciudad<Input required maxLength={120} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
+                    )}
+                    <label>Dirección<Input required autoComplete="address-line1" maxLength={250} value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /><small className="field-required">Campo obligatorio</small></label>
+                    <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
+                  </>
+                );
+              })()}
               {transferAvailable && (
                 <div className="cart-page-form" style={{ marginTop: 4, paddingTop: 0, borderTop: 0 }}>
                   <p className="cart-page-form-heading">Método de pago</p>
