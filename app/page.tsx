@@ -564,6 +564,15 @@ export default function Home() {
       </section>}
 
       {faqs.length > 0 && <section className="faq-section page-width" aria-label="Preguntas frecuentes">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: faqs.map((faq) => ({
+            '@type': 'Question',
+            name: faq.question,
+            acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+          })),
+        }) }} />
         <div className="showcase-heading"><div><p className="section-kicker">Ayuda</p><h2>Preguntas frecuentes</h2></div></div>
         <div className="faq-list">
           {faqs.map((faq) => {
