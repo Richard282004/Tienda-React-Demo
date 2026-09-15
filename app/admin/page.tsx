@@ -29,6 +29,7 @@ type ProductDraft = Omit<Product, 'id'> & { id?: string };
 const emptyProduct: ProductDraft = {
   name: '', description: '', type: 'Llaveros', price: 0, color: '#f3dedb', art: '🧶', image_url: null,
   image_position_x: 50, image_position_y: 50, image_zoom: 1, tag: '', active: true, sort_order: 0, stock: null,
+  weight: '', dimensions: '', material: '', technique: '', care: '', additional_details: '',
 };
 
 const emptyDiscount = { code: '', type: 'percent' as 'percent' | 'fixed', value: 10, active: true, max_uses: '' as number | '', expires_at: '' };
@@ -659,7 +660,7 @@ export default function AdminPage() {
       if (uploadError) { setBusy(false); setMessage(uploadError.message); return; }
       imageUrl = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
     }
-    const payload = { name: draft.name.trim(), description: draft.description || null, type: draft.type, price: Number(draft.price), color: draft.color, art: draft.art, image_url: imageUrl, image_position_x: Math.round(draft.image_position_x ?? 50), image_position_y: Math.round(draft.image_position_y ?? 50), image_zoom: draft.image_zoom ?? 1, tag: draft.tag || null, active: draft.active ?? true, sort_order: Number(draft.sort_order ?? 0), stock: draft.stock === null || draft.stock === undefined || Number.isNaN(Number(draft.stock)) ? null : Number(draft.stock), updated_at: new Date().toISOString() };
+    const payload = { name: draft.name.trim(), description: draft.description || null, type: draft.type, price: Number(draft.price), color: draft.color, art: draft.art, image_url: imageUrl, image_position_x: Math.round(draft.image_position_x ?? 50), image_position_y: Math.round(draft.image_position_y ?? 50), image_zoom: draft.image_zoom ?? 1, tag: draft.tag || null, active: draft.active ?? true, sort_order: Number(draft.sort_order ?? 0), stock: draft.stock === null || draft.stock === undefined || Number.isNaN(Number(draft.stock)) ? null : Number(draft.stock), weight: draft.weight?.trim() || null, dimensions: draft.dimensions?.trim() || null, material: draft.material?.trim() || null, technique: draft.technique?.trim() || null, care: draft.care?.trim() || null, additional_details: draft.additional_details?.trim() || null, updated_at: new Date().toISOString() };
     const previousStock = draft.id ? products.find((product) => product.id === draft.id)?.stock : undefined;
     const result = draft.id
       ? await supabase.from('products').update(payload).eq('id', draft.id).select('*').single()
@@ -1156,6 +1157,18 @@ export default function AdminPage() {
 <label>Unidades disponibles<Input required={draft.stock !== null} disabled={draft.stock === null || variants.some((variant) => variant.active)} min="0" step="1" type="number" inputMode="numeric" value={draft.stock == null || Number.isNaN(draft.stock) ? '' : draft.stock} placeholder={draft.stock === null ? 'Sin límite' : 'Ej: 5'} onChange={(event) => setDraft({ ...draft, stock: event.target.value === '' ? NaN : Number(event.target.value) })} /><small>{variants.some((variant) => variant.active) ? 'Las unidades se controlan en cada opción.' : '0 unidades muestra el producto como agotado.'}</small></label>
 <label className="full product-editor-toggle"><input type="checkbox" disabled={variants.some((variant) => variant.active)} checked={draft.stock === null} onChange={(event) => setDraft({ ...draft, stock: event.target.checked ? null : 0 })} /> No limitar unidades disponibles</label>
 <label className="full product-editor-toggle"><input type="checkbox" checked={draft.active ?? true} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} /> Mostrar este producto en la tienda</label>
+</div>
+</section>
+<section className="product-editor-section" aria-labelledby="product-specs-heading">
+<h3 id="product-specs-heading">Características</h3>
+<p>Se muestran en la página del producto, debajo de la descripción. Deja vacío lo que no aplique: esa fila no aparecerá.</p>
+<div className="form-grid">
+<label>Peso <span className="product-field-optional">Opcional</span><Input maxLength={60} value={draft.weight ?? ''} placeholder="Ej: 120 g" onChange={(event) => setDraft({ ...draft, weight: event.target.value })} /></label>
+<label>Dimensiones <span className="product-field-optional">Opcional</span><Input maxLength={60} value={draft.dimensions ?? ''} placeholder="Ej: 12 x 8 x 5 cm" onChange={(event) => setDraft({ ...draft, dimensions: event.target.value })} /></label>
+<label>Material <span className="product-field-optional">Opcional</span><Input maxLength={80} value={draft.material ?? ''} placeholder="Ej: Algodón 100%" onChange={(event) => setDraft({ ...draft, material: event.target.value })} /></label>
+<label>Técnica <span className="product-field-optional">Opcional</span><Input maxLength={80} value={draft.technique ?? ''} placeholder="Ej: Crochet a mano" onChange={(event) => setDraft({ ...draft, technique: event.target.value })} /></label>
+<label>Cuidados <span className="product-field-optional">Opcional</span><Input maxLength={120} value={draft.care ?? ''} placeholder="Ej: Lavar a mano con agua fría" onChange={(event) => setDraft({ ...draft, care: event.target.value })} /></label>
+<label className="full">Detalles adicionales <span className="product-field-optional">Opcional</span><Textarea rows={2} maxLength={400} value={draft.additional_details ?? ''} placeholder="Cualquier otro dato que quieras destacar." onChange={(event) => setDraft({ ...draft, additional_details: event.target.value })} /></label>
 </div>
 </section>
 <details className="product-editor-extra"><summary>Colores y tamaños <span>Opcional{variants.length ? ` · ${variants.length} opciones` : ''}</span></summary><div className="product-editor-extra-body">

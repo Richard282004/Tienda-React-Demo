@@ -99,7 +99,7 @@ export default function Home() {
     () => (category === 'Todo' ? products : products.filter((product) => product.type === category)),
     [category, products],
   );
-  const searchResults = useMemo(() => {
+  const rawSearchResults = useMemo(() => {
     const words = normalizeSearchText(search).split(/\s+/).filter(Boolean);
     if (!words.length) return products.slice(0, 4);
     return products.filter((product) => {
@@ -115,6 +115,19 @@ export default function Home() {
   // (o sin límite), no el campo stock del producto base (que con variantes
   // ya no se usa para vender).
   const [variantStockAvailable, setVariantStockAvailable] = useState<Map<string, boolean>>(new Map());
+  const isProductOutOfStock = (product: Product) => product.active === false || (variantProductIds.has(product.id) ? variantStockAvailable.get(product.id) === false : product.stock != null && product.stock <= 0);
+  // Disponibles primero, agotados al final; el sort es estable así que el
+  // orden por sort_order se conserva dentro de cada grupo. Se recalcula solo
+  // cuando cambia el stock/estado, así se reordena sola sin recargar.
+  const sortAvailableFirst = (list: Product[]) => [...list].sort((a, b) => Number(isProductOutOfStock(a)) - Number(isProductOutOfStock(b)));
+  const sortedVisibleProducts = useMemo(
+    () => sortAvailableFirst(visibleProducts),
+    [visibleProducts, variantProductIds, variantStockAvailable],
+  );
+  const searchResults = useMemo(
+    () => sortAvailableFirst(rawSearchResults),
+    [rawSearchResults, variantProductIds, variantStockAvailable],
+  );
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Record<string, Review[]>>({});
@@ -218,6 +231,21 @@ export default function Home() {
       window.setTimeout(() => { if (active) void refreshAccount(session?.user).catch(() => {}); }, 0);
     });
     return () => { active = false; sessionRevision++; subscription.subscription.unsubscribe(); };
+  }, []);
+
+  useEffect(() => {
+    const client = supabase;
+    if (!client) return;
+    // Escucha cambios de stock/estado en tiempo real (ej. otra compra deja un
+    // producto en 0), así la grilla se reordena sola sin recargar la página.
+    const channel = client
+      .channel('home-products-stock')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products' }, (payload) => {
+        const updated = payload.new as Product;
+        setProducts((current) => current.map((product) => (product.id === updated.id ? { ...product, ...updated } : product)));
+      })
+      .subscribe();
+    return () => { void client.removeChannel(channel); };
   }, []);
 
   useEffect(() => {
@@ -516,14 +544,14 @@ export default function Home() {
         )}
         {storeLoading && <p className="store-feedback" role="status">Preparando la colección…</p>}
         {storeError && <p className="store-feedback" role="alert">{storeError}</p>}
-        {!storeLoading && !storeError && visibleProducts.length === 0 && <p className="empty-collection">{content.emptyCollectionMessage}</p>}
-        <div className="product-grid" key={category}>{visibleProducts.map((product) => {
+        {!storeLoading && !storeError && sortedVisibleProducts.length === 0 && <p className="empty-collection">{content.emptyCollectionMessage}</p>}
+        <div className="product-grid" key={category}>{sortedVisibleProducts.map((product) => {
           const hasVariants = variantProductIds.has(product.id);
-          const outOfStock = product.active === false || (hasVariants ? variantStockAvailable.get(product.id) === false : product.stock != null && product.stock <= 0);
+          const outOfStock = isProductOutOfStock(product);
           const lowStock = !hasVariants && !outOfStock && product.stock != null && product.stock <= 5;
           const productReviews = reviews[product.id] ?? [];
           const avgRating = productReviews.length ? productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length : null;
-          return <CatalogVariantPreview key={product.id} product={product} variants={catalogVariants.filter((variant) => variant.product_id === product.id)}>{({ artwork, variant, href, controls }) => {
+          return <CatalogVariantPreview key={product.id} product={product} variants={catalogVariants.filter((variant) => variant.product_id === product.id)} outOfStock={outOfStock}>{({ artwork, variant, href, controls }) => {
             const goToProduct = () => { window.location.href = href; };
             const previewOutOfStock = product.active === false || (variant ? variant.stock !== null && variant.stock <= 0 : outOfStock);
             return <>

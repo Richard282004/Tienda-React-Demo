@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, ChevronLeft, ChevronRight, Heart, Mail, Phone, Plus, ShoppingBag, Store, UserRound } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Droplets, Heart, Info, Layers, Mail, Phone, Plus, Ruler, ShoppingBag, Sparkles, Store, UserRound, Weight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ProductArtwork } from '@/components/product-artwork';
@@ -42,6 +42,7 @@ export default function ProductoPage() {
   const [notice, setNotice] = useState('');
   const [alertEmail, setAlertEmail] = useState('');
   const [alertStatus, setAlertStatus] = useState<'idle' | 'busy' | 'done' | 'error'>('idle');
+  const [specsOpen, setSpecsOpen] = useState(true);
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
 
   useEffect(() => {
@@ -178,6 +179,14 @@ export default function ProductoPage() {
   // La foto de la variante elegida va primero; el resto de la galería del
   // producto sigue disponible detrás.
   const displayImages = selectedVariant?.image_url ? [selectedVariant.image_url, ...images.filter((image) => image !== selectedVariant.image_url)] : images;
+  const specRows = [
+    { key: 'weight', icon: Weight, label: 'Peso', value: product.weight },
+    { key: 'dimensions', icon: Ruler, label: 'Dimensiones', value: product.dimensions },
+    { key: 'material', icon: Layers, label: 'Material', value: product.material },
+    { key: 'technique', icon: Sparkles, label: 'Técnica', value: product.technique },
+    { key: 'care', icon: Droplets, label: 'Cuidados', value: product.care },
+    { key: 'additional', icon: Info, label: 'Detalles adicionales', value: product.additional_details },
+  ].filter((row) => row.value && row.value.trim());
 
   return (
     <main className="cart-page-shell producto-page">
@@ -289,6 +298,27 @@ export default function ProductoPage() {
             </div>
           )}
           {product.description && <p className="producto-description">{product.description}</p>}
+          {specRows.length > 0 && (
+            <div className={`producto-specs ${specsOpen ? 'open' : ''}`}>
+              <button type="button" className="producto-specs-toggle" onClick={() => setSpecsOpen((current) => !current)} aria-expanded={specsOpen} aria-controls="producto-specs-panel">
+                <span>Características</span>
+                <ChevronDown size={17} className="producto-specs-chevron" />
+              </button>
+              <div className="producto-specs-panel" id="producto-specs-panel">
+                <div className="producto-specs-panel-inner">
+                  <div className="producto-specs-grid">
+                    {specRows.map(({ key, icon: Icon, label, value }) => (
+                      <div className="producto-spec-row" key={key}>
+                        <span className="producto-spec-icon"><Icon size={16} /></span>
+                        <span className="producto-spec-label">{label}</span>
+                        <span className="producto-spec-value">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="producto-actions">
             <Button className="primary-button" disabled={outOfStock} onClick={addToCart}>Agregar a la bolsita <Plus size={16} /></Button>
             <button className={`heart-icon producto-heart ${isLiked ? 'liked' : ''}`} onClick={toggleFavorite} aria-pressed={isLiked} aria-label={isLiked ? `Quitar ${product.name} de favoritos` : `Agregar ${product.name} a favoritos`}>

@@ -35,6 +35,21 @@
 .producto-variant-swatch.active, .producto-variant-chip.active { border-color: var(--plum); background: var(--plum); color: #fff; }
 .producto-variant-missing { margin: 0; color: #a43d52; font-size: 12.5px; }
 .producto-description { max-width: 480px; color: var(--muted); font-size: 15.5px; line-height: 1.75; margin: 0 0 28px; }
+.producto-specs { width: 100%; max-width: 480px; margin: 0 0 28px; border: 1px solid var(--border); border-radius: 16px; background: #fff; overflow: hidden; transition: border-color 200ms var(--ease-out); }
+.producto-specs.open { border-color: #e6c3cd; }
+.producto-specs-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 15px 18px; border: 0; background: none; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+.producto-specs-chevron { flex-shrink: 0; color: var(--rose); transition: transform 220ms var(--ease-out); }
+.producto-specs.open .producto-specs-chevron { transform: rotate(180deg); }
+.producto-specs-panel { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 240ms var(--ease-out), opacity 200ms var(--ease-out); }
+.producto-specs.open .producto-specs-panel { grid-template-rows: 1fr; opacity: 1; }
+.producto-specs-panel-inner { overflow: hidden; }
+.producto-specs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 18px; padding: 4px 18px 18px; }
+.producto-spec-row { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 2px; align-items: center; }
+.producto-spec-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #f6e9ec; color: var(--rose); }
+.producto-spec-label { grid-column: 2; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.producto-spec-value { grid-column: 2; color: var(--ink); font-size: 13.5px; line-height: 1.45; }
+@media (max-width: 560px) { .producto-specs-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .producto-specs-panel, .producto-specs-chevron { transition: none; } }
 .producto-actions { display: flex; align-items: center; gap: 14px; }
 .producto-actions .primary-button { min-height: 48px; padding: 0 28px !important; }
 .producto-heart { position: static; width: 44px; height: 44px; background: #fff !important; border: 1px solid var(--border); }

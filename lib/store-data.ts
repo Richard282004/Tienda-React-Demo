@@ -14,6 +14,12 @@ export type Product = {
   active?: boolean;
   sort_order?: number;
   stock?: number | null;
+  weight?: string | null;
+  dimensions?: string | null;
+  material?: string | null;
+  technique?: string | null;
+  care?: string | null;
+  additional_details?: string | null;
 };
 
 export type StoreContent = {

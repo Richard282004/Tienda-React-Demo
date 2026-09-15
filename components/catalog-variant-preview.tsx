@@ -7,9 +7,10 @@ import type { CatalogVariant } from '@/lib/product-variants';
 
 export type PreviewVariant = CatalogVariant & { id: string; color: string | null; size: string | null; image_url: string | null };
 
-export function CatalogVariantPreview({ product, variants, children }: {
+export function CatalogVariantPreview({ product, variants, outOfStock, children }: {
   product: Product;
   variants: PreviewVariant[];
+  outOfStock?: boolean;
   children: (preview: { artwork: Product; variant: PreviewVariant | undefined; href: string; controls: ReactNode }) => ReactNode;
 }) {
   const [index, setIndex] = useState(0);
@@ -66,7 +67,7 @@ export function CatalogVariantPreview({ product, variants, children }: {
     </div>}
   </div> : null;
 
-  return <article ref={root} className="product-card" id={`producto-${product.id}`}
+  return <article ref={root} className={`product-card${outOfStock ? ' out-of-stock' : ''}`} id={`producto-${product.id}`}
     onPointerEnter={(event) => { if (event.pointerType === 'mouse') setHovered(true); }} onPointerLeave={() => setHovered(false)}
     onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
     {children({ artwork, variant, href, controls })}

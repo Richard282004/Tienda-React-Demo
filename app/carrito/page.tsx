@@ -18,6 +18,18 @@ import './carrito.css';
 
 type Shipping = { name: string; email: string; phone: string; rut: string; region: string; comuna: string; address: string; addressExtra: string };
 const emptyShipping: Shipping = { name: '', email: '', phone: '', rut: '', region: '', comuna: '', address: '', addressExtra: '' };
+type ShippingErrors = Partial<Record<'name' | 'email' | 'phone' | 'rut' | 'region' | 'comuna' | 'address', string>>;
+
+// Solo aparece tras un intento de envío (submitted=true); antes de eso el
+// campo no muestra ningún mensaje. La transición de altura+fade es la misma
+// técnica que el acordeón de preguntas frecuentes (grid-template-rows).
+function FieldError({ message }: { message?: string }) {
+  return (
+    <span className={`field-error ${message ? 'show' : ''}`}>
+      <span className="field-error-inner">{message}</span>
+    </span>
+  );
+}
 
 // Valida el dígito verificador de un RUT chileno (con o sin puntos/guion).
 function isValidRut(raw: string): boolean {
@@ -53,6 +65,7 @@ export default function CarritoPage() {
   const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; amount: number; subtotal: number } | null>(null);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -144,14 +157,20 @@ export default function CarritoPage() {
       setShipping((current) => ({ ...current, region: '' }));
     }
   };
-  const shippingComplete = Boolean(
-    shipping.name.trim() &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shipping.email.trim()) &&
-    shipping.phone.trim() &&
-    isValidRut(shipping.rut) &&
-    shipping.region &&
-    (!requiresAddress || (shipping.comuna.trim() && shipping.address.trim())),
-  );
+  const fieldErrors = useMemo<ShippingErrors>(() => {
+    const errors: ShippingErrors = {};
+    if (!shipping.name.trim()) errors.name = 'Ingresa tu nombre completo.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shipping.email.trim())) errors.email = 'Ingresa un correo válido.';
+    if (!shipping.phone.trim()) errors.phone = 'Ingresa tu teléfono.';
+    if (!isValidRut(shipping.rut)) errors.rut = shipping.rut.trim() ? 'RUT inválido.' : 'Ingresa tu RUT.';
+    if (!shipping.region) errors.region = 'Selecciona una opción.';
+    if (requiresAddress) {
+      if (!shipping.comuna.trim()) errors.comuna = 'Selecciona tu comuna.';
+      if (!shipping.address.trim()) errors.address = 'Ingresa tu dirección.';
+    }
+    return errors;
+  }, [shipping, requiresAddress]);
+  const shippingComplete = Object.keys(fieldErrors).length === 0;
   useEffect(() => { setAppliedDiscount(null); }, [total]);
   const validDiscount = appliedDiscount?.subtotal === total ? appliedDiscount : null;
   const discountAmount = validDiscount ? Math.min(total, validDiscount.amount) : 0;
@@ -183,7 +202,9 @@ export default function CarritoPage() {
 
   const handleCheckout = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (checkoutBusy || invalidLines.length || !cartProducts.length || !shippingComplete || shippingCost === null) return;
+    setSubmitted(true);
+    if (checkoutBusy || invalidLines.length || !cartProducts.length) return;
+    if (!shippingComplete || shippingCost === null) return;
     setCheckoutBusy(true);
     setCheckoutError('');
     try {
@@ -248,109 +269,73 @@ export default function CarritoPage() {
         </div>
       ) : (
         <div className="cart-page-grid">
-          <section className="cart-page-items">
-            <div className="cart-page-items-heading">
-              <h1>Tu carrito <small>({cartProducts.length} producto{cartProducts.length === 1 ? '' : 's'})</small></h1>
-              <button type="button" className="clear-cart" onClick={() => setCart([])}><Trash2 size={13} /> Vaciar carrito</button>
-            </div>
-            {invalidLines.map((line) => <div className="cart-page-item" key={line.key} role="alert"><div><strong>{line.product?.name || 'Producto no disponible'}</strong><p>{line.error}</p><a href={line.product ? `/producto/${line.product.id}` : '/#tienda'}>Ver opciones</a></div><button type="button" onClick={() => removeFromCart(line.key)}>Quitar del carrito</button></div>)}
-            {groupedCart.map(({ key, product, variant, quantity }) => {
-              const unitPrice = variant?.price ?? product.price;
-              const unitStock = variant ? variant.stock : product.stock;
-              return (
-                <div className="cart-page-item" key={key}>
-                  <div className="cart-thumb" style={{ backgroundColor: product.color }}>
-                    {variant?.image_url ? <img src={variant.image_url} alt="" /> : <ProductArtwork product={product} />}
-                  </div>
-                  <div className="cart-page-item-info">
-                    <h3>{product.name}{variant && <small className="cart-page-item-variant"> · {variantLabel(variant)}</small>}</h3>
-                    <p>{formatPrice(unitPrice)}</p>
-                  </div>
-                  <div className="cart-qty">
-                    <button aria-label={`Quitar una unidad de ${product.name}`} onClick={() => decrementCartItem(key)}><Minus size={14} /></button>
-                    <span>{quantity}</span>
-                    <button aria-label={`Agregar una unidad de ${product.name}`} disabled={unitStock != null && quantity >= unitStock} onClick={() => incrementCartItem(key)}><Plus size={14} /></button>
-                  </div>
-                  <strong className="cart-page-item-total">{formatPrice(unitPrice * quantity)}</strong>
-                  <button type="button" className="cart-page-item-remove" aria-label={`Quitar ${product.name} del carrito`} onClick={() => removeFromCart(key)}><Trash2 size={15} /></button>
+          <section className="checkout-panel">
+            <h1 className="checkout-title">Finalizar compra</h1>
+            <form id="checkout-form" className="checkout-form" onSubmit={handleCheckout} noValidate>
+              <div className="checkout-fieldset">
+                <h2 className="checkout-fieldset-heading">Contacto{sessionEmail && savedAddresses.length ? ' · guardado en tu cuenta' : ''}</h2>
+                {savedAddresses.length > 1 && (
+                  <label>Elegir dirección guardada<NativeSelect className="admin-select" value={selectedAddressId} onChange={(event) => {
+                    const chosen = savedAddresses.find((item) => item.id === event.target.value);
+                    setSelectedAddressId(event.target.value);
+                    if (chosen) setShipping((current) => ({ ...current, name: chosen.full_name, phone: chosen.phone, region: chosen.region, comuna: chosen.comuna, address: chosen.address, addressExtra: chosen.address_extra ?? '' }));
+                  }}>
+                    {savedAddresses.map((item, index) => <NativeSelectOption key={item.id} value={item.id}>Dirección {index + 1} — {item.address}</NativeSelectOption>)}
+                  </NativeSelect></label>
+                )}
+                <label>Nombre completo<Input autoComplete="name" maxLength={120} aria-invalid={submitted && !!fieldErrors.name} value={shipping.name} onChange={(event) => setShipping({ ...shipping, name: event.target.value })} /><FieldError message={submitted ? fieldErrors.name : undefined} /></label>
+                <div className="checkout-row">
+                  <label>Correo electrónico<Input autoComplete="email" type="email" maxLength={254} aria-invalid={submitted && !!fieldErrors.email} value={shipping.email} onChange={(event) => setShipping({ ...shipping, email: event.target.value })} /><FieldError message={submitted ? fieldErrors.email : undefined} /></label>
+                  <label>Teléfono<Input type="tel" inputMode="tel" autoComplete="tel" maxLength={40} aria-invalid={submitted && !!fieldErrors.phone} value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /><FieldError message={submitted ? fieldErrors.phone : undefined} /></label>
                 </div>
-              );
-            })}
-          </section>
-
-          <aside className="cart-page-summary">
-            <h2>Resumen del pedido</h2>
-            <div className="cart-page-summary-row"><span>{cartProducts.length} producto{cartProducts.length === 1 ? '' : 's'}</span><strong>{formatPrice(total)}</strong></div>
-            {discountAmount > 0 && <div className="cart-page-summary-row"><span>Descuento</span><strong>-{formatPrice(discountAmount)}</strong></div>}
-            <div className="cart-page-summary-row"><span>Envío{shipping.region ? '' : ' (elige región)'}</span><strong>{shipping.region ? (shippingCost === null ? 'No disponible' : dispatchMethod === 'collect' ? 'Se paga aparte' : shippingCost === 0 ? 'Gratis' : formatPrice(shippingCost)) : '—'}</strong></div>
-            <div className="cart-page-summary-total"><span>{dispatchMethod === 'collect' ? 'Total a pagar en la tienda' : 'Total'}</span><strong>{shippingCost === null ? 'Por calcular' : formatPrice(grandTotal)}</strong></div>
-
-            {shipping.region && dispatchMethod === 'collect' && <p className="cart-page-pickup-note">{COLLECT_NOTICE}</p>}
-            <label className="discount-field cart-page-discount">Código de descuento (opcional)
-              <div className="discount-input-row">
-                <Input value={discountInput} onChange={(event) => { setDiscountInput(event.target.value); setAppliedDiscount(null); }} placeholder="EJ: BIENVENIDA10" />
-                <Button type="button" variant="outline" disabled={discountChecking || !discountInput.trim()} onClick={applyDiscountCode}>{discountChecking ? '...' : 'Aplicar'}</Button>
+                <label>RUT<Input maxLength={12} aria-invalid={submitted && !!fieldErrors.rut} value={shipping.rut} onChange={(event) => setShipping({ ...shipping, rut: event.target.value })} placeholder="12345678-9" /><FieldError message={submitted ? fieldErrors.rut : undefined} /></label>
               </div>
-              {discountInput.trim() && !appliedDiscount && <small>Aplica el código después de ajustar las cantidades.</small>}
-              {appliedDiscount && <small className="discount-applied">✓ Código {appliedDiscount.code} aplicado: -{formatPrice(appliedDiscount.amount)}</small>}
-            </label>
 
-            <form className="checkout-form cart-page-form" onSubmit={handleCheckout}>
-              <h3 className="cart-page-form-heading">Datos de envío{sessionEmail && savedAddresses.length ? ' (guardados en tu cuenta)' : ''}</h3>
-              {savedAddresses.length > 1 && (
-                <label>Elegir dirección guardada<NativeSelect className="admin-select" value={selectedAddressId} onChange={(event) => {
-                  const chosen = savedAddresses.find((item) => item.id === event.target.value);
-                  setSelectedAddressId(event.target.value);
-                  if (chosen) setShipping((current) => ({ ...current, name: chosen.full_name, phone: chosen.phone, region: chosen.region, comuna: chosen.comuna, address: chosen.address, addressExtra: chosen.address_extra ?? '' }));
-                }}>
-                  {savedAddresses.map((item, index) => <NativeSelectOption key={item.id} value={item.id}>Dirección {index + 1} — {item.address}</NativeSelectOption>)}
-                </NativeSelect></label>
-              )}
-              <label>Nombre completo<Input required autoComplete="name" maxLength={120} value={shipping.name} onChange={(event) => setShipping({ ...shipping, name: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
-              <label>Correo electrónico<Input required autoComplete="email" type="email" maxLength={254} value={shipping.email} onChange={(event) => setShipping({ ...shipping, email: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
-              <label>Teléfono<Input required type="tel" inputMode="tel" autoComplete="tel" maxLength={40} value={shipping.phone} onChange={(event) => setShipping({ ...shipping, phone: event.target.value })} placeholder="+56 9 ..." /><small className="field-required">Campo obligatorio</small></label>
-              <label>RUT<Input required maxLength={12} value={shipping.rut} onChange={(event) => setShipping({ ...shipping, rut: event.target.value })} placeholder="12345678-9" /><small className="field-required">{shipping.rut.trim() && !isValidRut(shipping.rut) ? 'RUT inválido' : 'Campo obligatorio'}</small></label>
-              {pickupZones.length > 0 && (
-                <div className="delivery-method-tabs" role="group" aria-label="Método de entrega">
-                  <button type="button" className={deliveryMethod === 'shipping' ? 'active' : ''} onClick={() => chooseDeliveryMethod('shipping')}>{content.shippingCollectEnabled ? 'Blue Express por pagar' : 'Envío a domicilio'}</button>
-                  <button type="button" className={deliveryMethod === 'pickup' ? 'active' : ''} onClick={() => chooseDeliveryMethod('pickup')}>Retiro / entrega personal</button>
-                </div>
-              )}
-              {deliveryMethod === 'shipping' || pickupZones.length === 0 ? (
-                <label>Región<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value, comuna: '' })}>
-                  <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
-                  {(pickupZones.length > 0 ? shippingZones : shippingRates).map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
-                </NativeSelect><small className="field-required">Campo obligatorio</small></label>
-              ) : pickupZones.length > 1 ? (
-                <label>Punto de retiro<NativeSelect required className="admin-select" value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value })}>
-                  <NativeSelectOption value="">Selecciona una opción</NativeSelectOption>
-                  {pickupZones.map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
-                </NativeSelect><small className="field-required">Campo obligatorio</small></label>
-              ) : null}
-              {deliveryMethod === 'pickup' && pickupZones.length > 0 && (
-                <p className="cart-page-pickup-note">Entrega personal: no necesitas comuna ni dirección. Coordinamos el punto de entrega directo contigo (por WhatsApp o el chat del pedido).</p>
-              )}
-              {selectedRate?.warning && <p className="cart-shipping-warning" role="alert">⚠ {selectedRate.warning}</p>}
-              {requiresAddress && (() => {
-                const comunas = getComunasForRegion(shipping.region);
-                return (
-                  <>
-                    {comunas.length ? (
-                      <label>Comuna / ciudad<NativeSelect required className="admin-select" value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })}>
-                        <NativeSelectOption value="">Selecciona tu comuna</NativeSelectOption>
-                        {comunas.map((comuna) => <NativeSelectOption key={comuna} value={comuna}>{comuna}</NativeSelectOption>)}
-                      </NativeSelect><small className="field-required">Campo obligatorio</small></label>
-                    ) : (
-                      <label>Comuna / ciudad<Input required maxLength={120} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /><small className="field-required">Campo obligatorio</small></label>
-                    )}
-                    <label>Dirección<Input required autoComplete="address-line1" maxLength={250} value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /><small className="field-required">Campo obligatorio</small></label>
-                    <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
-                  </>
-                );
-              })()}
+              <div className="checkout-fieldset">
+                <h2 className="checkout-fieldset-heading">Entrega</h2>
+                {pickupZones.length > 0 && (
+                  <div className="delivery-method-tabs" role="group" aria-label="Método de entrega">
+                    <button type="button" className={deliveryMethod === 'shipping' ? 'active' : ''} onClick={() => chooseDeliveryMethod('shipping')}>{content.shippingCollectEnabled ? 'Blue Express por pagar' : 'Envío a domicilio'}</button>
+                    <button type="button" className={deliveryMethod === 'pickup' ? 'active' : ''} onClick={() => chooseDeliveryMethod('pickup')}>Retiro / entrega personal</button>
+                  </div>
+                )}
+                {deliveryMethod === 'shipping' || pickupZones.length === 0 ? (
+                  <label>Región<NativeSelect className="admin-select" aria-invalid={submitted && !!fieldErrors.region} value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value, comuna: '' })}>
+                    <NativeSelectOption value="">Selecciona tu región</NativeSelectOption>
+                    {(pickupZones.length > 0 ? shippingZones : shippingRates).map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
+                  </NativeSelect><FieldError message={submitted ? fieldErrors.region : undefined} /></label>
+                ) : pickupZones.length > 1 ? (
+                  <label>Punto de retiro<NativeSelect className="admin-select" aria-invalid={submitted && !!fieldErrors.region} value={shipping.region} onChange={(event) => setShipping({ ...shipping, region: event.target.value })}>
+                    <NativeSelectOption value="">Selecciona una opción</NativeSelectOption>
+                    {pickupZones.map((rate) => <NativeSelectOption key={rate.region} value={rate.region}>{rate.region}</NativeSelectOption>)}
+                  </NativeSelect><FieldError message={submitted ? fieldErrors.region : undefined} /></label>
+                ) : null}
+                {deliveryMethod === 'pickup' && pickupZones.length > 0 && (
+                  <p className="cart-page-pickup-note">Entrega personal: no necesitas comuna ni dirección. Coordinamos el punto de entrega directo contigo (por WhatsApp o el chat del pedido).</p>
+                )}
+                {selectedRate?.warning && <p className="cart-shipping-warning" role="alert">⚠ {selectedRate.warning}</p>}
+                {requiresAddress && (() => {
+                  const comunas = getComunasForRegion(shipping.region);
+                  return (
+                    <>
+                      {comunas.length ? (
+                        <label>Comuna / ciudad<NativeSelect className="admin-select" aria-invalid={submitted && !!fieldErrors.comuna} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })}>
+                          <NativeSelectOption value="">Selecciona tu comuna</NativeSelectOption>
+                          {comunas.map((comuna) => <NativeSelectOption key={comuna} value={comuna}>{comuna}</NativeSelectOption>)}
+                        </NativeSelect><FieldError message={submitted ? fieldErrors.comuna : undefined} /></label>
+                      ) : (
+                        <label>Comuna / ciudad<Input maxLength={120} aria-invalid={submitted && !!fieldErrors.comuna} value={shipping.comuna} onChange={(event) => setShipping({ ...shipping, comuna: event.target.value })} /><FieldError message={submitted ? fieldErrors.comuna : undefined} /></label>
+                      )}
+                      <label>Dirección<Input autoComplete="address-line1" maxLength={250} aria-invalid={submitted && !!fieldErrors.address} value={shipping.address} onChange={(event) => setShipping({ ...shipping, address: event.target.value })} placeholder="Calle, número" /><FieldError message={submitted ? fieldErrors.address : undefined} /></label>
+                      <label>Depto / referencia (opcional)<Input autoComplete="address-line2" maxLength={250} value={shipping.addressExtra} onChange={(event) => setShipping({ ...shipping, addressExtra: event.target.value })} /></label>
+                    </>
+                  );
+                })()}
+              </div>
+
               {transferAvailable && (
-                <div className="cart-page-form" style={{ marginTop: 4, paddingTop: 0, borderTop: 0 }}>
-                  <p className="cart-page-form-heading">Método de pago</p>
+                <div className="checkout-fieldset">
+                  <h2 className="checkout-fieldset-heading">Método de pago</h2>
                   <div className="delivery-method-tabs" role="group" aria-label="Método de pago">
                     <button type="button" className={paymentMethod === 'mercadopago' ? 'active' : ''} onClick={() => setPaymentMethod('mercadopago')}>Tarjeta / Mercado Pago</button>
                     <button type="button" className={paymentMethod === 'transfer' ? 'active' : ''} onClick={() => setPaymentMethod('transfer')}>Transferencia bancaria</button>
@@ -360,10 +345,58 @@ export default function CarritoPage() {
                   )}
                 </div>
               )}
-              {checkoutError && <p className="account-message">{checkoutError}</p>}
-              {!isSupabaseConfigured && <p className="account-message">El pago no está disponible por el momento.</p>}
-              <Button disabled={checkoutBusy || invalidLines.length > 0 || !shippingComplete || shippingCost === null || cartProducts.length === 0} type="submit" className="primary-button cart-page-pay">{checkoutBusy ? (paymentMethod === 'transfer' ? 'Creando tu pedido…' : 'Redirigiendo a Mercado Pago…') : paymentMethod === 'transfer' ? 'Confirmar pedido' : 'Ir a pagar'} <ArrowRight size={16} /></Button>
             </form>
+          </section>
+
+          <aside className="cart-page-summary">
+            <div className="cart-page-summary-head">
+              <h2>Tu pedido <small>({cartProducts.length} producto{cartProducts.length === 1 ? '' : 's'})</small></h2>
+              <button type="button" className="clear-cart" onClick={() => setCart([])}><Trash2 size={13} /> Vaciar</button>
+            </div>
+            {invalidLines.map((line) => <div className="cart-page-item" key={line.key} role="alert"><div><strong>{line.product?.name || 'Producto no disponible'}</strong><p>{line.error}</p><a href={line.product ? `/producto/${line.product.id}` : '/#tienda'}>Ver opciones</a></div><button type="button" onClick={() => removeFromCart(line.key)}>Quitar del carrito</button></div>)}
+            <div className="summary-items">
+              {groupedCart.map(({ key, product, variant, quantity }) => {
+                const unitPrice = variant?.price ?? product.price;
+                const unitStock = variant ? variant.stock : product.stock;
+                return (
+                  <div className="cart-page-item" key={key}>
+                    <div className="cart-thumb" style={{ backgroundColor: product.color }}>
+                      {variant?.image_url ? <img src={variant.image_url} alt="" /> : <ProductArtwork product={product} />}
+                    </div>
+                    <div className="cart-page-item-info">
+                      <h3>{product.name}{variant && <small className="cart-page-item-variant"> · {variantLabel(variant)}</small>}</h3>
+                      <p>{formatPrice(unitPrice)}</p>
+                    </div>
+                    <div className="cart-qty">
+                      <button aria-label={`Quitar una unidad de ${product.name}`} onClick={() => decrementCartItem(key)}><Minus size={14} /></button>
+                      <span>{quantity}</span>
+                      <button aria-label={`Agregar una unidad de ${product.name}`} disabled={unitStock != null && quantity >= unitStock} onClick={() => incrementCartItem(key)}><Plus size={14} /></button>
+                    </div>
+                    <strong className="cart-page-item-total">{formatPrice(unitPrice * quantity)}</strong>
+                    <button type="button" className="cart-page-item-remove" aria-label={`Quitar ${product.name} del carrito`} onClick={() => removeFromCart(key)}><Trash2 size={15} /></button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <label className="discount-field cart-page-discount">Código de descuento (opcional)
+              <div className="discount-input-row">
+                <Input value={discountInput} onChange={(event) => { setDiscountInput(event.target.value); setAppliedDiscount(null); }} placeholder="EJ: BIENVENIDA10" />
+                <Button type="button" variant="outline" disabled={discountChecking || !discountInput.trim()} onClick={applyDiscountCode}>{discountChecking ? '...' : 'Aplicar'}</Button>
+              </div>
+              {discountInput.trim() && !appliedDiscount && <small>Aplica el código después de ajustar las cantidades.</small>}
+              {appliedDiscount && <small className="discount-applied">✓ Código {appliedDiscount.code} aplicado: -{formatPrice(appliedDiscount.amount)}</small>}
+            </label>
+
+            <div className="cart-page-summary-row"><span>{cartProducts.length} producto{cartProducts.length === 1 ? '' : 's'}</span><strong>{formatPrice(total)}</strong></div>
+            {discountAmount > 0 && <div className="cart-page-summary-row"><span>Descuento</span><strong>-{formatPrice(discountAmount)}</strong></div>}
+            <div className="cart-page-summary-row"><span>Envío{shipping.region ? '' : ' (elige región)'}</span><strong>{shipping.region ? (shippingCost === null ? 'No disponible' : dispatchMethod === 'collect' ? 'Se paga aparte' : shippingCost === 0 ? 'Gratis' : formatPrice(shippingCost)) : '—'}</strong></div>
+            <div className="cart-page-summary-total"><span>{dispatchMethod === 'collect' ? 'Total a pagar en la tienda' : 'Total'}</span><strong>{shippingCost === null ? 'Por calcular' : formatPrice(grandTotal)}</strong></div>
+            {shipping.region && dispatchMethod === 'collect' && <p className="cart-page-pickup-note">{COLLECT_NOTICE}</p>}
+
+            {checkoutError && <p className="account-message">{checkoutError}</p>}
+            {!isSupabaseConfigured && <p className="account-message">El pago no está disponible por el momento.</p>}
+            <Button form="checkout-form" disabled={checkoutBusy || invalidLines.length > 0 || cartProducts.length === 0} type="submit" className="primary-button cart-page-pay">{checkoutBusy ? (paymentMethod === 'transfer' ? 'Creando tu pedido…' : 'Redirigiendo a Mercado Pago…') : paymentMethod === 'transfer' ? 'Confirmar pedido' : 'Ir a pagar'} <ArrowRight size={16} /></Button>
           </aside>
         </div>
       )}
