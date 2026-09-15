@@ -31,6 +31,20 @@ export type StoreContent = {
   heroCtaSecondary: string;
   heroNote1: string;
   heroNote2: string;
+  heroImageUrl?: string;
+  heroScribbleLine1: string;
+  heroScribbleLine2: string;
+  heroStickerLine1: string;
+  heroStickerLine2: string;
+  collectionKicker: string;
+  collectionTitle: string;
+  collectionHighlight: string;
+  emptyCollectionMessage: string;
+  showcaseKicker: string;
+  showcaseTitle: string;
+  showcaseHighlight: string;
+  faqKicker: string;
+  faqTitle: string;
   categoryText1: string;
   categoryText2: string;
   categoryText3: string;
@@ -100,6 +114,19 @@ export const defaultStoreContent: StoreContent = {
   heroCtaSecondary: 'Conoce MilaLoop',
   heroNote1: 'Hecho a mano',
   heroNote2: 'Materiales suaves',
+  heroScribbleLine1: 'para regalar',
+  heroScribbleLine2: 'o regalarte',
+  heroStickerLine1: 'nuevos',
+  heroStickerLine2: 'amiguitos',
+  collectionKicker: 'La colección',
+  collectionTitle: 'Elige tu nuevo',
+  collectionHighlight: 'favorito',
+  emptyCollectionMessage: 'Pronto habrá nuevos amiguitos por aquí. Vuelve a visitarnos.',
+  showcaseKicker: 'Trabajos recientes',
+  showcaseTitle: 'Hechos para',
+  showcaseHighlight: 'acompañarte',
+  faqKicker: 'Ayuda',
+  faqTitle: 'Preguntas frecuentes',
   categoryText1: 'Regalos con cariño',
   categoryText2: 'Diseños únicos',
   categoryText3: 'Hecho en Chile',

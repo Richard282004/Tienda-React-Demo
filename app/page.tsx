@@ -502,11 +502,11 @@ export default function Home() {
           <div className="hero-actions"><Button className="primary-button" onClick={() => document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' })}>{content.heroCtaPrimary} <ArrowRight size={17} /></Button><a className="text-link" href="#nosotros">{content.heroCtaSecondary} <ArrowRight size={15} /></a></div>
           <div className="hero-notes"><span><Check size={15} /> {content.heroNote1}</span><span><Check size={15} /> {content.heroNote2}</span></div>
         </div>
-        <div className="hero-image-wrap"><div className="hero-scribble">para regalar<br />o regalarte <span>♡</span></div><img src="/lumina-hero.jpg" alt="Tres productos de crochet: un conejo, un oso y un hongo" className="hero-image" width={1122} height={1402} fetchPriority="high" /><div className="hero-sticker"><span>nuevos</span><strong>amiguitos</strong></div></div>
+        <div className="hero-image-wrap"><div className="hero-scribble">{content.heroScribbleLine1}<br />{content.heroScribbleLine2} <span>♡</span></div><img src={content.heroImageUrl || '/lumina-hero.jpg'} alt="Tres productos de crochet: un conejo, un oso y un hongo" className="hero-image" width={1122} height={1402} fetchPriority="high" /><div className="hero-sticker"><span>{content.heroStickerLine1}</span><strong>{content.heroStickerLine2}</strong></div></div>
       </section>
 
       <section id="tienda" className="collection-section page-width">
-        <div className="section-heading"><div><p className="section-kicker">La colección</p><h2>Elige tu nuevo <em>favorito</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'Todo' ? 'Todo' : item}</button>)}</div></div>
+        <div className="section-heading"><div><p className="section-kicker">{content.collectionKicker}</p><h2>{content.collectionTitle} <em>{content.collectionHighlight}</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'Todo' ? 'Todo' : item}</button>)}</div></div>
         {discountPopupOpen && !consentPending && content.popupDiscountCode && (
           <aside className="welcome-offer" aria-label="Descuento de bienvenida">
             <div><strong>{content.popupDiscountPercent ?? 5}% de descuento en tu primera compra</strong><p>{content.popupDiscountMessage?.trim() || 'Un detalle de bienvenida para ti.'}</p></div>
@@ -516,7 +516,7 @@ export default function Home() {
         )}
         {storeLoading && <p className="store-feedback" role="status">Preparando la colección…</p>}
         {storeError && <p className="store-feedback" role="alert">{storeError}</p>}
-        {!storeLoading && !storeError && visibleProducts.length === 0 && <p className="empty-collection">Pronto habrá nuevos amiguitos por aquí. Vuelve a visitarnos.</p>}
+        {!storeLoading && !storeError && visibleProducts.length === 0 && <p className="empty-collection">{content.emptyCollectionMessage}</p>}
         <div className="product-grid" key={category}>{visibleProducts.map((product) => {
           const hasVariants = variantProductIds.has(product.id);
           const outOfStock = product.active === false || (hasVariants ? variantStockAvailable.get(product.id) === false : product.stock != null && product.stock <= 0);
@@ -551,7 +551,7 @@ export default function Home() {
       <section className="category-strip page-width" aria-label="Categorías destacadas"><div><span className="category-icon pink">♡</span><span>{content.categoryText1}</span></div><div><span className="category-icon yellow">✳</span><span>{content.categoryText2}</span></div><div><span className="category-icon lilac">⌁</span><span>{content.categoryText3}</span></div></section>
 
       {showcaseItems.length > 0 && <section className="work-showcase" aria-label="Trabajos recientes">
-        <div className="showcase-heading page-width"><div><p className="section-kicker">Trabajos recientes</p><h2>Hechos para <em>acompañarte</em></h2></div><div className="carousel-controls"><button className="pause-carousel" aria-label={carouselPaused ? 'Reanudar carrusel automático' : 'Pausar carrusel automático'} onClick={() => setCarouselPaused((paused) => !paused)}>{carouselPaused ? <Play size={16} /> : <Pause size={16} />}</button><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
+        <div className="showcase-heading page-width"><div><p className="section-kicker">{content.showcaseKicker}</p><h2>{content.showcaseTitle} <em>{content.showcaseHighlight}</em></h2></div><div className="carousel-controls"><button className="pause-carousel" aria-label={carouselPaused ? 'Reanudar carrusel automático' : 'Pausar carrusel automático'} onClick={() => setCarouselPaused((paused) => !paused)}>{carouselPaused ? <Play size={16} /> : <Pause size={16} />}</button><button aria-label="Ver productos anteriores" onClick={() => carouselApi?.scrollPrev()}><ArrowLeft size={18} /></button><button aria-label="Ver siguientes productos" onClick={() => carouselApi?.scrollNext()}><ArrowRight size={18} /></button></div></div>
         <Carousel setApi={setCarouselApi} opts={{ loop: true, align: 'start' }} className="work-carousel page-width" onMouseEnter={() => setCarouselHovering(true)} onMouseLeave={() => setCarouselHovering(false)}>
           <CarouselContent className="carousel-track">
             {showcaseItems.map((item) => (
@@ -573,7 +573,7 @@ export default function Home() {
             acceptedAnswer: { '@type': 'Answer', text: faq.answer },
           })),
         }) }} />
-        <div className="showcase-heading"><div><p className="section-kicker">Ayuda</p><h2>Preguntas frecuentes</h2></div></div>
+        <div className="showcase-heading"><div><p className="section-kicker">{content.faqKicker}</p><h2>{content.faqTitle}</h2></div></div>
         <div className="faq-list">
           {faqs.map((faq) => {
             const isOpen = openFaq === faq.id;
