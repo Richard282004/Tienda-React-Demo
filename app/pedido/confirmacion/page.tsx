@@ -44,7 +44,12 @@ export default function ConfirmacionPage() {
         const row = Array.isArray(data) ? data[0] : null;
         if (active) {
           setOrder((row as Order) ?? null);
-          if (row && ['paid','shipped','delivered','payment_review'].includes(row.status)) {
+          // Un pedido por transferencia llega aquí ya reservado y con las
+          // instrucciones enviadas: la compra ya se concretó aunque el pago
+          // siga "pending" hasta que se confirme a mano, así que la bolsita
+          // debe vaciarse igual (no solo cuando llegue a "paid").
+          const purchaseSucceeded = row && (row.payment_method === 'transfer' ? row.status !== 'cancelled' : ['paid', 'shipped', 'delivered', 'payment_review'].includes(row.status));
+          if (purchaseSucceeded) {
             try {
               const snapshotKey = `milaloop-checkout-${orderId}`;
               const purchased = JSON.parse(localStorage.getItem(snapshotKey) ?? 'null');
@@ -142,14 +147,15 @@ export default function ConfirmacionPage() {
                 <p className="confirmation-transfer-title">Transfiere {formatPrice(order.total)} a:</p>
                 <pre className="confirmation-transfer-details">{content.transferDetails.trim()}</pre>
                 <p className="confirmation-transfer-glosa">
-                  Pon <strong>{order.id.slice(0, 8)}</strong> como mensaje/glosa de la transferencia, así identificamos tu pago al tiro.
+                  {(content.transferGlosaText || 'Pon {{orderId}} como mensaje/glosa de la transferencia, así identificamos tu pago al tiro.')
+                    .split(/(\{\{orderId\}\})/)
+                    .map((part, index) => part === '{{orderId}}' ? <strong key={index}>{order.id.slice(0, 8)}</strong> : part)}
                 </p>
                 <p className="confirmation-transfer-note">
-                  Después de transferir, envíanos el comprobante por WhatsApp
+                  {content.transferFollowupText || 'Después de transferir, envíanos el comprobante por WhatsApp o respondiendo el correo de tu pedido. Reservamos tu pedido mientras confirmamos el pago.'}
                   {content.whatsapp ? (
                     <> (<a href={`https://wa.me/${content.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">escribir</a>)</>
-                  ) : null}{" "}
-                  o respondiendo el correo de tu pedido. Reservamos tu pedido mientras confirmamos el pago.
+                  ) : null}
                 </p>
               </div>
             )}

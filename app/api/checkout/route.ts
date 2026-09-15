@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       /* No crítico: si falla, el checkout sigue con el stock disponible actual. */
     }
     const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
-    const storeSettings = (settings?.value ?? {}) as { brandName?: string; currency?: string; locale?: string; orderNotifyEmail?: string; lowStockThreshold?: number; shippingCollectEnabled?: boolean; transferEnabled?: boolean; transferDetails?: string; transferHoldHours?: number };
+    const storeSettings = (settings?.value ?? {}) as { brandName?: string; currency?: string; locale?: string; orderNotifyEmail?: string; lowStockThreshold?: number; shippingCollectEnabled?: boolean; transferEnabled?: boolean; transferDetails?: string; transferHoldHours?: number; pushNewSale?: boolean; pushPendingTransfer?: boolean };
     const isTransfer = payload.paymentMethod === "transfer";
     if (isTransfer && !(storeSettings.transferEnabled && storeSettings.transferDetails?.trim())) {
       return NextResponse.json({ error: "El pago por transferencia no está disponible en este momento." }, { status: 400 });
@@ -252,7 +252,7 @@ export async function POST(request: Request) {
       );
     }
     if (isFreeOrder) {
-      await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, { title: "Nuevo pedido confirmado", body: `Pedido #${order.id.slice(0, 8)}`, url: `/admin?order=${order.id}` });
+      if (storeSettings.pushNewSale !== false) await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, { title: "Nuevo pedido confirmado", body: `Pedido #${order.id.slice(0, 8)}`, url: `/admin?order=${order.id}` });
       if (emailApiKey) {
         try {
           await sendOrderConfirmationEmail({ apiKey: emailApiKey, to: payload.customerEmail, orderId: order.id, items: orderItems, total, brandName, currency, locale, shippingPayment: dispatchMethod, fromEmail });
@@ -280,7 +280,7 @@ export async function POST(request: Request) {
 
     if (isTransfer) {
       const siteUrl = new URL(request.url).origin;
-      await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, { title: "Pedido pendiente de transferencia", body: `Pedido #${order.id.slice(0, 8)} · esperando tu confirmación`, url: `/admin?order=${order.id}` });
+      if (storeSettings.pushPendingTransfer !== false) await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, { title: "Pedido pendiente de transferencia", body: `Pedido #${order.id.slice(0, 8)} · esperando tu confirmación`, url: `/admin?order=${order.id}` });
       if (emailApiKey) {
         // Cada correo en su propio try: si Brevo rechaza uno (ej. el del
         // cliente, por su dominio de correo), el otro igual debe intentarse.

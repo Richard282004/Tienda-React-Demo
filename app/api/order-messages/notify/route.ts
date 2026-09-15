@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { parseEmailList, sendOrderChatMessageEmail } from "@/lib/email";
 import { getIntegrationSecrets } from "@/lib/integrations";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { notifyAdminSubscribers } from "@/lib/web-push";
 
 // El mensaje ya se guardó (insert directo desde el cliente vía Supabase, para
 // que el chat en tiempo real siga andando igual). Esta ruta solo se encarga
@@ -19,14 +20,23 @@ export async function POST(request: Request) {
   try {
     const supabase = getSupabaseAdmin(supabaseUrl, serviceRoleKey);
     const { brevoApiKey: emailApiKey, brevoFromEmail: fromEmail } = await getIntegrationSecrets(supabase, env as Record<string, string | undefined>);
-    if (!emailApiKey) return NextResponse.json({ ok: false }, { status: 503 });
     const [{ data: order }, { data: settings }] = await Promise.all([
       supabase.from("orders").select("customer_email").eq("id", payload.orderId).maybeSingle(),
       supabase.from("site_content").select("value").eq("key", "store").maybeSingle(),
     ]);
     if (!order) return NextResponse.json({ ok: false }, { status: 404 });
-    const store = settings?.value as { brandName?: string; orderNotifyEmail?: string } | undefined;
+    const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; pushCustomerMessages?: boolean } | undefined;
     const brandName = store?.brandName || "Tu tienda";
+
+    if (payload.senderRole === "customer" && store?.pushCustomerMessages !== false) {
+      await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, {
+        title: "Mensaje de un cliente",
+        body: payload.body.trim().slice(0, 120),
+        url: `/admin?order=${payload.orderId}`,
+      });
+    }
+
+    if (!emailApiKey) return NextResponse.json({ ok: true });
     // Cliente escribe -> avisa a la tienda (uno o varios correos); tienda
     // escribe -> avisa al cliente.
     const to: string | string[] =

@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   try {
     const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
-    const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; lowStockThreshold?: number; currency?: string; locale?: string; faviconUrl?: string } | undefined;
+    const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; lowStockThreshold?: number; currency?: string; locale?: string; faviconUrl?: string; pushNewSale?: boolean } | undefined;
     const brandName = store?.brandName || "Tu tienda";
 
     // Al confirmar un pago (típicamente una transferencia aprobada a mano),
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     if (body.status === "paid") {
       const items = (order.items ?? []) as OrderItem[];
       const productLabel = items.length > 1 ? `${items[0]?.name ?? "Producto"} y ${items.length - 1} más` : items[0]?.name ?? "Producto";
-      await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, {
+      if (store?.pushNewSale !== false) await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, {
         title: `Nueva venta · ${formatPrice(order.total, store?.currency, store?.locale)}`,
         body: `Pedido #${body.orderId.slice(0, 8)} · ${productLabel}`,
         url: `/admin?order=${body.orderId}`,

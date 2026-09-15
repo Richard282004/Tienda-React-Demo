@@ -64,11 +64,17 @@ export type StoreContent = {
   transferEnabled?: boolean;
   transferDetails?: string;
   transferHoldHours?: number;
+  transferGlosaText?: string;
+  transferFollowupText?: string;
   popupDiscountEnabled?: boolean;
   popupDiscountPercent?: number;
   popupDiscountCode?: string;
   popupDiscountDelaySeconds?: number;
   popupDiscountMessage?: string;
+  pushNewSale?: boolean;
+  pushPendingTransfer?: boolean;
+  pushCustomerMessages?: boolean;
+  pushPaymentReview?: boolean;
 };
 
 export const defaultProducts: Product[] = [

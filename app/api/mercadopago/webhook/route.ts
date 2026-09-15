@@ -52,6 +52,8 @@ export async function POST(request: Request) {
       .select("status, items, total, customer_name, customer_email, customer_phone, region, comuna, address, address_extra, shipping_payment, shipping_carrier")
       .eq("id", payment.external_reference)
       .maybeSingle();
+    const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
+    const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; currency?: string; locale?: string; lowStockThreshold?: number; faviconUrl?: string; pushNewSale?: boolean; pushPaymentReview?: boolean } | undefined;
     const { data: transition, error } = await supabase.rpc("apply_payment_status", {
       p_order_id: payment.external_reference, p_payment_id: String(payment.id),
       p_status: orderStatus, p_amount: payment.transaction_amount,
@@ -59,7 +61,8 @@ export async function POST(request: Request) {
     if (error) return NextResponse.json({ ok: false }, { status: 503 });
     const effectiveStatus = transition?.status ?? orderStatus;
     if (!transition?.changed) return NextResponse.json({ ok: true });
-    if (existingOrder && (effectiveStatus === "paid" || effectiveStatus === "payment_review")) {
+    const pushAllowed = effectiveStatus === "payment_review" ? store?.pushPaymentReview !== false : store?.pushNewSale !== false;
+    if (existingOrder && pushAllowed && (effectiveStatus === "paid" || effectiveStatus === "payment_review")) {
       const items = (existingOrder.items ?? []) as { name: string }[];
       await notifyAdminSubscribers(supabase, env as Record<string, string | undefined>, {
         title: effectiveStatus === "payment_review" ? "Pago recibido: revisar stock antes de despachar" : `Nueva venta · ${formatPrice(existingOrder.total)}`,
@@ -69,8 +72,6 @@ export async function POST(request: Request) {
     }
     if (emailApiKey && existingOrder && effectiveStatus !== "payment_review") {
       try {
-        const { data: settings } = await supabase.from("site_content").select("value").eq("key", "store").maybeSingle();
-        const store = settings?.value as { brandName?: string; orderNotifyEmail?: string; currency?: string; locale?: string; lowStockThreshold?: number; faviconUrl?: string } | undefined;
         const brandName = store?.brandName || "Tu tienda";
         const adminEmails = parseEmailList(store?.orderNotifyEmail);
         if (orderStatus === "paid") {
