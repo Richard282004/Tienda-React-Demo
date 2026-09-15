@@ -51,7 +51,7 @@
 .order-status-badge.status-shipped { background: #dbe6f2; color: #3f628a; }
 .order-status-badge.status-delivered { background: #e2ddf2; color: #5b4a94; }
 .order-status-badge.status-cancelled { background: #f4dede; color: #9a4b4b; }
-.account-page-address-empty { display: grid; justify-items: center; gap: 10px; width: 100%; min-height: 220px; border: 1px dashed #d9c7c0; border-radius: 16px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.account-page-address-empty { display: grid; justify-items: center; align-content: center; gap: 10px; width: 100%; min-height: 220px; border: 1px dashed #d9c7c0; border-radius: 16px; color: var(--muted); font-size: 14px; font-weight: 600; }
 .account-page-address-empty:hover { border-color: var(--rose); color: var(--rose); }
 .account-page-address-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
 .account-page-address-card { display: grid; gap: 3px; border: 1px solid #e5d6d0; border-radius: 16px; padding: 18px; background: #fff; font-size: 13px; color: var(--muted); }
