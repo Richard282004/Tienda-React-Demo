@@ -23,6 +23,15 @@
         ],
         "createdAt": "2026-09-09T16:48:42.710Z",
         "reason": "product-visual's border-bottom:3px solid plum sits on a deliberately squared bottom edge (border-radius: 14px 14px 0 0) -- only the top corners are rounded, so there is no clash. This was an intentional choice this session (catalog-entry baseline rule under the photo), not a leftover default."
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.34, 1.15, .34, 1)",
+        "files": [
+          "app/producto/[id]/producto.css"
+        ],
+        "createdAt": "2026-09-21T14:38:59.257Z",
+        "reason": "user confirmed: explicitly requested a subtle elastic slide for the nav capsule, without exaggerated bounce"
       }
     ]
   }
