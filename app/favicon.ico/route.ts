@@ -12,6 +12,7 @@ async function customFaviconUrl(): Promise<string | null> {
   try {
     const res = await fetch(`${base}/rest/v1/site_content?select=value&key=eq.store&limit=1`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
+      next: { revalidate: 300 },
     });
     if (!res.ok) return null;
     const rows = (await res.json()) as { value?: { faviconUrl?: string } }[];

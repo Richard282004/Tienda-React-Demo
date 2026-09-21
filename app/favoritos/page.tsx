@@ -6,7 +6,7 @@ import { ArrowLeft, Heart, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductArtwork } from '@/components/product-artwork';
 import { formatPrice as formatCurrency } from '@/lib/currency';
-import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
+import { defaultStoreContent, fetchStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { supabase } from '@/lib/supabase';
 import { initFavorites, syncFavoriteToggle, writeLocalFavorites } from '@/lib/favorites';
 import './favoritos.css';
@@ -28,9 +28,9 @@ export default function FavoritosPage() {
   useEffect(() => {
     const load = async () => {
       if (!supabase) { setLoading(false); return; }
-      const [{ data: productRows }, { data: settings }, { data: variantRows }] = await Promise.all([
+      const [{ data: productRows }, settings, { data: variantRows }] = await Promise.all([
         supabase.from('products').select('*').eq('active', true).order('sort_order'),
-        supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
+        fetchStoreContent(supabase),
         supabase.from('product_variants').select('product_id, stock, price').eq('active', true),
       ]);
       setProducts((productRows ?? []) as Product[]);
@@ -44,7 +44,7 @@ export default function FavoritosPage() {
         else if (!stockMap.has(row.product_id)) stockMap.set(row.product_id, false);
       }
       setVariantStockAvailable(stockMap);
-      if (settings?.value) setContent({ ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) });
+      if (settings) setContent(settings);
       setLoading(false);
     };
     void load();

@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { CONSENT_EVENT, CONSENT_KEY, CookieConsent } from '@/components/cookie-consent';
+import { fetchStoreContent } from '@/lib/store-data';
 import { supabase } from '@/lib/supabase';
 
 function hasConsent(): boolean {
@@ -17,8 +18,9 @@ function hasConsent(): boolean {
 // aviso de cookies (components/cookie-consent.tsx). Sin IDs o sin
 // consentimiento, no se inyecta ningún script de terceros.
 export function Analytics() {
+  const [hasAnalytics, setHasAnalytics] = useState(false);
+
   useEffect(() => {
-    if (!supabase) return;
     let cancelled = false;
     let ids: { gaId?: string; metaPixelId?: string } = {};
     const tryLoad = () => {
@@ -26,24 +28,19 @@ export function Analytics() {
       if (ids.gaId) loadGoogleAnalytics(ids.gaId);
       if (ids.metaPixelId) loadMetaPixel(ids.metaPixelId);
     };
-    void supabase
-      .from('site_content')
-      .select('value')
-      .eq('key', 'store')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return;
-        const value = (data?.value as { gaId?: string; metaPixelId?: string; faviconUrl?: string } | undefined) ?? {};
-        ids = value;
-        applyFavicon(value.faviconUrl);
-        tryLoad();
-      });
+    void fetchStoreContent(supabase).then((settings) => {
+      if (cancelled) return;
+      ids = settings ?? {};
+      setHasAnalytics(Boolean(ids.gaId || ids.metaPixelId));
+      applyFavicon(settings?.faviconUrl);
+      tryLoad();
+    });
     const onConsentChange = () => tryLoad();
     window.addEventListener(CONSENT_EVENT, onConsentChange);
     return () => { cancelled = true; window.removeEventListener(CONSENT_EVENT, onConsentChange); };
   }, []);
 
-  return <CookieConsent />;
+  return <CookieConsent hasAnalytics={hasAnalytics} />;
 }
 
 // El ícono de la pestaña se define en el <head> del servidor, pero si la

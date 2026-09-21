@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { fillLegalPlaceholders, parseLegalBlocks } from '@/lib/legal-content';
-import { defaultStoreContent, type StoreContent } from '@/lib/store-data';
+import { defaultStoreContent, fetchStoreContent, type StoreContent } from '@/lib/store-data';
 import { supabase } from '@/lib/supabase';
 import './privacidad.css';
 
@@ -10,11 +10,8 @@ export default function PrivacidadPage() {
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
 
   useEffect(() => {
-    if (!supabase) return;
     let active = true;
-    void supabase.from('site_content').select('value').eq('key', 'store').maybeSingle().then(({ data }) => {
-      if (active && data?.value) setContent({ ...defaultStoreContent, ...(data.value as Partial<StoreContent>) });
-    });
+    void fetchStoreContent(supabase).then((settings) => { if (active && settings) setContent(settings); });
     return () => { active = false; };
   }, []);
 

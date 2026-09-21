@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 
 export const CONSENT_KEY = 'cookie-consent';
 export const CONSENT_EVENT = 'cookie-consent-changed';
@@ -17,27 +16,22 @@ function setConsent(value: 'accepted' | 'rejected') {
 
 // Solo se muestra si la tienda tiene Google Analytics y/o Meta Pixel
 // configurados (Admin → Textos y contacto → Analítica) y la visitante todavía
-// no decidió. Sin analítica activada, no hay nada que pedir.
-export function CookieConsent() {
+// no decidió. Sin analítica activada, no hay nada que pedir. Los IDs los trae
+// Analytics (ya los pidió para cargar los scripts), así este componente no
+// repite la misma consulta a site_content.
+export function CookieConsent({ hasAnalytics }: { hasAnalytics: boolean }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!supabase) return;
-    let active = true;
-    void supabase.from('site_content').select('value').eq('key', 'store').maybeSingle().then(({ data }) => {
-      if (!active) return;
-      const value = data?.value as { gaId?: string; metaPixelId?: string } | undefined;
-      if (!value?.gaId && !value?.metaPixelId) return;
-      let decided = null as string | null;
-      try {
-        decided = localStorage.getItem(CONSENT_KEY);
-      } catch {
-        /* sin acceso a almacenamiento: mostramos el aviso igual */
-      }
-      if (!decided) setVisible(true);
-    });
-    return () => { active = false; };
-  }, []);
+    if (!hasAnalytics) return;
+    let decided: string | null = null;
+    try {
+      decided = localStorage.getItem(CONSENT_KEY);
+    } catch {
+      /* sin acceso a almacenamiento: mostramos el aviso igual */
+    }
+    if (!decided) setVisible(true);
+  }, [hasAnalytics]);
 
   if (!visible) return null;
 

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { getComunasForRegion } from '@/lib/comunas-chile';
 import { orderStatusLabel, type Address, type Order, type ShippingRate } from '@/lib/orders';
-import { defaultStoreContent, type StoreContent } from '@/lib/store-data';
+import { defaultStoreContent, fetchStoreContent, type StoreContent } from '@/lib/store-data';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import './mi-cuenta.css';
@@ -50,12 +50,12 @@ export default function MiCuentaPage() {
       if (!user) { setLoading(false); return; }
       setUserId(user.id);
       setEmail(user.email ?? null);
-      const [{ data: profile }, { data: orderRows }, { data: addressRows }, { data: rateRows }, { data: settings }] = await Promise.all([
+      const [{ data: profile }, { data: orderRows }, { data: addressRows }, { data: rateRows }, settings] = await Promise.all([
         supabase.from('profiles').select('full_name, marketing_emails_enabled').eq('id', user.id).maybeSingle<{ full_name: string | null; marketing_emails_enabled: boolean | null }>(),
         supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('addresses').select('*').eq('user_id', user.id).order('created_at'),
         supabase.from('shipping_rates').select('region, cost, requires_address'),
-        supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
+        fetchStoreContent(supabase),
       ]);
       setName(profile?.full_name ?? '');
       setMarketingEmails(profile?.marketing_emails_enabled ?? true);
@@ -63,7 +63,7 @@ export default function MiCuentaPage() {
       setOrdersLoaded(true);
       setAddresses((addressRows ?? []) as Address[]);
       setShippingRates((rateRows ?? []) as ShippingRate[]);
-      if (settings?.value) setContent({ ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) });
+      if (settings) setContent(settings);
       setLoading(false);
     };
     void load();

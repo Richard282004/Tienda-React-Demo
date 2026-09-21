@@ -149,6 +149,19 @@
 .order-card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #f0e5e0; }
 .order-card-actions label { display: grid; gap: 6px; color: #69545c; font-size: 12px; font-weight: 700; }
 @media (max-width: 560px) { .order-card-row { grid-template-columns: 1fr; gap: 3px; } }
+.category-manager { display: grid; gap: 8px; margin-bottom: 16px; }
+.category-chip { display: flex; align-items: center; gap: 8px; border: 1px solid #e2d4cf; border-radius: 14px; padding: 6px 8px 6px 14px; background: #fffaf5; }
+.category-chip-input { flex: 1; border: none; background: transparent; font-size: 14px; font-weight: 700; color: #4a3b40; padding: 4px 0; }
+.category-chip-input:focus { outline: none; }
+.category-chip-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.category-chip-actions button { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #8a7078; }
+.category-chip-actions button:hover:not(:disabled) { background: #f1e4e8; }
+.category-chip-actions button:disabled { opacity: 0.3; }
+.category-chip-delete:hover:not(:disabled) { background: #f5e0e5 !important; color: #a43d52; }
+.category-add { display: flex; gap: 8px; padding: 10px; border: 1px dashed #d9c7c0; border-radius: 14px; }
+.category-add input { flex: 1; }
+.category-add-button { display: flex; align-items: center; gap: 6px; padding: 0 16px; border-radius: 10px; background: #4a3b40; color: #fff; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.category-add-button:hover { background: #322930; }
 .shipping-rates-grid { display: grid; gap: 8px; }
 .shipping-rate-row { display: grid; gap: 8px; border: 1px solid #e2d4cf; border-radius: 14px; padding: 10px 16px; background: #fffaf5; }
 .shipping-rate-row-main { display: grid; grid-template-columns: minmax(140px, 1fr) 150px 110px 32px; align-items: center; gap: 16px; }

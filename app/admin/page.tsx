@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, BarChart3, Check, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Printer, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, BarChart3, Check, ChevronDown, ChevronUp, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Printer, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
 
 import { PriceCalculator } from '@/components/price-calculator';
 import { VariantFields } from '@/components/variant-fields';
@@ -75,6 +75,7 @@ export default function AdminPage() {
     }
   }, [linkedOrder, orders, activeTab]);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [newShippingRegion, setNewShippingRegion] = useState('');
   const [newShippingCost, setNewShippingCost] = useState(0);
   const [newShippingRequiresAddress, setNewShippingRequiresAddress] = useState(true);
@@ -425,6 +426,29 @@ export default function AdminPage() {
     if (error) { setMessage(error.message); return; }
     setShippingRates((current) => current.map((rate) => (rate.region === region ? { ...rate, warning: value } : rate)));
     setMessage(`Advertencia actualizada para ${region}.`);
+  };
+
+  const addCategoryItem = () => {
+    const name = newCategoryName.trim();
+    if (!name || content.categories.includes(name)) return;
+    setContent({ ...content, categories: [...content.categories, name] });
+    setNewCategoryName('');
+  };
+
+  const removeCategoryItem = (index: number) => {
+    setContent({ ...content, categories: content.categories.filter((_, i) => i !== index) });
+  };
+
+  const renameCategoryItem = (index: number, value: string) => {
+    setContent({ ...content, categories: content.categories.map((item, i) => (i === index ? value : item)) });
+  };
+
+  const moveCategoryItem = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= content.categories.length) return;
+    const next = [...content.categories];
+    [next[index], next[target]] = [next[target], next[index]];
+    setContent({ ...content, categories: next });
   };
 
   const addShippingRate = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -1080,7 +1104,24 @@ export default function AdminPage() {
               </div>
             </div>
           </details>
-          <details className="admin-collapse"><summary>Categorías y moneda</summary><p className="admin-section-note">Cambia esto para vender otro tipo de producto o en otro país, sin tocar código.</p><div className="form-grid"><label className="full">Categorías de producto (separadas por coma)<Input value={content.categories.join(', ')} onChange={(event) => setContent({ ...content, categories: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Llaveros, Peluches" /></label><label>Código de moneda (ISO 4217)<Input value={content.currency} onChange={(event) => setContent({ ...content, currency: event.target.value.trim().toUpperCase() })} placeholder="CLP" /></label><label>Locale de formato<Input value={content.locale} onChange={(event) => setContent({ ...content, locale: event.target.value.trim() })} placeholder="es-CL" /></label></div></details>
+          <details className="admin-collapse"><summary>Categorías y moneda</summary><p className="admin-section-note">Agrega, ordena o quita las categorías de producto que quieras vender, sin tocar código.</p>
+            <div className="category-manager">
+              {content.categories.map((cat, index) => (
+                <div className="category-chip" key={index}>
+                  <input className="category-chip-input" value={cat} onChange={(event) => renameCategoryItem(index, event.target.value)} placeholder="Nombre de categoría" />
+                  <div className="category-chip-actions">
+                    <button type="button" disabled={index === 0} onClick={() => moveCategoryItem(index, -1)} aria-label={`Subir ${cat}`}><ChevronUp size={15} /></button>
+                    <button type="button" disabled={index === content.categories.length - 1} onClick={() => moveCategoryItem(index, 1)} aria-label={`Bajar ${cat}`}><ChevronDown size={15} /></button>
+                    <button type="button" className="category-chip-delete" onClick={() => removeCategoryItem(index)} aria-label={`Eliminar ${cat}`}><Trash2 size={14} /></button>
+                  </div>
+                </div>
+              ))}
+              <form className="category-add" onSubmit={(event) => { event.preventDefault(); addCategoryItem(); }}>
+                <Input value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="Nueva categoría (ej: Tazas)" />
+                <button type="submit" className="category-add-button"><Tag size={14} /> Agregar</button>
+              </form>
+            </div>
+            <div className="form-grid"><label>Código de moneda (ISO 4217)<Input value={content.currency} onChange={(event) => setContent({ ...content, currency: event.target.value.trim().toUpperCase() })} placeholder="CLP" /></label><label>Locale de formato<Input value={content.locale} onChange={(event) => setContent({ ...content, locale: event.target.value.trim() })} placeholder="es-CL" /></label></div></details>
           <details className="admin-collapse"><summary>Portada</summary><div className="brand-asset-row"><div className="brand-asset"><span className="brand-asset-preview">{content.heroImageUrl ? <img src={content.heroImageUrl} alt="Foto de portada actual" /> : <span className="brand-asset-mark">✦</span>}</span><div><strong>Foto de portada</strong><label className="brand-asset-upload">{brandAssetBusy === 'heroImageUrl' ? 'Subiendo…' : content.heroImageUrl ? 'Cambiar foto' : 'Subir foto'}<input type="file" accept="image/*" disabled={brandAssetBusy !== null} onChange={(event) => void uploadBrandAsset('heroImageUrl', event.target.files?.[0])} /></label>{content.heroImageUrl && <button type="button" className="brand-asset-clear" onClick={() => setContent({ ...content, heroImageUrl: '' })}>Quitar (recuerda Guardar)</button>}</div></div></div><div className="form-grid"><label>Texto superior<Input value={content.heroEyebrow} onChange={(event) => setContent({ ...content, heroEyebrow: event.target.value })} /></label><label>Título<Input value={content.heroTitle} onChange={(event) => setContent({ ...content, heroTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.heroHighlight} onChange={(event) => setContent({ ...content, heroHighlight: event.target.value })} /></label><label className="full">Descripción<Textarea value={content.heroDescription} onChange={(event) => setContent({ ...content, heroDescription: event.target.value })} /></label><label>Botón principal<Input value={content.heroCtaPrimary} onChange={(event) => setContent({ ...content, heroCtaPrimary: event.target.value })} /></label><label>Enlace secundario<Input value={content.heroCtaSecondary} onChange={(event) => setContent({ ...content, heroCtaSecondary: event.target.value })} /></label><label>Nota 1<Input value={content.heroNote1} onChange={(event) => setContent({ ...content, heroNote1: event.target.value })} /></label><label>Nota 2<Input value={content.heroNote2} onChange={(event) => setContent({ ...content, heroNote2: event.target.value })} /></label><label>Nota adhesiva, línea 1<Input value={content.heroScribbleLine1} onChange={(event) => setContent({ ...content, heroScribbleLine1: event.target.value })} /></label><label>Nota adhesiva, línea 2<Input value={content.heroScribbleLine2} onChange={(event) => setContent({ ...content, heroScribbleLine2: event.target.value })} /></label><label>Sticker, línea 1<Input value={content.heroStickerLine1} onChange={(event) => setContent({ ...content, heroStickerLine1: event.target.value })} /></label><label>Sticker, línea 2<Input value={content.heroStickerLine2} onChange={(event) => setContent({ ...content, heroStickerLine2: event.target.value })} /></label></div></details>
           <details className="admin-collapse"><summary>Encabezados de secciones</summary><p className="admin-section-note">El texto pequeño y el título de cada sección de la portada (colección, trabajos recientes, preguntas frecuentes).</p><div className="form-grid"><label>Colección — Texto superior<Input value={content.collectionKicker} onChange={(event) => setContent({ ...content, collectionKicker: event.target.value })} /></label><label>Colección — Título<Input value={content.collectionTitle} onChange={(event) => setContent({ ...content, collectionTitle: event.target.value })} /></label><label>Colección — Texto destacado<Input value={content.collectionHighlight} onChange={(event) => setContent({ ...content, collectionHighlight: event.target.value })} /></label><label className="full">Colección — Mensaje sin productos<Input value={content.emptyCollectionMessage} onChange={(event) => setContent({ ...content, emptyCollectionMessage: event.target.value })} /></label><label>Trabajos recientes — Texto superior<Input value={content.showcaseKicker} onChange={(event) => setContent({ ...content, showcaseKicker: event.target.value })} /></label><label>Trabajos recientes — Título<Input value={content.showcaseTitle} onChange={(event) => setContent({ ...content, showcaseTitle: event.target.value })} /></label><label>Trabajos recientes — Texto destacado<Input value={content.showcaseHighlight} onChange={(event) => setContent({ ...content, showcaseHighlight: event.target.value })} /></label><label>FAQ — Texto superior<Input value={content.faqKicker} onChange={(event) => setContent({ ...content, faqKicker: event.target.value })} /></label><label>FAQ — Título<Input value={content.faqTitle} onChange={(event) => setContent({ ...content, faqTitle: event.target.value })} /></label></div></details>
           <details className="admin-collapse"><summary>Franja de categorías</summary><div className="form-grid"><label>Texto 1<Input value={content.categoryText1} onChange={(event) => setContent({ ...content, categoryText1: event.target.value })} /></label><label>Texto 2<Input value={content.categoryText2} onChange={(event) => setContent({ ...content, categoryText2: event.target.value })} /></label><label>Texto 3<Input value={content.categoryText3} onChange={(event) => setContent({ ...content, categoryText3: event.target.value })} /></label></div></details>

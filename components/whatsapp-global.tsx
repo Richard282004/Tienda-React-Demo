@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { WhatsappFab } from '@/components/whatsapp-fab';
+import { fetchStoreContent } from '@/lib/store-data';
 import { supabase } from '@/lib/supabase';
 
 // Antes solo aparecía en la home. Se monta acá para que se vea en toda la
@@ -12,12 +13,9 @@ export function WhatsappGlobal() {
   const [number, setNumber] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!supabase) return;
     let active = true;
-    void supabase.from('site_content').select('value').eq('key', 'store').maybeSingle().then(({ data }) => {
-      if (!active) return;
-      const value = data?.value as { whatsapp?: string } | undefined;
-      setNumber(value?.whatsapp || null);
+    void fetchStoreContent(supabase).then((settings) => {
+      if (active) setNumber(settings?.whatsapp || null);
     });
     return () => { active = false; };
   }, []);

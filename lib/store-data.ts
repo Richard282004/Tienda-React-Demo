@@ -1,3 +1,5 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 export type Product = {
   id: string;
   name: string;
@@ -231,4 +233,24 @@ export function writeCachedStoreContent(content: StoreContent) {
   } catch {
     /* no crítico: solo afecta el flash en la próxima recarga */
   }
+}
+
+let contentPromise: Promise<StoreContent | null> | null = null;
+let contentPromiseAt = 0;
+const CONTENT_DEDUPE_MS = 3000;
+
+// La página, el widget de WhatsApp, Analytics y el aviso de cookies piden el
+// mismo site_content casi al mismo tiempo al montar. Sin este caché de corta
+// duración cada uno dispara su propia consulta a Supabase (hasta 4 por
+// carga); con él, la primera dispara la consulta y el resto reutiliza esa
+// misma promesa. `client` recibe el mismo tipo que exporta lib/supabase.
+export function fetchStoreContent(client: SupabaseClient | null): Promise<StoreContent | null> {
+  if (!client) return Promise.resolve(null);
+  const now = Date.now();
+  if (contentPromise && now - contentPromiseAt < CONTENT_DEDUPE_MS) return contentPromise;
+  contentPromiseAt = now;
+  contentPromise = Promise.resolve(
+    client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
+  ).then(({ data }) => (data?.value ? { ...defaultStoreContent, ...(data.value as Partial<StoreContent>) } : null));
+  return contentPromise;
 }

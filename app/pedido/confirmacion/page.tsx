@@ -8,7 +8,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Order } from "@/lib/orders";
 import { removePurchasedEntries } from "@/lib/cart-lines";
 import { orderStatusLabel } from "@/lib/orders";
-import { defaultStoreContent, type StoreContent } from "@/lib/store-data";
+import { defaultStoreContent, fetchStoreContent, type StoreContent } from "@/lib/store-data";
 import { formatPrice as formatCurrency } from "@/lib/currency";
 import "./confirmacion.css";
 
@@ -23,9 +23,7 @@ export default function ConfirmacionPage() {
 
   useEffect(() => {
     if (!supabase) return;
-    void supabase.from("site_content").select("value").eq("key", "store").maybeSingle().then(({ data }) => {
-      if (data?.value) setContent({ ...defaultStoreContent, ...(data.value as Partial<StoreContent>) });
-    });
+    void fetchStoreContent(supabase).then((settings) => { if (settings) setContent(settings); });
   }, []);
 
   useEffect(() => {

@@ -9,7 +9,7 @@ import { ProductArtwork } from '@/components/product-artwork';
 import { catalogPrice, type CatalogVariant, variantForColor } from '@/lib/product-variants';
 import { encodeCartEntry } from '@/lib/cart';
 import { formatPrice as formatCurrency } from '@/lib/currency';
-import { defaultProducts, defaultStoreContent, readCachedStoreContent, writeCachedStoreContent, type Product, type StoreContent } from '@/lib/store-data';
+import { defaultProducts, defaultStoreContent, fetchStoreContent, readCachedStoreContent, writeCachedStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { type ProductImage, type ProductVariant } from '@/lib/orders';
 import { supabase } from '@/lib/supabase';
 import { initFavorites, syncFavoriteToggle, writeLocalFavorites } from '@/lib/favorites';
@@ -66,18 +66,17 @@ export default function ProductoPage() {
         setLoading(false);
         return;
       }
-      const [{ data: productRow }, { data: imageRows }, { data: settings }, { data: otherRows }, { data: variantRows }, { data: otherVariantRows }] = await Promise.all([
+      const [{ data: productRow }, { data: imageRows }, settings, { data: otherRows }, { data: variantRows }, { data: otherVariantRows }] = await Promise.all([
         supabase.from('products').select('*').eq('id', id).maybeSingle(),
         supabase.from('product_images').select('*').eq('product_id', id).order('sort_order'),
-        supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
+        fetchStoreContent(supabase),
         supabase.from('products').select('*').eq('active', true).neq('id', id).order('sort_order').limit(12),
         supabase.from('product_variants').select('*').eq('product_id', id).eq('active', true).order('sort_order'),
         supabase.from('product_variants').select('product_id, price, stock').eq('active', true),
       ]);
-      if (settings?.value) {
-        const merged = { ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) };
-        setContent(merged);
-        writeCachedStoreContent(merged);
+      if (settings) {
+        setContent(settings);
+        writeCachedStoreContent(settings);
       }
       if (!productRow) { setNotFound(true); setLoading(false); return; }
       const typedProduct = productRow as Product;

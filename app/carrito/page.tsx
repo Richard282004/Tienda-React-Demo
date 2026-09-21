@@ -11,7 +11,7 @@ import { getComunasForRegion } from '@/lib/comunas-chile';
 import { resolveCartLines } from '@/lib/cart-lines';
 import { shippingPayment, shippingCharge, COLLECT_NOTICE } from '@/lib/shipping';
 import { variantLabel, type Address, type ProductVariant, type ShippingRate } from '@/lib/orders';
-import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
+import { defaultStoreContent, fetchStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import './carrito.css';
@@ -86,17 +86,17 @@ export default function CarritoPage() {
     const client = supabase;
     const load = async () => {
       if (!client) { setLoading(false); return; }
-      const [{ data: productRows, error: productError }, { data: variantRows, error: variantError }, { data: rateRows, error: rateError }, { data: settings }] = await Promise.all([
+      const [{ data: productRows, error: productError }, { data: variantRows, error: variantError }, { data: rateRows, error: rateError }, settings] = await Promise.all([
         client.from('products').select('id, name, price, color, art, image_url, stock, active').order('sort_order'),
         client.from('product_variants').select('*'),
         client.from('shipping_rates').select('region, cost, requires_address, warning'),
-        client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
+        fetchStoreContent(client),
       ]);
       if (productError || variantError || rateError) { setLoadError(true); setLoading(false); return; }
       setProducts((productRows ?? []) as Product[]);
       setVariants((variantRows ?? []) as ProductVariant[]);
       setShippingRates((rateRows ?? []) as ShippingRate[]);
-      if (settings?.value) setContent({ ...defaultStoreContent, ...(settings.value as Partial<StoreContent>) });
+      if (settings) setContent(settings);
       const { data: userData } = await client.auth.getUser();
       const user = userData.user;
       if (user) {
