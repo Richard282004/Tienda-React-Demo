@@ -108,7 +108,7 @@ export function ImageCropDialog({ file, onCancel, onConfirm }: Props) {
             />
           )}
         </div>
-        <label className="crop-zoom">Acercar<input type="range" min={1} max={3} step={0.02} value={zoom} onChange={(event) => onZoomChange(Number(event.target.value))} /></label>
+        <label className="crop-zoom">Acercar<input type="range" min={1} max={2} step={0.02} value={zoom} onChange={(event) => onZoomChange(Number(event.target.value))} /></label>
         <div className="crop-actions">
           <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
           <Button type="button" onClick={confirm}>Usar esta foto</Button>
