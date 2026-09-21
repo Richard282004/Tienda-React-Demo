@@ -361,7 +361,7 @@ export default function CarritoPage() {
                 return (
                   <div className="cart-page-item" key={key}>
                     <div className="cart-thumb" style={{ backgroundColor: product.color }}>
-                      {variant?.image_url ? <img src={variant.image_url} alt="" /> : <ProductArtwork product={product} />}
+                      {variant?.image_url ? <img src={variant.image_url} alt="" loading="lazy" decoding="async" width={58} height={58} /> : <ProductArtwork product={product} />}
                     </div>
                     <div className="cart-page-item-info">
                       <h3>{product.name}{variant && <small className="cart-page-item-variant"> · {variantLabel(variant)}</small>}</h3>

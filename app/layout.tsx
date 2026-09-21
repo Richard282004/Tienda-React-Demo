@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { Analytics } from '@/components/analytics';
 import { ServiceWorkerRegister } from '@/components/sw-register';
 import { WhatsappGlobal } from '@/components/whatsapp-global';
+import { fetchSiteMeta } from '@/lib/site-meta';
 import { SITE_URL } from '@/lib/site-url';
 import './globals.css';
 
@@ -20,68 +21,52 @@ try {
 } catch {
   supabaseOrigin = null;
 }
-// Ícono de la pestaña configurable desde Admin → Textos y contacto → Logo e
-// ícono. Si no hay uno subido, se usa el diseño por defecto.
-async function customFavicon(): Promise<string | null> {
-  const base = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
-  if (!base || !key) return null;
-  try {
-    const res = await fetch(`${base}/rest/v1/site_content?select=value&key=eq.store&limit=1`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
-      next: { revalidate: 300 },
-    });
-    if (!res.ok) return null;
-    const rows = (await res.json()) as { value?: { faviconUrl?: string } }[];
-    return rows[0]?.value?.faviconUrl || null;
-  } catch {
-    return null;
-  }
-}
-
+// Título, descripción, ícono y datos estructurados configurables desde
+// Admin → Textos y contacto. Si no hay contenido guardado, usa los valores
+// por defecto de lib/store-data.ts.
 export async function generateMetadata(): Promise<Metadata> {
-  const favicon = await customFavicon();
+  const meta = await fetchSiteMeta();
+  const title = `${meta.brandName} — Amiguitos tejidos a mano`;
   return {
     metadataBase: new URL(siteUrl),
-    title: { default: 'MilaLoop — Amiguitos tejidos a mano', template: '%s · MilaLoop' },
-    description: 'Llaveros y peluches de crochet hechos a mano, puntada por puntada. Envíos a todo Chile.',
+    title: { default: title, template: `%s · ${meta.brandName}` },
+    description: meta.description,
     robots: { index: true, follow: true },
     openGraph: {
       type: 'website',
       locale: 'es_CL',
-      siteName: 'MilaLoop',
-      title: 'MilaLoop — Amiguitos tejidos a mano',
-      description: 'Llaveros y peluches de crochet hechos a mano, puntada por puntada. Envíos a todo Chile.',
-      images: [{ url: '/og-image.jpg', width: 1122, height: 589, alt: 'Llaveros y peluches MilaLoop' }],
+      siteName: meta.brandName,
+      title,
+      description: meta.description,
+      images: [{ url: '/og-image.jpg', width: 1122, height: 589, alt: `Llaveros y peluches ${meta.brandName}` }],
     },
-    twitter: { card: 'summary_large_image', title: 'MilaLoop — Amiguitos tejidos a mano', description: 'Llaveros y peluches de crochet hechos a mano.', images: ['/og-image.jpg'] },
-    icons: { icon: favicon || '/favicon.svg', apple: favicon || '/favicon.svg' },
+    twitter: { card: 'summary_large_image', title, description: meta.description, images: ['/og-image.jpg'] },
+    icons: { icon: meta.faviconUrl || '/favicon.svg', apple: meta.faviconUrl || '/favicon.svg' },
     // Hace que Safari en iOS abra la PWA instalada sin la barra de
     // direcciones (display: standalone) y le ponga un nombre corto al ícono.
-    appleWebApp: { capable: true, statusBarStyle: 'default', title: 'MilaLoop' },
+    appleWebApp: { capable: true, statusBarStyle: 'default', title: meta.brandName },
   };
 }
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };
 
-const organizationJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: 'MilaLoop',
-  url: siteUrl,
-  logo: `${siteUrl}/favicon.svg`,
-  description: 'Llaveros y peluches de crochet hechos a mano, puntada por puntada. Envíos a todo Chile.',
-  areaServed: 'CL',
-};
-
-const websiteJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'WebSite',
-  name: 'MilaLoop',
-  url: siteUrl,
-  inLanguage: 'es-CL',
-};
-
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const meta = await fetchSiteMeta();
+  const organizationJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: meta.brandName,
+    url: siteUrl,
+    logo: `${siteUrl}/favicon.svg`,
+    description: meta.description,
+    areaServed: 'CL',
+  };
+  const websiteJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: meta.brandName,
+    url: siteUrl,
+    inLanguage: 'es-CL',
+  };
   return (
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>

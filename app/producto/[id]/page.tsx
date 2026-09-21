@@ -223,7 +223,7 @@ export default function ProductoPage() {
         <div className="producto-gallery">
           <div className="producto-gallery-main" style={{ backgroundColor: product.color }}>
             {displayImages.length > 0 ? (
-              <img src={displayImages[Math.min(activeImage, displayImages.length - 1)]} alt={product.name} />
+              <img src={displayImages[Math.min(activeImage, displayImages.length - 1)]} alt={product.name} fetchPriority="high" decoding="async" />
             ) : (
               <ProductArtwork product={product} />
             )}
@@ -238,7 +238,7 @@ export default function ProductoPage() {
             <div className="producto-thumbs" role="tablist" aria-label="Imágenes del producto">
               {displayImages.map((image, index) => (
                 <button key={image + index} className={index === activeImage ? 'active' : ''} role="tab" aria-selected={index === activeImage} aria-label={`Ver imagen ${index + 1}`} onClick={() => setActiveImage(index)}>
-                  <img src={image} alt="" />
+                  <img src={image} alt="" loading="lazy" decoding="async" width={64} height={64} />
                 </button>
               ))}
             </div>
@@ -386,6 +386,8 @@ export default function ProductoPage() {
             className={content.hideBrandText ? 'brand-logo brand-logo-solo' : 'brand-logo'}
             src={content.logoUrl}
             alt={content.hideBrandText ? content.brandName : ''}
+            loading="lazy"
+            decoding="async"
             style={
               content.hideBrandText
                 ? {

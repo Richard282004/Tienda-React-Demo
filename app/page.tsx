@@ -583,7 +583,7 @@ export default function Home() {
           <CarouselContent className="carousel-track">
             {showcaseItems.map((item) => (
               <CarouselItem className="work-slide" key={item.id}>
-                <article className="work-card work-card-photo"><img src={item.image_url} alt={item.title} loading="lazy" /><div><h3>{item.title}</h3>{item.subtitle && <p>{item.subtitle}</p>}</div></article>
+                <article className="work-card work-card-photo"><img src={item.image_url} alt={item.title} loading="lazy" decoding="async" /><div><h3>{item.title}</h3>{item.subtitle && <p>{item.subtitle}</p>}</div></article>
               </CarouselItem>
             ))}
           </CarouselContent>
@@ -623,6 +623,8 @@ export default function Home() {
           className={content.hideBrandText ? 'brand-logo brand-logo-solo' : 'brand-logo'}
           src={content.logoUrl}
           alt={content.hideBrandText ? content.brandName : ''}
+          loading="lazy"
+          decoding="async"
           style={
             content.hideBrandText
               ? {
