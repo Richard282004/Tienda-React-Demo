@@ -215,6 +215,10 @@
 .brand-asset-preview { display: grid; place-items: center; width: 52px; height: 52px; flex-shrink: 0; border-radius: 12px; overflow: hidden; background: #f3e9e4; }
 .brand-asset-preview img { width: 100%; height: 100%; object-fit: contain; }
 .brand-asset-mark { color: #a74060; font-size: 22px; }
+.brand-color-preview { border: 1px solid #e2d4cf; }
+.brand-color-picker { display: flex; align-items: center; gap: 8px; }
+.brand-color-picker input[type="color"] { width: 38px; height: 38px; padding: 2px; border: 1px solid #d9c7c0; border-radius: 8px; background: #fff; cursor: pointer; }
+.brand-color-picker input:not([type="color"]) { width: 110px; }
 .brand-asset-upload { display: inline-flex; align-items: center; width: fit-content; padding: 7px 12px; border: 1px solid #d9c7c0; border-radius: 9px; background: #fff; color: #6d5a61; font-size: 12px; font-weight: 700; cursor: pointer; }
 .brand-asset-upload input { display: none; }
 .brand-asset-clear { width: fit-content; border: 0; background: none; padding: 0; color: #9f5367; font-size: 11px; font-weight: 600; text-decoration: underline; cursor: pointer; }

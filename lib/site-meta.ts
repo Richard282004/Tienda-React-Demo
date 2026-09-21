@@ -17,7 +17,7 @@ export async function fetchSiteMeta(): Promise<SiteMeta> {
     brandTagline: defaultStoreContent.brandTagline,
     description: defaultStoreContent.heroDescription,
     faviconUrl: null,
-    themeColor: '#5c2640',
+    themeColor: defaultStoreContent.themeColor || '#5c2640',
   };
   const base = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
@@ -36,7 +36,7 @@ export async function fetchSiteMeta(): Promise<SiteMeta> {
       brandTagline: value.brandTagline || fallback.brandTagline,
       description: value.heroDescription || fallback.description,
       faviconUrl: value.faviconUrl || null,
-      themeColor: fallback.themeColor,
+      themeColor: value.themeColor || fallback.themeColor,
     };
   } catch {
     return fallback;

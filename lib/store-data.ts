@@ -75,6 +75,7 @@ export type StoreContent = {
   orderNotifyEmail?: string;
   lowStockThreshold?: number;
   logoUrl?: string;
+  themeColor?: string;
   hideBrandText?: boolean;
   logoHeight?: number;
   logoWidth?: number;
@@ -111,6 +112,7 @@ export const defaultProducts: Product[] = [
 export const defaultStoreContent: StoreContent = {
   brandName: 'MilaLoop',
   brandTagline: 'hecho a mano',
+  themeColor: '#5c2640',
   categories: ['Llaveros', 'Peluches'],
   currency: 'CLP',
   locale: 'es-CL',

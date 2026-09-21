@@ -1102,6 +1102,17 @@ export default function AdminPage() {
                   {content.faviconUrl && <button type="button" className="brand-asset-clear" onClick={() => setContent({ ...content, faviconUrl: '' })}>Quitar (recuerda Guardar)</button>}
                 </div>
               </div>
+              <div className="brand-asset">
+                <span className="brand-asset-preview brand-color-preview" style={{ background: content.themeColor || '#5c2640' }} />
+                <div>
+                  <strong>Color de marca</strong>
+                  <p className="admin-section-note">Se usa en la barra del navegador al instalar la app y en la app instalada (PWA).</p>
+                  <div className="brand-color-picker">
+                    <input type="color" value={content.themeColor || '#5c2640'} onChange={(event) => setContent({ ...content, themeColor: event.target.value })} />
+                    <Input value={content.themeColor || ''} onChange={(event) => setContent({ ...content, themeColor: event.target.value })} placeholder="#5c2640" />
+                  </div>
+                </div>
+              </div>
             </div>
           </details>
           <details className="admin-collapse"><summary>Categorías y moneda</summary><p className="admin-section-note">Agrega, ordena o quita las categorías de producto que quieras vender, sin tocar código.</p>

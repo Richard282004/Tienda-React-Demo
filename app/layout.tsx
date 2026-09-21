@@ -47,7 +47,10 @@ export async function generateMetadata(): Promise<Metadata> {
     appleWebApp: { capable: true, statusBarStyle: 'default', title: meta.brandName },
   };
 }
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };
+export async function generateViewport(): Promise<Viewport> {
+  const meta = await fetchSiteMeta();
+  return { width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: meta.themeColor };
+}
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const meta = await fetchSiteMeta();
