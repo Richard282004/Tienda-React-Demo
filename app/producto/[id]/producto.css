@@ -72,28 +72,62 @@
 .producto-header-actions { grid-row: 1; grid-column: 3; justify-self: end; }
 .producto-mobile-nav { display: none; }
 @media (max-width: 720px) {
-  .producto-page { padding-bottom: 74px; }
+  .producto-page { padding-bottom: max(104px, calc(env(safe-area-inset-bottom) + 96px)); }
   .producto-header-actions { display: none; }
   .producto-header { grid-template-columns: 1fr; }
   .producto-header .cart-page-back { display: none; }
   .producto-header .brand { grid-column: 1; }
+  /* Barra flotante estilo "liquid glass": vidrio esmerilado sobre el
+     contenido, con una cápsula que se desliza al ítem tocado usando :has()
+     en vez de estado en React (más liviano, nada que medir con JS). */
   .producto-mobile-nav {
-    position: fixed; z-index: 20; left: 0; right: 0; bottom: 0;
+    position: fixed; z-index: 20; left: 12px; right: 12px;
+    bottom: max(14px, calc(env(safe-area-inset-bottom) + 10px));
     display: grid; grid-template-columns: repeat(4, 1fr);
-    background: #fffaf5; border-top: 1px solid #eee3dc; box-shadow: 0 -8px 20px rgba(53,31,44,.06);
-    padding-bottom: env(safe-area-inset-bottom);
+    border-radius: 26px; padding: 6px 4px;
+    background: linear-gradient(180deg, rgba(255,251,248,.82), rgba(255,244,240,.72));
+    border: 1px solid rgba(255,255,255,.6);
+    box-shadow: 0 14px 32px rgba(92,38,64,.16), 0 2px 8px rgba(92,38,64,.08), inset 0 1px 0 rgba(255,255,255,.7);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
   }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .producto-mobile-nav { background: #fdf3ef; }
+  }
+  .producto-mobile-nav::before {
+    content: ''; position: absolute; z-index: -1; top: 0; left: 0; height: 100%; width: 25%;
+    box-sizing: border-box; border: 6px solid transparent;
+    background: linear-gradient(165deg, rgba(255,255,255,.92), rgba(255,255,255,.58)) padding-box;
+    box-shadow: 0 0 0 1px rgba(107,62,80,.14), 0 6px 14px rgba(92,38,64,.16);
+    border-radius: 20px; opacity: 0; transform: translateX(0);
+    transition: transform 260ms cubic-bezier(.34,1.15,.34,1), opacity 200ms ease;
+  }
+  .producto-mobile-nav:has(> :nth-child(1):is(:active,:focus-visible))::before { opacity: 1; transform: translateX(0); }
+  .producto-mobile-nav:has(> :nth-child(2):is(:active,:focus-visible))::before { opacity: 1; transform: translateX(100%); }
+  .producto-mobile-nav:has(> :nth-child(3):is(:active,:focus-visible))::before { opacity: 1; transform: translateX(200%); }
+  .producto-mobile-nav:has(> :nth-child(4):is(:active,:focus-visible))::before { opacity: 1; transform: translateX(300%); }
   .producto-mobile-nav a, .producto-mobile-nav button {
-    position: relative; display: grid; justify-items: center; gap: 3px;
-    padding: 10px 4px 9px; border: 0; background: none; color: var(--muted); font-size: 10.5px; font-weight: 600; cursor: pointer;
-    transition: color 140ms var(--ease-out);
+    position: relative; z-index: 1; display: grid; justify-items: center; gap: 3px;
+    padding: 9px 4px 8px; border: 0; background: none; color: var(--muted); font-size: 10.5px; font-weight: 600; cursor: pointer;
+    min-height: 44px; border-radius: 18px;
+    transition: color 200ms var(--ease-out);
   }
-  .producto-mobile-nav a svg, .producto-mobile-nav button svg { transition: transform 140ms var(--ease-out); }
-  .producto-mobile-nav a:active, .producto-mobile-nav button:active { color: var(--plum); }
-  .producto-mobile-nav a:active svg, .producto-mobile-nav button:active svg { transform: scale(0.82); }
+  .producto-mobile-nav a svg, .producto-mobile-nav button svg { transition: transform 200ms cubic-bezier(.34,1.15,.34,1); }
+  .producto-mobile-nav a:active, .producto-mobile-nav button:active,
+  .producto-mobile-nav a:focus-visible, .producto-mobile-nav button:focus-visible { color: var(--plum); }
+  .producto-mobile-nav a:active svg, .producto-mobile-nav button:active svg { transform: scale(0.9); }
   .producto-mobile-nav-badge {
     position: absolute; top: 4px; right: calc(50% - 20px); display: grid; place-items: center;
     min-width: 15px; height: 15px; border-radius: 99px; background: var(--rose); color: #fff; font-size: 9px; font-weight: 700;
+  }
+  /* La barra ahora flota por encima del contenido, así que el botón de
+     WhatsApp (fijo, global) sube para no quedar tapado. Selector :has()
+     evita tocar el componente compartido de WhatsApp. */
+  body:has(.producto-mobile-nav) .whatsapp-fab { bottom: max(84px, calc(env(safe-area-inset-bottom) + 84px)); }
+  @media (prefers-reduced-motion: reduce) {
+    .producto-mobile-nav::before { transition: opacity 120ms ease; }
+    .producto-mobile-nav a svg, .producto-mobile-nav button svg { transition: none; }
+    .producto-mobile-nav a:active svg, .producto-mobile-nav button:active svg { transform: none; }
   }
 }
 .producto-more { padding-bottom: 60px; }
