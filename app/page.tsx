@@ -561,13 +561,13 @@ export default function Home() {
               <span className="yarn-shadow" />
             </div>
             <div className="product-info">
-              {controls}
               <h3><a className="product-name-link" href={href}>{product.name}</a></h3>
               <strong>{variant ? formatPrice(variant.price) : formatPrice(product.price)}</strong>
               <div className="product-meta">
                 <span className={`availability-badge ${previewOutOfStock ? 'unavailable' : 'available'}`}>{previewOutOfStock ? 'Agotado' : lowStock ? `¡Últimas ${product.stock}!` : 'Disponible'}</span>
                 {avgRating !== null && <button className="reviews-link" onClick={() => openReviews(product)} aria-label={`Ver ${productReviews.length} reseñas de ${product.name}`}><Star size={13} fill="currentColor" /> {avgRating.toFixed(1)} ({productReviews.length})</button>}
               </div>
+              {controls}
             </div>
             <Button className="add-button" variant="outline" disabled={previewOutOfStock} onClick={() => variant ? goToProduct() : addToCart(product.id)}>{variantProductIds.has(product.id) ? 'Elegir opciones' : 'Agregar a la bolsita'} <Plus size={16} /></Button>
           </>;
