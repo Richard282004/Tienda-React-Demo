@@ -95,7 +95,7 @@ export type Profile = {
   id: string;
   email: string | null;
   full_name: string | null;
-  role: 'customer' | 'admin';
+  role: 'customer' | 'admin' | 'dev';
   created_at: string;
   phone?: string | null;
   region?: string | null;

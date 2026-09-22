@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, BarChart3, Check, ChevronDown, ChevronUp, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Printer, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, BarChart3, Check, ChevronDown, ChevronUp, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, History, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Printer, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
 
 import { PriceCalculator } from '@/components/price-calculator';
 import { VariantFields } from '@/components/variant-fields';
@@ -13,6 +13,7 @@ import { OrderChat } from '@/components/order-chat';
 import { DispatchPanel } from '@/components/dispatch-panel';
 import { PushAdmin } from '@/components/push-admin';
 import { IntegrationsAdmin } from '@/components/integrations-admin';
+import { AuditLogAdmin } from '@/components/audit-log-admin';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -121,6 +122,7 @@ export default function AdminPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [role, setRole] = useState<'admin' | 'dev' | null>(null);
   const [showcaseItems, setShowcaseItems] = useState<ShowcaseItem[]>([]);
   const [showcaseFile, setShowcaseFile] = useState<File | null>(null);
   const [showcaseBusy, setShowcaseBusy] = useState(false);
@@ -294,11 +296,11 @@ export default function AdminPage() {
     setReviews((current) => current.filter((review) => review.id !== id));
   };
 
-  const toggleAdminRole = async (profile: Profile) => {
-    if (!supabase) return;
+  const setUserRole = async (profile: Profile, nextRole: 'customer' | 'dev' | 'admin') => {
+    if (!supabase || nextRole === profile.role) return;
     if (profile.id === currentUserId && profile.role === 'admin') { setMessage('No puedes quitarte tu propio acceso de administradora.'); return; }
-    const nextRole = profile.role === 'admin' ? 'customer' : 'admin';
-    if (!(await askConfirm(`¿${nextRole === 'admin' ? 'Dar' : 'Quitar'} acceso de administradora a ${profile.email ?? profile.id}?`))) return;
+    const roleLabel = { customer: 'Clienta', dev: 'Dev', admin: 'Administradora' }[nextRole];
+    if (!(await askConfirm(`¿Cambiar el acceso de ${profile.email ?? profile.id} a "${roleLabel}"?`))) return;
     const { error } = await supabase.from('profiles').update({ role: nextRole }).eq('id', profile.id);
     if (error) { setMessage(error.message); return; }
     setProfiles((current) => current.map((item) => (item.id === profile.id ? { ...item, role: nextRole } : item)));
@@ -480,7 +482,8 @@ export default function AdminPage() {
     const { data } = await supabase.auth.getSession();
     if (!data.session) { setState('login'); return; }
     const { data: profile, error } = await supabase.from('profiles').select('role').eq('id', data.session.user.id).maybeSingle();
-    if (error || profile?.role !== 'admin') { setState('denied'); return; }
+    if (error || (profile?.role !== 'admin' && profile?.role !== 'dev')) { setState('denied'); return; }
+    setRole(profile.role);
     setCurrentUserId(data.session.user.id);
     setState('ready');
     await loadAdminData();
@@ -784,10 +787,11 @@ export default function AdminPage() {
         <TabsTrigger value="shipping"><Truck size={17} /> Envíos</TabsTrigger>
         <TabsTrigger value="discounts"><Tag size={17} /> Descuentos</TabsTrigger>
         <TabsTrigger value="reviews"><Star size={17} /> Reseñas</TabsTrigger>
-        <TabsTrigger value="users"><Users size={17} /> Usuarios</TabsTrigger>
+        {role === 'admin' && <TabsTrigger value="users"><Users size={17} /> Usuarios</TabsTrigger>}
         <TabsTrigger value="showcase"><Images size={17} /> Vitrina</TabsTrigger>
         <TabsTrigger value="faq"><HelpCircle size={17} /> FAQ</TabsTrigger>
         <TabsTrigger value="content"><FileText size={17} /> Textos y contacto</TabsTrigger>
+        {role === 'admin' && <TabsTrigger value="history"><History size={17} /> Historial</TabsTrigger>}
       </TabsList>
       <TabsContent value="orders">
         <div className="admin-section-heading"><div><h2>Pedidos</h2><p>{filteredOrders.length === orders.length ? `${orders.length} pedidos recibidos` : `${filteredOrders.length} de ${orders.length} pedidos`}</p></div><Button variant="outline" disabled={orders.length === 0} onClick={exportOrdersCsv}><FileDown size={17} /> Exportar CSV</Button></div>
@@ -1002,17 +1006,21 @@ export default function AdminPage() {
           </div>
         )}
       </TabsContent>
-      <TabsContent value="users">
+      {role === 'admin' && <TabsContent value="users">
         <div className="admin-section-heading"><div><h2>Usuarios</h2><p>{profiles.length} cuentas registradas</p></div></div>
         <div className="admin-users-list">
           {profiles.map((profile) => (
             <div className="admin-user-row" key={profile.id}>
               <div><strong>{profile.full_name || profile.email || profile.id}</strong><span>{profile.email}</span></div>
-              <button className={`discount-toggle ${profile.role === 'admin' ? 'active' : ''}`} onClick={() => toggleAdminRole(profile)}>{profile.role === 'admin' ? <><Users size={13} /> Administradora</> : 'Clienta'}</button>
+              <NativeSelect className="admin-select" value={profile.role} onChange={(event) => void setUserRole(profile, event.target.value as 'customer' | 'dev' | 'admin')}>
+                <NativeSelectOption value="customer">Clienta</NativeSelectOption>
+                <NativeSelectOption value="dev">Dev</NativeSelectOption>
+                <NativeSelectOption value="admin">Administradora</NativeSelectOption>
+              </NativeSelect>
             </div>
           ))}
         </div>
-      </TabsContent>
+      </TabsContent>}
       <TabsContent value="showcase">
         <div className="admin-section-heading"><div><h2>Vitrina ("Trabajos recientes")</h2><p>Si agregas al menos una foto aquí, reemplaza el carrusel automático del catálogo.</p></div></div>
         <form className="discount-form showcase-form" onSubmit={addShowcaseItem}>
@@ -1159,7 +1167,7 @@ export default function AdminPage() {
               <label className="shipping-rate-address-toggle full"><input type="checkbox" checked={content.pushCustomerMessages ?? true} onChange={(event) => setContent({ ...content, pushCustomerMessages: event.target.checked })} /> Mensaje nuevo de un cliente</label>
             </div>
           </details>
-          <IntegrationsAdmin />
+          {role === 'admin' && <IntegrationsAdmin />}
           <details className="admin-collapse"><summary>Pago por transferencia</summary><p className="admin-section-note">Si lo activas, el cliente puede elegir pagar por transferencia en vez de Mercado Pago (te ahorras la comisión). El pedido queda pendiente hasta que confirmes el pago a mano en Admin → Pedidos.</p>
             <div className="form-grid">
               <label className="shipping-rate-address-toggle full"><input type="checkbox" checked={content.transferEnabled ?? false} onChange={(event) => setContent({ ...content, transferEnabled: event.target.checked })} /> Aceptar pago por transferencia</label>
@@ -1182,6 +1190,7 @@ export default function AdminPage() {
           <details className="admin-collapse"><summary>Legal</summary><p className="admin-section-note">Textos de /términos y /privacidad. Usa "## " al inicio de una línea para un título de sección y "- " para un ítem de lista. Puedes usar {'{{brandName}}'}, {'{{legalName}}'}, {'{{phone}}'}, {'{{email}}'} y {'{{retention}}'} dentro del texto: se reemplazan automáticamente.</p><div className="form-grid"><label>Nombre completo del responsable<Input value={content.legalName ?? ''} placeholder="Nombre y apellido" onChange={(event) => setContent({ ...content, legalName: event.target.value })} /></label><label className="full">Plazo de conservación de datos<Textarea value={content.legalRetention ?? ''} onChange={(event) => setContent({ ...content, legalRetention: event.target.value })} /></label><label className="full">Términos y condiciones<Textarea rows={16} value={content.termsContent ?? ''} onChange={(event) => setContent({ ...content, termsContent: event.target.value })} /></label><label className="full">Política de privacidad<Textarea rows={16} value={content.privacyContent ?? ''} onChange={(event) => setContent({ ...content, privacyContent: event.target.value })} /></label></div></details>
         </form>
       </TabsContent>
+      {role === 'admin' && <TabsContent value="history"><AuditLogAdmin profiles={profiles} /></TabsContent>}
     </Tabs>
 
     <Dialog open={productOpen} onOpenChange={async (open) => {
