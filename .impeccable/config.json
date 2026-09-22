@@ -32,6 +32,15 @@
         ],
         "createdAt": "2026-09-21T14:38:59.257Z",
         "reason": "user confirmed: explicitly requested a subtle elastic slide for the nav capsule, without exaggerated bounce"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.22, 1.4, .36, 1)",
+        "files": [
+          "app/globals.css"
+        ],
+        "createdAt": "2026-09-22T17:54:11.261Z",
+        "reason": "user confirmed: requested a magnetic snap-to-edge feel for the WhatsApp FAB, overshoot sells the magnet metaphor"
       }
     ]
   }
