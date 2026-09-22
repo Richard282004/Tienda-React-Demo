@@ -98,6 +98,14 @@ export type StoreContent = {
   pushPendingTransfer?: boolean;
   pushCustomerMessages?: boolean;
   pushPaymentReview?: boolean;
+  courierQuoteEnabled?: boolean;
+  shippingDefaultItemWeightGrams?: number;
+  shippingOriginStreet?: string;
+  shippingOriginNumber?: string;
+  shippingOriginComuna?: string;
+  shippingOriginCity?: string;
+  shippingOriginRegion?: string;
+  shippingOriginPhone?: string;
 };
 
 export const defaultProducts: Product[] = [

@@ -12,5 +12,6 @@ declare namespace Cloudflare {
     PUSH_VAPID_PUBLIC_KEY?: string;
     PUSH_VAPID_PRIVATE_KEY_JWK?: string;
     PUSH_VAPID_SUBJECT?: string;
+    ENVIAME_API_KEY?: string;
   }
 }
