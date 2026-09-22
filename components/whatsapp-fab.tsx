@@ -12,6 +12,16 @@ function clampPos(x: number, y: number) {
   return { x: Math.min(Math.max(MARGIN, x), maxX), y: Math.min(Math.max(MARGIN, y), maxY) };
 }
 
+// "Magnético": al soltar, el botón nunca queda flotando a mitad de pantalla
+// -- se pega al borde izquierdo o derecho, el que quede más cerca.
+function snapToEdge(x: number, y: number) {
+  const clamped = clampPos(x, y);
+  const maxX = window.innerWidth - SIZE - MARGIN;
+  const center = clamped.x + SIZE / 2;
+  const snappedX = center < window.innerWidth / 2 ? MARGIN : maxX;
+  return { x: snappedX, y: clamped.y };
+}
+
 // Botón flotante de WhatsApp que la visitante puede arrastrar: en algunas
 // pantallas queda encima de un precio o botón, así que puede correrlo a un
 // lugar que no le estorbe. La posición elegida se recuerda en este navegador.
@@ -21,6 +31,7 @@ export function WhatsappFab({ number, pathname }: { number: string; pathname?: s
   // en otra (ej: el menú de Mi cuenta) si se comparte la misma llave.
   const storageKey = pathname ? `${POS_KEY}:${pathname}` : POS_KEY;
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
   const justDraggedRef = useRef(false);
 
@@ -28,7 +39,9 @@ export function WhatsappFab({ number, pathname }: { number: string; pathname?: s
     setPos(null);
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as { x: number; y: number } | null;
-      if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') setPos(clampPos(saved.x, saved.y));
+      // snapToEdge también corrige posiciones guardadas antes de que el botón
+      // fuera magnético (podían quedar a mitad de pantalla).
+      if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') setPos(snapToEdge(saved.x, saved.y));
     } catch { /* sin acceso a localStorage */ }
   }, [storageKey]);
 
@@ -43,7 +56,7 @@ export function WhatsappFab({ number, pathname }: { number: string; pathname?: s
     if (!drag) return;
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) drag.moved = true;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) { drag.moved = true; setDragging(true); }
     if (drag.moved) setPos(clampPos(drag.originX + dx, drag.originY + dy));
   };
 
@@ -51,9 +64,13 @@ export function WhatsappFab({ number, pathname }: { number: string; pathname?: s
     const drag = dragRef.current;
     if (drag?.moved) {
       justDraggedRef.current = true;
+      setDragging(false);
+      // Magnético: al soltar, salta al borde más cercano en vez de quedarse
+      // donde cayó el dedo/mouse.
       setPos((current) => {
-        if (current) { try { localStorage.setItem(storageKey, JSON.stringify(current)); } catch { /* no crítico */ } }
-        return current;
+        const snapped = current ? snapToEdge(current.x, current.y) : current;
+        if (snapped) { try { localStorage.setItem(storageKey, JSON.stringify(snapped)); } catch { /* no crítico */ } }
+        return snapped;
       });
     }
     dragRef.current = null;
@@ -68,7 +85,7 @@ export function WhatsappFab({ number, pathname }: { number: string; pathname?: s
 
   return (
     <a
-      className="whatsapp-fab"
+      className={`whatsapp-fab${dragging ? ' is-dragging' : ''}`}
       href={`https://wa.me/${number.replace(/\D/g, '')}`}
       target="_blank"
       rel="noopener noreferrer"
