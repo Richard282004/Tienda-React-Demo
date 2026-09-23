@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const apiKey = env.ENVIAME_API_KEY as string | undefined;
+  const apiKey = env.ENVIA_API_TOKEN as string | undefined;
   if (!apiKey) return NextResponse.json({ error: "La cotización de envío no está configurada." }, { status: 503 });
 
   let payload: QuoteRequest;
