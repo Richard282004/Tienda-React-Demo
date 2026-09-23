@@ -38,6 +38,7 @@ import { decodeCartEntry } from '@/lib/cart';
 import { defaultProducts, defaultStoreContent, fetchStoreContent, readCachedStoreContent, writeCachedStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { type Faq, type Review, type ShowcaseItem } from '@/lib/orders';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { safeJsonLd } from '@/lib/json-ld';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { levenshteinWithin, normalizeSearchText } from '@/lib/search';
 import { initFavorites, syncFavoriteToggle, writeLocalFavorites } from '@/lib/favorites';
@@ -591,7 +592,7 @@ export default function Home() {
       </section>}
 
       {faqs.length > 0 && <section className="faq-section page-width" aria-label="Preguntas frecuentes">
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd({
           '@context': 'https://schema.org',
           '@type': 'FAQPage',
           mainEntity: faqs.map((faq) => ({

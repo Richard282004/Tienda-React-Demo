@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { Analytics } from '@/components/analytics';
 import { ServiceWorkerRegister } from '@/components/sw-register';
 import { WhatsappGlobal } from '@/components/whatsapp-global';
+import { safeJsonLd } from '@/lib/json-ld';
 import { fetchSiteMeta } from '@/lib/site-meta';
 import { SITE_URL } from '@/lib/site-url';
 import './globals.css';
@@ -74,8 +75,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} crossOrigin="" />}
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(websiteJsonLd) }} />
         <Analytics />
         <ServiceWorkerRegister />
         <WhatsappGlobal />

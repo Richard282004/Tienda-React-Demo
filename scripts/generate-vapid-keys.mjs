@@ -15,4 +15,4 @@ const privateJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
 
 console.log('PUSH_VAPID_PUBLIC_KEY=' + bytesToBase64url(publicRaw));
 console.log('PUSH_VAPID_PRIVATE_KEY_JWK=' + JSON.stringify(privateJwk));
-console.log('PUSH_VAPID_SUBJECT=mailto:richardlagos2@gmail.com');
+console.log('PUSH_VAPID_SUBJECT=mailto:contacto@tutienda.cl');

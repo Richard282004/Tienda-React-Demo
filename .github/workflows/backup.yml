@@ -1,21 +1,22 @@
 name: Backup de la base de datos
 
-# Copia diaria de los datos de Supabase, vía la API REST (sin pg_dump, sin
-# contraseña de la base). El esquema (tablas, funciones, políticas) ya vive en
-# supabase/schema.sql; esto respalda el CONTENIDO. Se sube como artifact
-# privado del workflow (90 días), NO se commitea al repo.
+# DESACTIVADO (2026-09-23): este workflow subía un artifact de GitHub Actions
+# con el volcado COMPLETO de la base (profiles, orders, order_messages,
+# addresses — datos reales de clientas: nombre, correo, teléfono, dirección).
+# Eso era seguro solo mientras el repo era privado. En un repo PÚBLICO, los
+# artifacts de Actions son descargables por cualquier cuenta de GitHub, así
+# que este workflow filtraría esos datos apenas corriera.
 #
-# Requiere 2 secrets (GitHub -> Settings -> Secrets and variables -> Actions):
-#   SUPABASE_URL                = https://<ref>.supabase.co
-#   SUPABASE_SERVICE_ROLE_KEY   = Supabase -> Project Settings -> API ->
-#                                 "service_role" secret (empieza con eyJ...)
+# Alternativa recomendada (no toca GitHub en absoluto): activar los backups
+# automáticos nativos de Supabase (Project Settings -> Database -> Backups),
+# o adaptar scripts/backup-rest.mjs para subir a un storage privado propio
+# (ej. un bucket R2 con acceso restringido) en vez de a un artifact.
 on:
-  schedule:
-    - cron: '17 6 * * *' # 06:17 UTC (~02:17 Chile) todos los días
   workflow_dispatch: {}
 
 jobs:
   dump:
+    if: false # ver nota arriba — no reactivar sin cambiar el destino del backup
     runs-on: ubuntu-latest
     env:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -34,6 +35,8 @@ jobs:
           cd backup && tar -czf ../supabase-backup.tar.gz * && cd ..
           ls -lh supabase-backup.tar.gz
 
+      # NO reactivar este paso en un repo público: el artifact quedaría
+      # descargable por cualquiera. Cambiar a un storage privado primero.
       - name: Subir como artifact
         uses: actions/upload-artifact@v4
         with:

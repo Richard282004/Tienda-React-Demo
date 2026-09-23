@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { safeJsonLd } from '@/lib/json-ld';
 import { SITE_URL } from '@/lib/site-url';
 import { defaultProducts } from '@/lib/store-data';
 
@@ -79,7 +80,7 @@ export default async function ProductoLayout({ children, params }: { children: R
   return (
     <>
       {jsonLd && (
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       )}
       {children}
     </>
