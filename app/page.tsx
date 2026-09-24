@@ -1,6 +1,9 @@
 'use client';
 
 import { catalogPrice } from '@/lib/product-variants';
+import { DeveloperCredit } from '@/components/developer-credit';
+import { HomePaths } from '@/components/home-paths';
+import { getHomeBlocks, isSafeImageUrl, orderFeaturedFirst, resolveHomeBlocks, resolveHomeCategories } from '@/lib/home-content';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
@@ -18,7 +21,6 @@ import {
   Plus,
   Search,
   ShoppingBag,
-  Sparkles,
   Star,
   Truck,
   UserRound,
@@ -54,6 +56,9 @@ export default function Home() {
     if (cached !== defaultStoreContent) setContent(cached);
   }, []);
   const categories = useMemo(() => ['Todo', ...content.categories], [content.categories]);
+  // Accesos a categorías de la portada: las elegidas en Admin → Página
+  // principal, en su orden (sin selección, todas).
+  const homeCategories = useMemo(() => resolveHomeCategories(content.homeCategories, content.categories), [content.homeCategories, content.categories]);
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
   const [storeLoading, setStoreLoading] = useState(isSupabaseConfigured);
   const [storeError, setStoreError] = useState('');
@@ -97,9 +102,29 @@ export default function Home() {
 
 
   const visibleProducts = useMemo(
-    () => (category === 'Todo' ? products : products.filter((product) => product.type === category)),
-    [category, products],
+    () => (category === 'Todo' ? orderFeaturedFirst(products, content.homeFeaturedIds) : products.filter((product) => product.type === category)),
+    [category, products, content.homeFeaturedIds],
   );
+  const homeBlocks = useMemo(
+    () => resolveHomeBlocks(getHomeBlocks(content.homeBlocks, content.categories), content.categories, products),
+    [content.homeBlocks, content.categories, products],
+  );
+  // Foto real de cada categoría (primer producto con foto) para sus accesos.
+  const categoryThumbs = useMemo(() => {
+    const thumbs = new Map<string, string>();
+    for (const product of products) if (!thumbs.has(product.type) && isSafeImageUrl(product.image_url)) thumbs.set(product.type, product.image_url);
+    return thumbs;
+  }, [products]);
+  const selectCategory = (value: string) => {
+    setCategory(categories.includes(value) ? value : 'Todo');
+    document.getElementById('tienda')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  };
+  useEffect(() => {
+    // Enlaces directos a una categoría (ej. /?categoria=Llaveros#tienda desde
+    // un bloque de la portada abierto en otra pestaña o desde otra página).
+    const requested = new URLSearchParams(window.location.search).get('categoria');
+    if (requested && content.categories.includes(requested)) setCategory(requested);
+  }, [content.categories]);
   const rawSearchResults = useMemo(() => {
     const words = normalizeSearchText(search).split(/\s+/).filter(Boolean);
     if (!words.length) return products.slice(0, 4);
@@ -522,19 +547,23 @@ export default function Home() {
         </>
       )}
 
-      <section id="inicio" className="hero-section page-width">
-        <div className="hero-copy">
-          <div className="eyebrow"><Sparkles size={15} /> {content.heroEyebrow}</div>
-          <h1>{content.heroTitle}<br /><em>{content.heroHighlight}</em></h1>
-          <p>{content.heroDescription}</p>
-          <div className="hero-actions"><Button className="primary-button" onClick={() => document.getElementById('tienda')?.scrollIntoView({ behavior: 'smooth' })}>{content.heroCtaPrimary} <ArrowRight size={17} /></Button><a className="text-link" href="#nosotros">{content.heroCtaSecondary} <ArrowRight size={15} /></a></div>
-          <div className="hero-notes"><span><Check size={15} /> {content.heroNote1}</span><span><Check size={15} /> {content.heroNote2}</span></div>
-        </div>
-        <div className="hero-image-wrap"><div className="hero-scribble">{content.heroScribbleLine1}<br />{content.heroScribbleLine2} <span>♡</span></div><img src={content.heroImageUrl || '/lumina-hero.jpg'} alt="Tres productos de crochet: un conejo, un oso y un hongo" className="hero-image" width={1122} height={1402} fetchPriority="high" /><div className="hero-sticker"><span>{content.heroStickerLine1}</span><strong>{content.heroStickerLine2}</strong></div></div>
+      <section id="inicio" className="home-intro" aria-labelledby="home-title">
+        <h1 id="home-title" className="sr-only">{content.brandName}: {content.brandTagline}</h1>
+        <div className="page-width"><HomePaths blocks={homeBlocks} onSelectCategory={selectCategory} /></div>
       </section>
 
       <section id="tienda" className="collection-section page-width">
-        <div className="section-heading"><div><p className="section-kicker">{content.collectionKicker}</p><h2>{content.collectionTitle} <em>{content.collectionHighlight}</em></h2></div><div className="category-tabs" role="group" aria-label="Filtrar productos">{categories.map((item) => <button key={item} className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>{item === 'Todo' ? 'Todo' : item}</button>)}</div></div>
+        {(homeCategories.length > 0 || category !== 'Todo') && <div className="home-categories" role="group" aria-label="Categorías">
+          {/* Si se llegó a una categoría oculta (desde un bloque), se muestra igual para poder ver y quitar el filtro. */}
+          {['Todo', ...homeCategories, ...(category !== 'Todo' && !homeCategories.includes(category) ? [category] : [])].map((item) => {
+            const thumb = item === 'Todo' ? null : categoryThumbs.get(item);
+            return <button key={item} type="button" className={category === item ? 'active' : ''} onClick={() => setCategory(item)} aria-pressed={category === item}>
+              {thumb ? <img src={thumb} alt="" width={32} height={32} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true; }} /> : <span className="home-category-mark" aria-hidden="true">{item === 'Todo' ? '✦' : item.slice(0, 1)}</span>}
+              <span>{item}</span>
+            </button>;
+          })}
+        </div>}
+        <div className="section-heading">{(content.collectionKicker || content.collectionTitle || content.collectionHighlight) && <div>{content.collectionKicker && <p className="section-kicker">{content.collectionKicker}</p>}<h2>{content.collectionTitle} {content.collectionHighlight && <em>{content.collectionHighlight}</em>}</h2></div>}</div>
         {discountPopupOpen && !consentPending && content.popupDiscountCode && (
           <aside className="welcome-offer" aria-label="Descuento de bienvenida">
             <div><strong>{content.popupDiscountPercent ?? 5}% de descuento en tu primera compra</strong><p>{content.popupDiscountMessage?.trim() || 'Un detalle de bienvenida para ti.'}</p></div>
@@ -640,6 +669,7 @@ export default function Home() {
           }
         />
       ) : <span className="brand-mark">✦</span>}{!(content.logoUrl && content.hideBrandText) && <span><b className="brand-name">{content.brandName}</b><small>{content.brandTagline}</small></span>}</div><div className="footer-contact"><p>{content.footerCta}</p><a href={`tel:${content.phone.replace(/\s/g, '')}`}><Phone size={14} /> {content.phone}</a><a href={`mailto:${content.email}`}><Mail size={14} /> {content.email}</a><span className="payment-badges-label">Pagos seguros con</span><div className="payment-badges" aria-label="Medios de pago aceptados"><span className="payment-badge visa">VISA</span><span className="payment-badge mastercard"><i /><i /></span><span className="payment-badge amex">AMEX</span><span className="payment-badge mp">Mercado Pago</span></div></div><div className="footer-links"><a href="#inicio">Inicio</a><a href="#tienda">Tienda</a><a href="#nosotros">Sobre nosotros</a><a href="/rastrear">Rastrear pedido</a><a href="/terminos">Términos y condiciones</a><a href="/privacidad">Privacidad</a></div></footer>
+      <DeveloperCredit content={content} />
 
       {cart.length > 0 && scrolledPastHeader && <button type="button" className="cart-fab" onClick={() => { window.location.href = '/carrito'; }} aria-label={`Abrir bolsita, ${cart.length} productos`}><ShoppingBag size={22} /><span key={cart.length} className="cart-fab-badge">{cart.length}</span></button>}
 

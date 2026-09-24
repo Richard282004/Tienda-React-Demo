@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, BarChart3, Check, ChevronDown, ChevronUp, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, History, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Printer, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, BarChart3, Check, ChevronDown, ChevronUp, Clock, DollarSign, FileDown, FileText, GripVertical, HelpCircle, History, House, ImagePlus, Images, LogOut, MapPin, Package, PackagePlus, Pencil, Printer, Save, ShieldCheck, ShoppingBag, Star, Tag, Trash2, Truck, Upload, User, Users } from 'lucide-react';
 
 import { PriceCalculator } from '@/components/price-calculator';
 import { VariantFields } from '@/components/variant-fields';
@@ -14,6 +14,7 @@ import { DispatchPanel } from '@/components/dispatch-panel';
 import { PushAdmin } from '@/components/push-admin';
 import { IntegrationsAdmin } from '@/components/integrations-admin';
 import { AuditLogAdmin } from '@/components/audit-log-admin';
+import { HomePageAdmin } from '@/components/home-page-admin';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -67,6 +68,8 @@ export default function AdminPage() {
   }, [activeTab]);
   const [products, setProducts] = useState<Product[]>([]);
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
+  // Última versión guardada en Supabase, para avisar de cambios sin guardar.
+  const [savedContent, setSavedContent] = useState<StoreContent>(defaultStoreContent);
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
   const [orders, setOrders] = useState<Order[]>([]);
   useEffect(() => {
@@ -145,7 +148,11 @@ export default function AdminPage() {
     ]);
     if (productError || contentError) { setMessage(productError?.message ?? contentError?.message ?? 'No se pudo cargar la información.'); return; }
     setProducts((productRows ?? []) as Product[]);
-    if (contentRow?.value) setContent({ ...defaultStoreContent, ...(contentRow.value as Partial<StoreContent>) });
+    if (contentRow?.value) {
+      const loaded = { ...defaultStoreContent, ...(contentRow.value as Partial<StoreContent>) };
+      setContent(loaded);
+      setSavedContent(loaded);
+    }
     setOrders((orderRows ?? []) as Order[]);
     if (rateRows?.length) setShippingRates(rateRows as ShippingRate[]);
     setDiscounts((discountRows ?? []) as DiscountCode[]);
@@ -155,7 +162,7 @@ export default function AdminPage() {
     setFaqs((faqRows ?? []) as Faq[]);
   };
 
-  const [brandAssetBusy, setBrandAssetBusy] = useState<'logoUrl' | 'faviconUrl' | 'heroImageUrl' | null>(null);
+  const [brandAssetBusy, setBrandAssetBusy] = useState<'logoUrl' | 'faviconUrl' | null>(null);
   // El logo se ve como máximo a ~340px de ancho en la tienda, pero suele
   // subirse tal cual sale del diseño (hasta 2000px+ y varios cientos de KB),
   // repetido en header y footer de cada página. Se achica antes de subir si
@@ -178,17 +185,17 @@ export default function AdminPage() {
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('no se pudo leer la imagen')); };
       img.src = url;
     });
-  const uploadBrandAsset = async (field: 'logoUrl' | 'faviconUrl' | 'heroImageUrl', file: File | undefined) => {
+  const uploadBrandAsset = async (field: 'logoUrl' | 'faviconUrl', file: File | undefined) => {
     if (!supabase || !file) return;
     if (!file.type.startsWith('image/')) { setMessage('El archivo debe ser una imagen.'); return; }
-    const maxBytes = field === 'heroImageUrl' ? 3_000_000 : 1_000_000;
+    const maxBytes = 1_000_000;
     if (file.size > maxBytes) { setMessage(`La imagen es muy pesada (máx. ${maxBytes / 1_000_000} MB).`); return; }
     setBrandAssetBusy(field); setMessage('');
     const rasterFormat = file.type === 'image/png' || file.type === 'image/jpeg' || file.type === 'image/webp';
-    const maxDimension = field === 'faviconUrl' ? 256 : field === 'heroImageUrl' ? 1600 : 700;
+    const maxDimension = field === 'faviconUrl' ? 256 : 700;
     const upload = rasterFormat ? await downsizeImage(file, maxDimension).catch(() => file) : file;
     const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
-    const prefix = field === 'logoUrl' ? 'logo' : field === 'faviconUrl' ? 'favicon' : 'hero';
+    const prefix = field === 'logoUrl' ? 'logo' : 'favicon';
     const path = `brand-${prefix}-${crypto.randomUUID()}-${safeName}`;
     const { error: uploadError } = await supabase.storage.from('products').upload(path, upload, { cacheControl: '3600' });
     if (uploadError) { setBrandAssetBusy(null); setMessage(uploadError.message); return; }
@@ -198,7 +205,8 @@ export default function AdminPage() {
     // Se guarda de inmediato para no depender de que recuerde apretar "Guardar".
     const { error } = await supabase.from('site_content').upsert({ key: 'store', value: nextContent, updated_at: new Date().toISOString() });
     setBrandAssetBusy(null);
-    setMessage(error ? error.message : field === 'logoUrl' ? 'Logo actualizado.' : field === 'faviconUrl' ? 'Ícono de la pestaña actualizado (puede tardar en verse por la caché del navegador).' : 'Foto de portada actualizada.');
+    if (!error) setSavedContent(nextContent);
+    setMessage(error ? error.message : field === 'logoUrl' ? 'Logo actualizado.' : 'Ícono de la pestaña actualizado (puede tardar en verse por la caché del navegador).');
   };
 
   const addShowcaseItem = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -442,7 +450,15 @@ export default function AdminPage() {
   };
 
   const renameCategoryItem = (index: number, value: string) => {
-    setContent({ ...content, categories: content.categories.map((item, i) => (i === index ? value : item)) });
+    const previous = content.categories[index];
+    const rename = (name: string) => (name === previous ? value : name);
+    // Mantiene enlazados la portada (bloques y accesos) al renombrar.
+    setContent({
+      ...content,
+      categories: content.categories.map((item, i) => (i === index ? value : item)),
+      homeCategories: content.homeCategories?.map(rename),
+      homeBlocks: content.homeBlocks?.map((block) => (block.target?.kind === 'category' ? { ...block, target: { ...block.target, value: rename(block.target.value) } } : block)),
+    });
   };
 
   const moveCategoryItem = (index: number, direction: -1 | 1) => {
@@ -743,7 +759,19 @@ export default function AdminPage() {
     setBusy(true); setMessage('');
     const { error } = await supabase.from('site_content').upsert({ key: 'store', value: content, updated_at: new Date().toISOString() });
     setBusy(false);
+    if (!error) setSavedContent(content);
     setMessage(error ? error.message : 'Textos y datos de contacto actualizados.');
+  };
+
+  // Guardado de Admin → Página principal: mismo registro site_content
+  // ('store') que el resto de los textos; devuelve el error o null.
+  const saveHomeContent = async (): Promise<string | null> => {
+    if (!supabase) return 'Sin conexión con la base de datos.';
+    const snapshot = content;
+    const { error } = await supabase.from('site_content').upsert({ key: 'store', value: snapshot, updated_at: new Date().toISOString() });
+    if (error) return error.message;
+    setSavedContent(snapshot);
+    return null;
   };
 
   const now = new Date();
@@ -781,6 +809,7 @@ export default function AdminPage() {
     <Tabs value={activeTab} onValueChange={(value) => selectTab(value as string)} className="admin-tabs" orientation="vertical">
       <TabsList className="admin-tabs-list">
         <TabsTrigger value="products"><Package size={17} /> Productos</TabsTrigger>
+        <TabsTrigger value="home"><House size={17} /> Página principal</TabsTrigger>
         <TabsTrigger value="calculator"><DollarSign size={17} /> Calcular precios</TabsTrigger>
         <TabsTrigger value="orders"><Truck size={17} /> Pedidos</TabsTrigger>
         <TabsTrigger value="metrics"><BarChart3 size={17} /> Métricas</TabsTrigger>
@@ -956,6 +985,7 @@ export default function AdminPage() {
         <p className="admin-section-note">Desmarca "Requiere dirección" para zonas de retiro/entrega personal: la cliente paga sin ingresar comuna ni dirección.</p>
       </TabsContent>
       <TabsContent value="calculator"><PriceCalculator /></TabsContent>
+      <TabsContent value="home"><HomePageAdmin content={content} setContent={setContent} savedContent={savedContent} products={products} onSave={saveHomeContent} /></TabsContent>
       <TabsContent value="products">
         <div className="admin-section-heading"><div><h2>Productos</h2><p>{products.length} productos en el catálogo</p></div><Button onClick={openNewProduct}><PackagePlus size={17} /> Nuevo producto</Button></div>
         {lowStockCount > 0 && (
@@ -1141,8 +1171,7 @@ export default function AdminPage() {
               </div>
             </div>
             <div className="form-grid"><label>Código de moneda (ISO 4217)<Input value={content.currency} onChange={(event) => setContent({ ...content, currency: event.target.value.trim().toUpperCase() })} placeholder="CLP" /></label><label>Locale de formato<Input value={content.locale} onChange={(event) => setContent({ ...content, locale: event.target.value.trim() })} placeholder="es-CL" /></label></div></details>
-          <details className="admin-collapse"><summary>Portada</summary><div className="brand-asset-row"><div className="brand-asset"><span className="brand-asset-preview">{content.heroImageUrl ? <img src={content.heroImageUrl} alt="Foto de portada actual" /> : <span className="brand-asset-mark">✦</span>}</span><div><strong>Foto de portada</strong><label className="brand-asset-upload">{brandAssetBusy === 'heroImageUrl' ? 'Subiendo…' : content.heroImageUrl ? 'Cambiar foto' : 'Subir foto'}<input type="file" accept="image/*" disabled={brandAssetBusy !== null} onChange={(event) => void uploadBrandAsset('heroImageUrl', event.target.files?.[0])} /></label>{content.heroImageUrl && <button type="button" className="brand-asset-clear" onClick={() => setContent({ ...content, heroImageUrl: '' })}>Quitar (recuerda Guardar)</button>}</div></div></div><div className="form-grid"><label>Texto superior<Input value={content.heroEyebrow} onChange={(event) => setContent({ ...content, heroEyebrow: event.target.value })} /></label><label>Título<Input value={content.heroTitle} onChange={(event) => setContent({ ...content, heroTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.heroHighlight} onChange={(event) => setContent({ ...content, heroHighlight: event.target.value })} /></label><label className="full">Descripción<Textarea value={content.heroDescription} onChange={(event) => setContent({ ...content, heroDescription: event.target.value })} /></label><label>Botón principal<Input value={content.heroCtaPrimary} onChange={(event) => setContent({ ...content, heroCtaPrimary: event.target.value })} /></label><label>Enlace secundario<Input value={content.heroCtaSecondary} onChange={(event) => setContent({ ...content, heroCtaSecondary: event.target.value })} /></label><label>Nota 1<Input value={content.heroNote1} onChange={(event) => setContent({ ...content, heroNote1: event.target.value })} /></label><label>Nota 2<Input value={content.heroNote2} onChange={(event) => setContent({ ...content, heroNote2: event.target.value })} /></label><label>Nota adhesiva, línea 1<Input value={content.heroScribbleLine1} onChange={(event) => setContent({ ...content, heroScribbleLine1: event.target.value })} /></label><label>Nota adhesiva, línea 2<Input value={content.heroScribbleLine2} onChange={(event) => setContent({ ...content, heroScribbleLine2: event.target.value })} /></label><label>Sticker, línea 1<Input value={content.heroStickerLine1} onChange={(event) => setContent({ ...content, heroStickerLine1: event.target.value })} /></label><label>Sticker, línea 2<Input value={content.heroStickerLine2} onChange={(event) => setContent({ ...content, heroStickerLine2: event.target.value })} /></label></div></details>
-          <details className="admin-collapse"><summary>Encabezados de secciones</summary><p className="admin-section-note">El texto pequeño y el título de cada sección de la portada (colección, trabajos recientes, preguntas frecuentes).</p><div className="form-grid"><label>Colección — Texto superior<Input value={content.collectionKicker} onChange={(event) => setContent({ ...content, collectionKicker: event.target.value })} /></label><label>Colección — Título<Input value={content.collectionTitle} onChange={(event) => setContent({ ...content, collectionTitle: event.target.value })} /></label><label>Colección — Texto destacado<Input value={content.collectionHighlight} onChange={(event) => setContent({ ...content, collectionHighlight: event.target.value })} /></label><label className="full">Colección — Mensaje sin productos<Input value={content.emptyCollectionMessage} onChange={(event) => setContent({ ...content, emptyCollectionMessage: event.target.value })} /></label><label>Trabajos recientes — Texto superior<Input value={content.showcaseKicker} onChange={(event) => setContent({ ...content, showcaseKicker: event.target.value })} /></label><label>Trabajos recientes — Título<Input value={content.showcaseTitle} onChange={(event) => setContent({ ...content, showcaseTitle: event.target.value })} /></label><label>Trabajos recientes — Texto destacado<Input value={content.showcaseHighlight} onChange={(event) => setContent({ ...content, showcaseHighlight: event.target.value })} /></label><label>FAQ — Texto superior<Input value={content.faqKicker} onChange={(event) => setContent({ ...content, faqKicker: event.target.value })} /></label><label>FAQ — Título<Input value={content.faqTitle} onChange={(event) => setContent({ ...content, faqTitle: event.target.value })} /></label></div></details>
+          <details className="admin-collapse"><summary>Encabezados de secciones</summary><p className="admin-section-note">El texto pequeño y el título de las secciones trabajos recientes y preguntas frecuentes. El título de los productos se edita en Página principal.</p><div className="form-grid"><label className="full">Colección — Mensaje sin productos<Input value={content.emptyCollectionMessage} onChange={(event) => setContent({ ...content, emptyCollectionMessage: event.target.value })} /></label><label>Trabajos recientes — Texto superior<Input value={content.showcaseKicker} onChange={(event) => setContent({ ...content, showcaseKicker: event.target.value })} /></label><label>Trabajos recientes — Título<Input value={content.showcaseTitle} onChange={(event) => setContent({ ...content, showcaseTitle: event.target.value })} /></label><label>Trabajos recientes — Texto destacado<Input value={content.showcaseHighlight} onChange={(event) => setContent({ ...content, showcaseHighlight: event.target.value })} /></label><label>FAQ — Texto superior<Input value={content.faqKicker} onChange={(event) => setContent({ ...content, faqKicker: event.target.value })} /></label><label>FAQ — Título<Input value={content.faqTitle} onChange={(event) => setContent({ ...content, faqTitle: event.target.value })} /></label></div></details>
           <details className="admin-collapse"><summary>Franja de categorías</summary><div className="form-grid"><label>Texto 1<Input value={content.categoryText1} onChange={(event) => setContent({ ...content, categoryText1: event.target.value })} /></label><label>Texto 2<Input value={content.categoryText2} onChange={(event) => setContent({ ...content, categoryText2: event.target.value })} /></label><label>Texto 3<Input value={content.categoryText3} onChange={(event) => setContent({ ...content, categoryText3: event.target.value })} /></label></div></details>
           <details className="admin-collapse"><summary>Sobre nosotros</summary><div className="form-grid"><label>Título<Input value={content.aboutTitle} onChange={(event) => setContent({ ...content, aboutTitle: event.target.value })} /></label><label>Texto destacado<Input value={content.aboutHighlight} onChange={(event) => setContent({ ...content, aboutHighlight: event.target.value })} /></label><label className="full">Historia<Textarea value={content.aboutText} onChange={(event) => setContent({ ...content, aboutText: event.target.value })} /></label><label className="full">Cita final<Input value={content.storyQuote} onChange={(event) => setContent({ ...content, storyQuote: event.target.value })} /></label><label>Firma de la cita<Input value={content.storyQuoteAuthor} onChange={(event) => setContent({ ...content, storyQuoteAuthor: event.target.value })} /></label></div></details>
           <details className="admin-collapse"><summary>Contacto y envíos</summary><div className="form-grid"><label>Teléfono<Input type="tel" inputMode="tel" value={content.phone} onChange={(event) => setContent({ ...content, phone: event.target.value })} /></label><label>Correo<Input type="email" value={content.email} onChange={(event) => setContent({ ...content, email: event.target.value })} /></label><label>WhatsApp (con código de país, sin espacios)<Input type="tel" inputMode="tel" value={content.whatsapp ?? ''} placeholder="56912345678" onChange={(event) => setContent({ ...content, whatsapp: event.target.value })} /></label><label className="full">Correos para avisos de admin (nuevas ventas, mensajes de clientes y stock bajo)<Input value={content.orderNotifyEmail ?? ''} placeholder="tu@correo.com, otra@correo.com" onChange={(event) => setContent({ ...content, orderNotifyEmail: event.target.value })} /><small className="password-hint">Uno o varios, separados por coma. Déjalo vacío para no recibir avisos.</small></label><label>Avisar stock bajo cuando queden ≤<Input type="number" inputMode="numeric" min={0} value={content.lowStockThreshold ?? 5} onChange={(event) => setContent({ ...content, lowStockThreshold: Number(event.target.value) || 0 })} /></label><label>Código para el correo "vuelve" (opcional)<Input value={content.winbackCode ?? ''} placeholder="EJ: VUELVE10" onChange={(event) => setContent({ ...content, winbackCode: event.target.value.trim().toUpperCase() })} /><small className="password-hint">Se menciona en el correo automático a clientes que no vuelven. Debe existir en Descuentos. Vacío = correo sin código.</small></label><label className="full">Mensaje superior<Input value={content.shippingMessage} onChange={(event) => setContent({ ...content, shippingMessage: event.target.value })} /></label><label className="full">Llamado a la acción del pie de página<Input value={content.footerCta} onChange={(event) => setContent({ ...content, footerCta: event.target.value })} /></label></div>

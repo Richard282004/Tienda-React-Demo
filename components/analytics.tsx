@@ -19,6 +19,7 @@ function hasConsent(): boolean {
 // consentimiento, no se inyecta ningún script de terceros.
 export function Analytics() {
   const [hasAnalytics, setHasAnalytics] = useState(false);
+  const [consentCopy, setConsentCopy] = useState<{ title?: string; text?: string }>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +33,7 @@ export function Analytics() {
       if (cancelled) return;
       ids = settings ?? {};
       setHasAnalytics(Boolean(ids.gaId || ids.metaPixelId));
+      setConsentCopy({ title: settings?.cookieTitle, text: settings?.cookieText });
       applyFavicon(settings?.faviconUrl);
       tryLoad();
     });
@@ -40,7 +42,7 @@ export function Analytics() {
     return () => { cancelled = true; window.removeEventListener(CONSENT_EVENT, onConsentChange); };
   }, []);
 
-  return <CookieConsent hasAnalytics={hasAnalytics} />;
+  return <CookieConsent hasAnalytics={hasAnalytics} title={consentCopy.title} text={consentCopy.text} />;
 }
 
 // El ícono de la pestaña se define en el <head> del servidor, pero si la

@@ -130,7 +130,7 @@
     .producto-mobile-nav a:active svg, .producto-mobile-nav button:active svg { transform: none; }
   }
 }
-.producto-more { padding-bottom: 60px; }
+.producto-more { padding-bottom: 60px; overflow-x: clip; }
 .producto-more h2 { font-family: Georgia, serif; font-weight: 400; font-size: 26px; margin: 0 0 20px; }
 .producto-more-item { flex-basis: 46%; }
 @media (min-width: 620px) { .producto-more-item { flex-basis: 30%; } }
@@ -150,3 +150,10 @@
 .producto-selection-summary { margin: 14px 0 0; color: var(--plum); font-size: 14px; line-height: 1.5; }
 .producto-variant-options { flex-wrap: wrap; }
 .producto-variant-options button { min-height: 44px; }
+/* Sin margen lateral para las flechas: se ubican dentro del carrusel en vez
+   de quedar medio cortadas fuera de la pantalla. */
+@media (max-width: 1360px) {
+  .producto-more [data-slot="carousel-previous"], .producto-more [data-slot="carousel-next"] { width: 44px; height: 44px; background: rgba(255,255,255,.92); box-shadow: 0 4px 12px rgba(56,42,50,.14); }
+  .producto-more [data-slot="carousel-previous"] { left: 6px; }
+  .producto-more [data-slot="carousel-next"] { right: 6px; }
+}

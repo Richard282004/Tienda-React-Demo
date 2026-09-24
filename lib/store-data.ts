@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { HomeBlock } from './home-content';
 
 export type Product = {
   id: string;
@@ -106,6 +107,16 @@ export type StoreContent = {
   shippingOriginCity?: string;
   shippingOriginRegion?: string;
   shippingOriginPhone?: string;
+  // Página principal (Admin → Página principal). Ver lib/home-content.ts.
+  homeBlocks?: HomeBlock[];
+  homeCategories?: string[];
+  homeFeaturedIds?: string[];
+  cookieTitle?: string;
+  cookieText?: string;
+  devCreditEnabled?: boolean;
+  devCreditText?: string;
+  devCreditName?: string;
+  devCreditUrl?: string;
 };
 
 export const defaultProducts: Product[] = [
@@ -158,6 +169,12 @@ export const defaultStoreContent: StoreContent = {
   storyQuote: 'Lo imperfecto es parte de lo encantador.',
   storyQuoteAuthor: '— filosofía MilaLoop',
   footerCta: '¿Tienes una idea especial?',
+  cookieTitle: 'Tú eliges las cookies',
+  cookieText: 'Si aceptas, usamos cookies de análisis para conocer las visitas y mejorar la tienda. Puedes seguir comprando si las rechazas.',
+  devCreditEnabled: true,
+  devCreditText: 'Desarrollado por',
+  devCreditName: 'Richard Lagos',
+  devCreditUrl: 'https://portafolio.richardlagos2.workers.dev/',
   legalName: '',
   legalRetention: 'Mientras mantengas tu cuenta activa. Si la cierras, conservamos los datos de tus pedidos hasta por 6 años desde la compra por obligaciones tributarias y contables, y luego los eliminamos.',
   termsContent: `## 1. Quiénes somos

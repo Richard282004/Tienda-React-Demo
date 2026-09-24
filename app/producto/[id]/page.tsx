@@ -1,5 +1,6 @@
 'use client';
 
+import { DeveloperCredit } from '@/components/developer-credit';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Droplets, Heart, Info, Layers, Mail, Phone, Plus, Ruler, ShoppingBag, Sparkles, Store, UserRound, Weight } from 'lucide-react';
@@ -418,6 +419,7 @@ export default function ProductoPage() {
           <a href="/privacidad">Privacidad</a>
         </div>
       </footer>
+      <DeveloperCredit content={content} />
       {notice && <div className="notice" role="status">{notice}</div>}
       <nav className="producto-mobile-nav" aria-label="Navegación rápida">
         <a href="/"><Store size={20} /><span>Tienda</span></a>
