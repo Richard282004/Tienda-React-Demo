@@ -268,6 +268,9 @@ grant execute on function public.get_order_public(uuid) to anon, authenticated;
 -- corto (8 caracteres, el que aparece en sus correos/WhatsApp) y su correo.
 -- Exigir ambos juntos evita abrir la tabla completa a cualquiera que solo
 -- adivine un código.
+-- Se borra antes: una versión posterior (más abajo) le agrega columnas, y
+-- Postgres no deja cambiar las columnas devueltas con create or replace.
+drop function if exists public.get_order_by_short_id_and_email(text, text);
 create or replace function public.get_order_by_short_id_and_email(short_id text, p_email text)
 returns table (id uuid, status text, region text, comuna text, items jsonb, subtotal integer, shipping_cost integer, total integer, payment_method text, tracking_number text, created_at timestamptz)
 language sql
