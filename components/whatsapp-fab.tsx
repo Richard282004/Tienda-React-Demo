@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { CONSENT_LAYOUT_EVENT, getConsentLayout, type ConsentLayout } from '@/components/cookie-consent';
 
 const POS_KEY = 'milaloop-whatsapp-pos';
 const SIZE = 56;
@@ -34,6 +35,29 @@ export function WhatsappFab({ number, pathname }: { number: string; pathname?: s
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
   const justDraggedRef = useRef(false);
+  const fabRef = useRef<HTMLAnchorElement>(null);
+  // Mientras el aviso de cookies está abierto, el botón se corre hacia arriba
+  // solo lo necesario para no quedar debajo; se puede seguir arrastrando.
+  const [consentBox, setConsentBox] = useState<ConsentLayout>(null);
+  const [lift, setLift] = useState(0);
+  useEffect(() => {
+    setConsentBox(getConsentLayout());
+    const onLayout = (event: Event) => setConsentBox((event as CustomEvent<ConsentLayout>).detail);
+    window.addEventListener(CONSENT_LAYOUT_EVENT, onLayout);
+    return () => window.removeEventListener(CONSENT_LAYOUT_EVENT, onLayout);
+  }, []);
+  useLayoutEffect(() => {
+    const element = fabRef.current;
+    if (!element || !consentBox || dragging) { setLift(0); return; }
+    // Posición base sin el desplazamiento (que se anima): se calcula con la
+    // posición arrastrada o con right/bottom del CSS, no midiendo en pantalla.
+    const size = element.offsetWidth;
+    const style = getComputedStyle(element);
+    const left = pos ? pos.x : window.innerWidth - parseFloat(style.right) - size;
+    const top = pos ? pos.y : window.innerHeight - parseFloat(style.bottom) - size;
+    const overlaps = left + size > consentBox.left && left < consentBox.right && top + size > consentBox.top - 8 && top < consentBox.bottom;
+    setLift(overlaps ? Math.max(0, top + size - (consentBox.top - 8)) : 0);
+  }, [consentBox, pos, dragging]);
 
   useEffect(() => {
     setPos(null);
@@ -85,12 +109,13 @@ export function WhatsappFab({ number, pathname }: { number: string; pathname?: s
 
   return (
     <a
+      ref={fabRef}
       className={`whatsapp-fab${dragging ? ' is-dragging' : ''}`}
       href={`https://wa.me/${number.replace(/\D/g, '')}`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Escríbenos por WhatsApp"
-      style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}
+      style={{ ...(pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : {}), ...(lift ? { translate: `0 ${-lift}px` } : {}) }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

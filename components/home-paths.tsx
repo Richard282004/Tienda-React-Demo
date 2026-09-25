@@ -50,7 +50,7 @@ export function HomePaths({ blocks, onSelectCategory, preview }: {
                       src={src}
                       alt={block.imageAlt.trim()}
                       width={800}
-                      height={640}
+                      height={800}
                       decoding="async"
                       loading={index === 0 ? 'eager' : 'lazy'}
                       fetchPriority={index === 0 && !preview ? 'high' : undefined}
@@ -66,8 +66,10 @@ export function HomePaths({ blocks, onSelectCategory, preview }: {
                 ) : <span className="home-path-mark" aria-hidden="true">✦</span>}
               </span>
               <span className="home-path-body">
-                <h2 className="home-path-title">{block.title.trim() || 'Nuestra colección'}</h2>
-                {block.description.trim() && <span className="home-path-text">{block.description}</span>}
+                <span className="home-path-copy">
+                  <h2 className="home-path-title">{block.title.trim() || 'Nuestra colección'}</h2>
+                  {block.description.trim() && <span className="home-path-text">{block.description}</span>}
+                </span>
                 <span className="home-path-cta">{block.ctaLabel.trim() || 'Ver más'} <ArrowRight size={16} aria-hidden="true" /></span>
               </span>
             </a>

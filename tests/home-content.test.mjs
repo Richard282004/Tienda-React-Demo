@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getHomeBlocks, resolveHomeBlocks, resolveHomeCategories, orderFeaturedFirst, safeExternalUrl, describeTarget } from '../lib/home-content.ts';
+import { getHomeBlocks, resolveHomeBlocks, resolveHomeCategories, orderFeaturedFirst, safeExternalUrl, describeTarget, categoryImages } from '../lib/home-content.ts';
+import { mergeSiteContent, storeContentValue, pickHomeContent, defaultStoreContent } from '../lib/store-data.ts';
 
 const products = [
   { id: 'a', name: 'Conejo', type: 'Llaveros', active: true, image_url: 'https://cdn.test/a.jpg', image_position_x: 30, image_position_y: 70, image_zoom: 1.2 },
@@ -18,7 +19,10 @@ test('sin configuración usa las dos primeras categorías reales', () => {
 test('bloque sin foto propia usa la foto real de un producto de la categoría', () => {
   const [block] = resolveHomeBlocks(getHomeBlocks(undefined, ['Llaveros']), ['Llaveros'], products);
   assert.equal(block.image, 'https://cdn.test/a.jpg');
-  assert.deepEqual(block.framing, { x: 30, y: 70, zoom: 1.2 });
+  // El encuadre es el del bloque, no el de la tarjeta cuadrada del producto.
+  assert.deepEqual(block.framing, { x: 50, y: 50, zoom: 1 });
+  const [framed] = resolveHomeBlocks([{ ...getHomeBlocks(undefined, ['Llaveros'])[0], imageY: 62, imageZoom: 0.8 }], ['Llaveros'], products);
+  assert.deepEqual(framed.framing, { x: 50, y: 62, zoom: 0.8 });
   assert.equal(block.href, '/?categoria=Llaveros#tienda');
 });
 
@@ -69,4 +73,23 @@ test('el enlace del crédito solo acepta http(s)', () => {
   assert.equal(safeExternalUrl('javascript:alert(1)'), null);
   assert.equal(safeExternalUrl('portafolio.dev'), null);
   assert.equal(safeExternalUrl(''), null);
+});
+
+test('fotos de categorías: la elegida o la de un producto', () => {
+  const images = categoryImages(['Llaveros', 'Peluches'], { Peluches: 'https://cdn.test/p.jpg', Llaveros: 'javascript:x' }, products);
+  assert.equal(images.get('Peluches'), 'https://cdn.test/p.jpg');
+  assert.equal(images.get('Llaveros'), 'https://cdn.test/a.jpg');
+});
+
+test('la portada se lee del registro home y no se duplica en store', () => {
+  const store = { brandName: 'X', collectionTitle: 'Viejo', cookieTitle: 'Viejo' };
+  assert.equal(mergeSiteContent([{ key: 'store', value: store }]).collectionTitle, 'Viejo');
+  const merged = mergeSiteContent([{ key: 'store', value: store }, { key: 'home', value: { collectionTitle: 'Nuevo' } }]);
+  assert.equal(merged.brandName, 'X');
+  assert.equal(merged.collectionTitle, 'Nuevo');
+  assert.equal(merged.cookieTitle, defaultStoreContent.cookieTitle);
+  assert.equal('collectionTitle' in storeContentValue(merged, true), false);
+  assert.equal(storeContentValue(merged, false).collectionTitle, 'Nuevo');
+  assert.equal(pickHomeContent(merged).brandName, undefined);
+  assert.equal(mergeSiteContent([]), null);
 });

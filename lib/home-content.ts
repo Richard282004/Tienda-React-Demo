@@ -1,7 +1,8 @@
 // Página principal editable (Admin → Página principal). Todo lo comercial de
-// la portada vive en site_content ('store') junto al resto de los textos: los
-// bloques "Dos caminos", las categorías visibles, los productos destacados y
-// el crédito del pie. Precios, fotos de producto y stock NO se copian aquí:
+// la portada vive en site_content, registro 'home' (solo administradoras
+// pueden escribirlo): los bloques "Dos caminos", las categorías visibles y sus
+// fotos, los productos destacados, el aviso de cookies y el crédito del pie.
+// Precios, fotos de producto y stock NO se copian aquí:
 // se leen siempre del catálogo real y este módulo solo guarda referencias
 // (nombre de categoría o id de producto).
 import type { Product } from './store-data';
@@ -48,7 +49,7 @@ export function makeHomeBlock(category: string | undefined, index: number): Home
     id: `bloque-${index + 1}`,
     enabled: true,
     title: name || 'Nuestra colección',
-    description: 'Tejidos a mano, puntada por puntada.',
+    description: '',
     ctaLabel: name ? `Ver ${name.toLocaleLowerCase('es')}` : 'Ver la colección',
     imageUrl: '',
     imageAlt: '',
@@ -71,6 +72,11 @@ export function getHomeBlocks(saved: HomeBlock[] | undefined, categories: string
   }
   return Array.from({ length: HOME_BLOCK_LIMIT }, (_, index) => makeHomeBlock(categories[index], index));
 }
+
+// "Alejar" (< 1) deja ver el producto completo aunque la foto tenga otra
+// proporción; el espacio sobrante queda con el fondo suave del bloque.
+export const HOME_ZOOM_MIN = 0.7;
+export const HOME_ZOOM_MAX = 2.5;
 
 export type ResolvedHomeBlock = HomeBlock & {
   href: string;
@@ -114,7 +120,7 @@ export function describeTarget(target: HomeTarget, categories: string[], product
 export function resolveHomeBlocks(
   blocks: HomeBlock[],
   categories: string[],
-  products: Pick<Product, 'id' | 'name' | 'type' | 'active' | 'image_url' | 'image_position_x' | 'image_position_y' | 'image_zoom'>[],
+  products: Pick<Product, 'id' | 'name' | 'type' | 'active' | 'image_url'>[],
 ): ResolvedHomeBlock[] {
   const available = products.filter((product) => product.active !== false);
   return blocks.filter((block) => block.enabled).map((block) => {
@@ -137,20 +143,15 @@ export function resolveHomeBlocks(
     } else {
       targetMissing = true;
     }
-    // Sin foto propia, se usa la foto real de un producto del destino (con su
-    // propio encuadre). Si tampoco hay, el bloque se muestra sin foto.
+    // Sin foto propia, se usa la foto real de un producto del destino. El
+    // encuadre es siempre el del bloque (cada foto se ajusta por separado en
+    // el administrador), no el de la tarjeta del producto, que es cuadrada.
     const ownImage = isSafeImageUrl(block.imageUrl) ? block.imageUrl : '';
     const fallbackImage = fallback?.image_url && isSafeImageUrl(fallback.image_url) ? fallback.image_url : '';
     const image = ownImage || fallbackImage;
-    const framing = ownImage
-      ? { x: clampNumber(block.imageX, 0, 100, 50), y: clampNumber(block.imageY, 0, 100, 50), zoom: clampNumber(block.imageZoom, 1, 3, 1) }
-      : { x: clampNumber(fallback?.image_position_x, 0, 100, 50), y: clampNumber(fallback?.image_position_y, 0, 100, 50), zoom: clampNumber(fallback?.image_zoom, 1, 3, 1) };
+    const framing = { x: clampNumber(block.imageX, 0, 100, 50), y: clampNumber(block.imageY, 0, 100, 50), zoom: clampNumber(block.imageZoom, HOME_ZOOM_MIN, HOME_ZOOM_MAX, 1) };
     const ownMobile = isSafeImageUrl(block.mobileImageUrl) ? block.mobileImageUrl : '';
-    const mobileFraming = ownMobile
-      ? { x: clampNumber(block.mobileImageX, 0, 100, 50), y: clampNumber(block.mobileImageY, 0, 100, 50), zoom: clampNumber(block.mobileImageZoom, 1, 3, 1) }
-      : ownImage
-        ? { x: clampNumber(block.mobileImageX, 0, 100, framing.x), y: clampNumber(block.mobileImageY, 0, 100, framing.y), zoom: clampNumber(block.mobileImageZoom, 1, 3, framing.zoom) }
-        : framing;
+    const mobileFraming = { x: clampNumber(block.mobileImageX, 0, 100, 50), y: clampNumber(block.mobileImageY, 0, 100, 50), zoom: clampNumber(block.mobileImageZoom, HOME_ZOOM_MIN, HOME_ZOOM_MAX, 1) };
     return { ...block, href, category, targetMissing, image, mobileImage: ownMobile || image, framing, mobileFraming };
   });
 }
@@ -160,6 +161,23 @@ export function resolveHomeBlocks(
 export function resolveHomeCategories(selected: string[] | undefined, categories: string[]): string[] {
   if (!Array.isArray(selected)) return categories;
   return selected.filter((name, index) => categories.includes(name) && selected.indexOf(name) === index);
+}
+
+// Foto de cada acceso a categoría: la elegida en el administrador o, si no
+// hay, la del primer producto disponible de esa categoría.
+export function categoryImages(
+  categories: string[],
+  custom: Record<string, string> | undefined,
+  products: Pick<Product, 'type' | 'active' | 'image_url'>[],
+): Map<string, string> {
+  const images = new Map<string, string>();
+  for (const name of categories) {
+    const own = custom?.[name];
+    if (isSafeImageUrl(own)) { images.set(name, own); continue; }
+    const product = products.find((item) => item.active !== false && item.type === name && isSafeImageUrl(item.image_url));
+    if (product?.image_url) images.set(name, product.image_url);
+  }
+  return images;
 }
 
 // Destacados primero (en el orden elegido) y el resto después, sin alterar

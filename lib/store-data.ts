@@ -110,6 +110,7 @@ export type StoreContent = {
   // Página principal (Admin → Página principal). Ver lib/home-content.ts.
   homeBlocks?: HomeBlock[];
   homeCategories?: string[];
+  homeCategoryImages?: Record<string, string>;
   homeFeaturedIds?: string[];
   cookieTitle?: string;
   cookieText?: string;
@@ -239,6 +240,43 @@ Usamos almacenamiento local del navegador para recordar tu carrito de compras y 
 Tu contraseña se guarda cifrada por Supabase; nunca tenemos acceso a ella en texto plano. Las conexiones al sitio y a los servicios de pago usan cifrado HTTPS.`,
 };
 
+// Campos de la página principal. Viven en el registro site_content 'home',
+// que solo una administradora puede escribir (RLS), separados de 'store' que
+// también edita el rol dev. Ver supabase/migrations/20260924_home_admin_only.sql.
+export const HOME_CONTENT_FIELDS = [
+  'homeBlocks', 'homeCategories', 'homeCategoryImages', 'homeFeaturedIds',
+  'collectionKicker', 'collectionTitle', 'collectionHighlight',
+  'cookieTitle', 'cookieText',
+  'devCreditEnabled', 'devCreditText', 'devCreditName', 'devCreditUrl',
+] as const satisfies readonly (keyof StoreContent)[];
+
+type ContentRow = { key: string; value: unknown };
+
+// Une 'store' y 'home'. Si todavía no existe 'home' (antes del primer guardado
+// en Página principal), se usan los valores que hubiera en 'store'.
+export function mergeSiteContent(rows: ContentRow[] | null | undefined): StoreContent | null {
+  const store = rows?.find((row) => row.key === 'store')?.value as Partial<StoreContent> | undefined;
+  const home = rows?.find((row) => row.key === 'home')?.value as Partial<StoreContent> | undefined;
+  if (!store && !home) return null;
+  const merged: StoreContent = { ...defaultStoreContent, ...store };
+  if (!home) return merged;
+  const homePart = Object.fromEntries(HOME_CONTENT_FIELDS.map((field) => [field, home[field] ?? defaultStoreContent[field]]));
+  return { ...merged, ...homePart } as StoreContent;
+}
+
+export function pickHomeContent(content: StoreContent): Partial<StoreContent> {
+  return Object.fromEntries(HOME_CONTENT_FIELDS.map((field) => [field, content[field]])) as Partial<StoreContent>;
+}
+
+// Lo que se guarda en 'store': sin los campos de la portada cuando ya tienen
+// su propio registro, así un guardado de "Textos y contacto" no los duplica.
+export function storeContentValue(content: StoreContent, homeSaved: boolean): Partial<StoreContent> {
+  if (!homeSaved) return content;
+  const value: Partial<StoreContent> = { ...content };
+  for (const field of HOME_CONTENT_FIELDS) delete value[field];
+  return value;
+}
+
 const CONTENT_CACHE_KEY = 'milaloop-content-cache';
 
 // Se lee de entrada para que el logo (y el resto del contenido editable)
@@ -277,7 +315,7 @@ export function fetchStoreContent(client: SupabaseClient | null): Promise<StoreC
   if (contentPromise && now - contentPromiseAt < CONTENT_DEDUPE_MS) return contentPromise;
   contentPromiseAt = now;
   contentPromise = Promise.resolve(
-    client.from('site_content').select('value').eq('key', 'store').maybeSingle(),
-  ).then(({ data }) => (data?.value ? { ...defaultStoreContent, ...(data.value as Partial<StoreContent>) } : null));
+    client.from('site_content').select('key, value').in('key', ['store', 'home']),
+  ).then(({ data }) => mergeSiteContent(data as ContentRow[] | null));
   return contentPromise;
 }

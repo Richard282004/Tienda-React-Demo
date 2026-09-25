@@ -3,7 +3,7 @@
 import { catalogPrice } from '@/lib/product-variants';
 import { DeveloperCredit } from '@/components/developer-credit';
 import { HomePaths } from '@/components/home-paths';
-import { getHomeBlocks, isSafeImageUrl, orderFeaturedFirst, resolveHomeBlocks, resolveHomeCategories } from '@/lib/home-content';
+import { categoryImages, getHomeBlocks, orderFeaturedFirst, resolveHomeBlocks, resolveHomeCategories } from '@/lib/home-content';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
@@ -109,12 +109,8 @@ export default function Home() {
     () => resolveHomeBlocks(getHomeBlocks(content.homeBlocks, content.categories), content.categories, products),
     [content.homeBlocks, content.categories, products],
   );
-  // Foto real de cada categoría (primer producto con foto) para sus accesos.
-  const categoryThumbs = useMemo(() => {
-    const thumbs = new Map<string, string>();
-    for (const product of products) if (!thumbs.has(product.type) && isSafeImageUrl(product.image_url)) thumbs.set(product.type, product.image_url);
-    return thumbs;
-  }, [products]);
+  // Foto de cada acceso: la elegida en el administrador o la de un producto.
+  const categoryThumbs = useMemo(() => categoryImages(content.categories, content.homeCategoryImages, products), [content.categories, content.homeCategoryImages, products]);
   const selectCategory = (value: string) => {
     setCategory(categories.includes(value) ? value : 'Todo');
     document.getElementById('tienda')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });

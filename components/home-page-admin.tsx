@@ -9,15 +9,14 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  HOME_PAGES, describeTarget, getHomeBlocks, isSafeImageUrl, resolveHomeBlocks, resolveHomeCategories, safeExternalUrl,
+  HOME_PAGES, HOME_ZOOM_MAX, HOME_ZOOM_MIN, categoryImages, describeTarget, getHomeBlocks, isSafeImageUrl, resolveHomeBlocks, resolveHomeCategories, safeExternalUrl,
   type HomeBlock, type HomeTargetKind,
 } from '@/lib/home-content';
-import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
+import { HOME_CONTENT_FIELDS, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { supabase } from '@/lib/supabase';
 
 // Campos que edita esta sección (para saber si hay cambios sin guardar).
-const HOME_FIELDS = ['homeBlocks', 'homeCategories', 'homeFeaturedIds', 'collectionKicker', 'collectionTitle', 'collectionHighlight', 'cookieTitle', 'cookieText', 'devCreditEnabled', 'devCreditText', 'devCreditName', 'devCreditUrl'] as const;
-const pickHome = (content: StoreContent) => JSON.stringify(HOME_FIELDS.map((field) => content[field] ?? null));
+const pickHome = (content: StoreContent) => JSON.stringify(HOME_CONTENT_FIELDS.map((field) => content[field] ?? null));
 
 // Las fotos se achican antes de subir: la portada nunca las muestra a más de
 // ~1200px de ancho, y así cargan rápido en celular.
@@ -117,28 +116,45 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
     update({ homeBlocks: list });
   };
 
-  const uploadPhoto = async (index: number, field: 'imageUrl' | 'mobileImageUrl', file: File | undefined) => {
-    if (!file) return;
-    if (!supabase) { setStatus({ kind: 'error', text: 'No hay conexión con la base de datos.' }); return; }
-    if (!file.type.startsWith('image/')) { setStatus({ kind: 'error', text: 'El archivo debe ser una foto (JPG, PNG o WEBP).' }); return; }
-    if (file.size > 12_000_000) { setStatus({ kind: 'error', text: 'La foto es muy pesada (máximo 12 MB).' }); return; }
-    const key = `${index}-${field}`;
+  // Sube una foto ya achicada al almacenamiento de la tienda y devuelve su
+  // dirección pública, o null (con el mensaje de error ya mostrado).
+  const uploadImage = async (key: string, file: File | undefined, maxDimension: number): Promise<string | null> => {
+    if (!file) return null;
+    if (!supabase) { setStatus({ kind: 'error', text: 'No hay conexión con la base de datos.' }); return null; }
+    if (!file.type.startsWith('image/')) { setStatus({ kind: 'error', text: 'El archivo debe ser una foto (JPG, PNG o WEBP).' }); return null; }
+    if (file.size > 12_000_000) { setStatus({ kind: 'error', text: 'La foto es muy pesada (máximo 12 MB).' }); return null; }
     setUploading(key); setStatus(null);
     try {
-      const blob = await resizePhoto(file, field === 'imageUrl' ? 1600 : 1000);
+      const blob = await resizePhoto(file, maxDimension);
       const path = `home-${crypto.randomUUID()}.jpg`;
       const { error } = await supabase.storage.from('products').upload(path, blob, { cacheControl: '31536000', contentType: 'image/jpeg' });
       if (error) throw error;
-      const url = supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
-      updateBlock(index, field === 'imageUrl'
-        ? { imageUrl: url, imageX: 50, imageY: 50, imageZoom: 1 }
-        : { mobileImageUrl: url, mobileImageX: 50, mobileImageY: 50, mobileImageZoom: 1 });
       setStatus({ kind: 'ok', text: 'Foto cargada. Revisa la vista previa y toca "Guardar cambios" para publicarla.' });
+      return supabase.storage.from('products').getPublicUrl(path).data.publicUrl;
     } catch {
       setStatus({ kind: 'error', text: 'No se pudo subir la foto. Revisa tu conexión e inténtalo de nuevo.' });
+      return null;
     } finally {
       setUploading(null);
     }
+  };
+
+  const uploadPhoto = async (index: number, field: 'imageUrl' | 'mobileImageUrl', file: File | undefined) => {
+    const url = await uploadImage(`${index}-${field}`, file, field === 'imageUrl' ? 1600 : 1000);
+    if (!url) return;
+    updateBlock(index, field === 'imageUrl'
+      ? { imageUrl: url, imageX: 50, imageY: 50, imageZoom: 1 }
+      : { mobileImageUrl: url, mobileImageX: 50, mobileImageY: 50, mobileImageZoom: 1 });
+  };
+
+  const setCategoryImage = (name: string, url: string) => {
+    const next = { ...content.homeCategoryImages };
+    if (url) next[name] = url; else delete next[name];
+    update({ homeCategoryImages: next });
+  };
+  const uploadCategoryImage = async (name: string, file: File | undefined) => {
+    const url = await uploadImage(`category-${name}`, file, 240);
+    if (url) setCategoryImage(name, url);
   };
 
   const toggleCategory = (name: string, visible: boolean) => {
@@ -175,8 +191,7 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
   };
 
   const productLabel = (product: Product) => `${product.name}${product.active === false ? ' (oculto)' : ''}`;
-  const previewThumbs = new Map<string, string>();
-  for (const product of products) if (product.active !== false && !previewThumbs.has(product.type) && isSafeImageUrl(product.image_url)) previewThumbs.set(product.type, product.image_url);
+  const previewThumbs = categoryImages(categories, content.homeCategoryImages, products);
 
   const photoEditor = (block: HomeBlock, index: number, kind: 'desktop' | 'mobile') => {
     const isDesktop = kind === 'desktop';
@@ -184,8 +199,9 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
     const ownUrl = isDesktop ? block.imageUrl : block.mobileImageUrl;
     const shownUrl = isDesktop ? resolvedBlock?.image : resolvedBlock?.mobileImage;
     const framing = isDesktop ? resolvedBlock?.framing : resolvedBlock?.mobileFraming;
-    // El encuadre solo se puede ajustar sobre una foto propia del bloque.
-    const canFrame = Boolean(isDesktop ? isSafeImageUrl(block.imageUrl) : isSafeImageUrl(block.mobileImageUrl) || isSafeImageUrl(block.imageUrl));
+    // Cualquier foto visible se puede encuadrar, también la tomada de un
+    // producto: cada composición necesita su propio ajuste.
+    const canFrame = Boolean(shownUrl);
     const xKey = isDesktop ? 'imageX' : 'mobileImageX';
     const yKey = isDesktop ? 'imageY' : 'mobileImageY';
     const zKey = isDesktop ? 'imageZoom' : 'mobileImageZoom';
@@ -201,13 +217,13 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
         <div className="home-admin-photo-head">
           <strong>{isDesktop ? <><Monitor size={15} /> Foto principal (computador y celular)</> : <><Smartphone size={15} /> Foto para celular (opcional)</>}</strong>
           <small>{isDesktop
-            ? 'Usa una foto real de tus productos. Si no subes una, se usa la foto de un producto del destino.'
-            : 'Solo si en celular quieres otra foto. Si la dejas vacía, se usa la principal con el encuadre de abajo.'}</small>
+            ? 'Se ve arriba del bloque en computador (formato 4:3) y al lado del texto en celular. Si no subes una, se usa la foto de un producto del destino.'
+            : 'Opcional. Si la dejas vacía, en celular se usa la foto principal con este encuadre (formato casi cuadrado).'}</small>
         </div>
         <div className={`home-admin-photo-frame ${isDesktop ? 'is-desktop' : 'is-mobile'}`}>
           {shownUrl ? <img src={shownUrl} alt="" style={frameStyle} /> : <span>Sin foto: el bloque se verá con un fondo suave.</span>}
         </div>
-        {!ownUrl && shownUrl && isDesktop && <p className="home-admin-hint">Ahora se muestra la foto de un producto del destino.</p>}
+        {!ownUrl && shownUrl && <p className="home-admin-hint">{isDesktop ? 'Foto tomada de un producto del destino. Puedes encuadrarla o subir otra.' : 'Usando la foto principal.'}</p>}
         <div className="home-admin-photo-actions">
           <label className={`home-admin-upload${busy ? ' is-busy' : ''}`}>
             <ImagePlus size={16} /> {busy ? 'Subiendo…' : ownUrl ? 'Reemplazar foto' : 'Subir foto'}
@@ -220,10 +236,27 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
             <legend>Encuadre {isDesktop ? 'en computador' : 'en celular'}</legend>
             <label>Horizontal <span>{Math.round(framing?.x ?? 50)}%</span><input type="range" min={0} max={100} value={framing?.x ?? 50} onChange={(event) => updateBlock(index, { [xKey]: Number(event.target.value) })} /></label>
             <label>Vertical <span>{Math.round(framing?.y ?? 50)}%</span><input type="range" min={0} max={100} value={framing?.y ?? 50} onChange={(event) => updateBlock(index, { [yKey]: Number(event.target.value) })} /></label>
-            <label>Acercar <span>{(framing?.zoom ?? 1).toFixed(2)}×</span><input type="range" min={1} max={2.5} step={0.05} value={framing?.zoom ?? 1} onChange={(event) => updateBlock(index, { [zKey]: Number(event.target.value) })} /></label>
+            <label>Tamaño (alejar ← → acercar) <span>{Math.round((framing?.zoom ?? 1) * 100)}%</span><input type="range" min={HOME_ZOOM_MIN} max={HOME_ZOOM_MAX} step={0.05} value={framing?.zoom ?? 1} onChange={(event) => updateBlock(index, { [zKey]: Number(event.target.value) })} /></label>
+            <small className="home-admin-hint">Mueve hasta que el producto se vea completo en el recuadro. Alejar deja un borde suave alrededor.</small>
             <button type="button" className="home-admin-link" onClick={() => updateBlock(index, { [xKey]: 50, [yKey]: 50, [zKey]: 1 })}>Centrar de nuevo</button>
           </fieldset>
         )}
+      </div>
+    );
+  };
+
+  const categoryPhoto = (name: string) => {
+    const own = content.homeCategoryImages?.[name];
+    const shown = previewThumbs.get(name);
+    const busy = uploading === `category-${name}`;
+    return (
+      <div className="home-admin-category-photo">
+        <span className="home-admin-category-thumb">{shown ? <img src={shown} alt="" /> : <span aria-hidden="true">{name.slice(0, 1)}</span>}</span>
+        <label className={`home-admin-upload is-small${busy ? ' is-busy' : ''}`}>
+          <ImagePlus size={15} /> {busy ? 'Subiendo…' : own ? 'Cambiar' : 'Elegir foto'}
+          <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading !== null} aria-label={`Foto de la categoría ${name}`} onChange={(event) => { void uploadCategoryImage(name, event.target.files?.[0]); event.target.value = ''; }} />
+        </label>
+        {own && <button type="button" className="home-admin-remove is-small" onClick={() => setCategoryImage(name, '')} aria-label={`Quitar la foto de ${name}`}><Trash2 size={15} /></button>}
       </div>
     );
   };
@@ -234,6 +267,12 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
         <div><h2>Página principal</h2><p>Lo primero que ven tus clientas: los dos bloques de portada, las categorías y los productos destacados.</p></div>
         <Button type="button" disabled={saving || !dirty} onClick={() => void save()}><Save size={17} /> {saving ? 'Guardando…' : 'Guardar cambios'}</Button>
       </div>
+
+      <ol className="home-admin-steps">
+        <li>Edita cada bloque: textos, destino y fotos.</li>
+        <li>Mueve el encuadre hasta que el producto se vea completo, en <b>Celular</b> y en <b>Computador</b>.</li>
+        <li>Toca <b>Guardar cambios</b>. Se publica al instante.</li>
+      </ol>
 
       <div className="home-admin-status" role="status" aria-live="polite">
         {status ? (
@@ -329,11 +368,12 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
 
       <details className="admin-collapse">
         <summary>Categorías en la portada</summary>
-        <p className="admin-section-note">Elige qué categorías aparecen como accesos rápidos sobre los productos y en qué orden. "Todo" siempre aparece primero. Para crear o renombrar categorías, ve a Textos y contacto → Categorías.</p>
+        <p className="admin-section-note">Elige qué categorías aparecen como accesos rápidos sobre los productos, su foto y su orden. "Todo" siempre aparece primero. Sin foto elegida se usa la de un producto de la categoría. Para crear o renombrar categorías, ve a Textos y contacto → Categorías.</p>
         <ul className="home-admin-list">
           {visibleCategories.map((name, index) => (
             <li key={name}>
               <label className="home-admin-switch"><input type="checkbox" checked onChange={() => toggleCategory(name, false)} /> {name}</label>
+              {categoryPhoto(name)}
               <div className="home-admin-order">
                 <button type="button" disabled={index === 0} onClick={() => moveCategory(name, -1)} aria-label={`Subir ${name}`}><ChevronUp size={18} /></button>
                 <button type="button" disabled={index === visibleCategories.length - 1} onClick={() => moveCategory(name, 1)} aria-label={`Bajar ${name}`}><ChevronDown size={18} /></button>
@@ -343,6 +383,7 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
           {hiddenCategories.map((name) => (
             <li key={name} className="is-hidden">
               <label className="home-admin-switch"><input type="checkbox" checked={false} onChange={() => toggleCategory(name, true)} /> {name} <em>Oculta</em></label>
+              {categoryPhoto(name)}
             </li>
           ))}
         </ul>
@@ -357,7 +398,7 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
           <label className="full">Palabra destacada (en rosado)<Input value={content.collectionHighlight} onChange={(event) => update({ collectionHighlight: event.target.value })} /></label>
         </div>
         <h4 className="home-admin-subtitle">Productos destacados</h4>
-        <p className="admin-section-note">Aparecen primero en "Todo", en este orden. El precio, la foto y el stock se toman siempre del producto. Si uno se agota o se oculta, deja de destacarse solo.</p>
+        <p className="admin-section-note">Aparecen primero en "Todo", en este orden. El precio, la foto y el stock se toman siempre del producto. Si uno se agota pasa al final; si lo ocultas, no se muestra.</p>
         {featuredIds.length > 0 && (
           <ul className="home-admin-list">
             {featuredIds.map((id, index) => {

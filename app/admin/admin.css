@@ -368,8 +368,8 @@ p.home-admin-hint { margin: 6px 0 0; }
 .home-admin-photo-head strong { display: flex; align-items: center; gap: 6px; color: #4a3b40; font-size: 13px; }
 .home-admin-photo-head small { color: #75646e; font-size: 12px; line-height: 1.45; }
 .home-admin-photo-frame { position: relative; display: grid; place-items: center; overflow: hidden; border-radius: 12px; background: linear-gradient(160deg, #f9e9ec, #f3dedb); color: #8b747c; font-size: 12.5px; text-align: center; }
-.home-admin-photo-frame.is-desktop { aspect-ratio: 16 / 9; }
-.home-admin-photo-frame.is-mobile { aspect-ratio: 4 / 5; max-width: 220px; }
+.home-admin-photo-frame.is-desktop { aspect-ratio: 4 / 3; }
+.home-admin-photo-frame.is-mobile { aspect-ratio: 1 / 1; max-width: 220px; }
 .home-admin-photo-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .home-admin-photo-frame span { padding: 12px; }
 .home-admin-photo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -405,3 +405,18 @@ p.home-admin-hint { margin: 6px 0 0; }
   .home-admin-footer { position: sticky; bottom: 0; z-index: 3; margin-inline: -16px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: linear-gradient(to top, #f6efeb 70%, rgba(246,239,235,0)); }
   .home-admin-footer button { width: 100%; min-height: 48px; }
 }
+
+.home-admin-steps { display: grid; gap: 4px; margin: -6px 0 14px; padding: 12px 14px 12px 34px; border-radius: 14px; background: #fff; border: 1px solid #eadfda; color: #5f4c55; font-size: 13px; line-height: 1.5; }
+.home-admin-steps b { color: #5c2640; }
+.home-admin-list li { row-gap: 6px; }
+.home-admin-category-photo { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.home-admin-category-thumb { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: #f8e6ea; color: #a74060; font-family: Georgia, serif; }
+.home-admin-category-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.home-admin-upload.is-small, .home-admin-remove.is-small { padding: 0 12px; font-size: 12.5px !important; }
+.home-admin-remove.is-small { justify-content: center; min-width: 44px; padding: 0; }
+@media (max-width: 620px) {
+  .home-admin-list li { padding: 8px 10px; }
+  .home-admin-category-photo { margin-left: 0; }
+}
+.home-admin [data-slot="button"] { min-height: 44px; padding-inline: 16px; }
+.home-admin-toggle button { min-height: 44px; }

@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
+import { defaultStoreContent, mergeSiteContent, pickHomeContent, storeContentValue, type Product, type StoreContent } from '@/lib/store-data';
 import { orderStatusLabel, variantLabel, type DiscountCode, type Faq, type Order, type OrderStatus, type Profile, type ProductImage, type ProductVariant, type Review, type ShippingRate, type ShowcaseItem } from '@/lib/orders';
 import { formatPrice as formatCurrency } from '@/lib/currency';
 import { supabase } from '@/lib/supabase';
@@ -70,6 +70,12 @@ export default function AdminPage() {
   const [content, setContent] = useState<StoreContent>(defaultStoreContent);
   // Última versión guardada en Supabase, para avisar de cambios sin guardar.
   const [savedContent, setSavedContent] = useState<StoreContent>(defaultStoreContent);
+  // ¿Ya existe el registro 'home' (Página principal)? Hasta entonces esos
+  // campos siguen guardándose dentro de 'store', como antes.
+  const [homeSaved, setHomeSaved] = useState(false);
+  // Tras guardar 'store', los campos de la portada solo cuentan como guardados
+  // si viajaron en ese mismo registro (antes de existir 'home').
+  const markStoreSaved = (next: StoreContent) => setSavedContent((saved) => (homeSaved ? { ...next, ...pickHomeContent(saved) } : next));
   const formatPrice = (price: number) => formatCurrency(price, content.currency, content.locale);
   const [orders, setOrders] = useState<Order[]>([]);
   useEffect(() => {
@@ -135,9 +141,9 @@ export default function AdminPage() {
 
   const loadAdminData = async () => {
     if (!supabase) return;
-    const [{ data: productRows, error: productError }, { data: contentRow, error: contentError }, { data: orderRows }, { data: rateRows }, { data: discountRows }, { data: reviewRows }, { data: profileRows }, { data: showcaseRows }, { data: faqRows }] = await Promise.all([
+    const [{ data: productRows, error: productError }, { data: contentRows, error: contentError }, { data: orderRows }, { data: rateRows }, { data: discountRows }, { data: reviewRows }, { data: profileRows }, { data: showcaseRows }, { data: faqRows }] = await Promise.all([
       supabase.from('products').select('*').order('sort_order'),
-      supabase.from('site_content').select('value').eq('key', 'store').maybeSingle(),
+      supabase.from('site_content').select('key, value').in('key', ['store', 'home']),
       supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('shipping_rates').select('region, cost, requires_address, warning').order('region'),
       supabase.from('discount_codes').select('*').order('created_at', { ascending: false }),
@@ -148,11 +154,12 @@ export default function AdminPage() {
     ]);
     if (productError || contentError) { setMessage(productError?.message ?? contentError?.message ?? 'No se pudo cargar la información.'); return; }
     setProducts((productRows ?? []) as Product[]);
-    if (contentRow?.value) {
-      const loaded = { ...defaultStoreContent, ...(contentRow.value as Partial<StoreContent>) };
+    const loaded = mergeSiteContent(contentRows as { key: string; value: unknown }[] | null);
+    if (loaded) {
       setContent(loaded);
       setSavedContent(loaded);
     }
+    setHomeSaved(Boolean(contentRows?.some((row) => row.key === 'home')));
     setOrders((orderRows ?? []) as Order[]);
     if (rateRows?.length) setShippingRates(rateRows as ShippingRate[]);
     setDiscounts((discountRows ?? []) as DiscountCode[]);
@@ -203,9 +210,9 @@ export default function AdminPage() {
     const nextContent = { ...content, [field]: url };
     setContent(nextContent);
     // Se guarda de inmediato para no depender de que recuerde apretar "Guardar".
-    const { error } = await supabase.from('site_content').upsert({ key: 'store', value: nextContent, updated_at: new Date().toISOString() });
+    const { error } = await supabase.from('site_content').upsert({ key: 'store', value: storeContentValue(nextContent, homeSaved), updated_at: new Date().toISOString() });
     setBrandAssetBusy(null);
-    if (!error) setSavedContent(nextContent);
+    if (!error) markStoreSaved(nextContent);
     setMessage(error ? error.message : field === 'logoUrl' ? 'Logo actualizado.' : 'Ícono de la pestaña actualizado (puede tardar en verse por la caché del navegador).');
   };
 
@@ -757,20 +764,21 @@ export default function AdminPage() {
     event.preventDefault();
     if (!supabase) return;
     setBusy(true); setMessage('');
-    const { error } = await supabase.from('site_content').upsert({ key: 'store', value: content, updated_at: new Date().toISOString() });
+    const { error } = await supabase.from('site_content').upsert({ key: 'store', value: storeContentValue(content, homeSaved), updated_at: new Date().toISOString() });
     setBusy(false);
-    if (!error) setSavedContent(content);
+    if (!error) markStoreSaved(content);
     setMessage(error ? error.message : 'Textos y datos de contacto actualizados.');
   };
 
-  // Guardado de Admin → Página principal: mismo registro site_content
-  // ('store') que el resto de los textos; devuelve el error o null.
+  // Guardado de Admin → Página principal: registro site_content 'home', que
+  // solo una administradora puede escribir. Devuelve el error o null.
   const saveHomeContent = async (): Promise<string | null> => {
     if (!supabase) return 'Sin conexión con la base de datos.';
     const snapshot = content;
-    const { error } = await supabase.from('site_content').upsert({ key: 'store', value: snapshot, updated_at: new Date().toISOString() });
-    if (error) return error.message;
-    setSavedContent(snapshot);
+    const { error } = await supabase.from('site_content').upsert({ key: 'home', value: pickHomeContent(snapshot), updated_at: new Date().toISOString() });
+    if (error) return /row-level security|permission/i.test(error.message) ? 'solo una cuenta administradora puede cambiar la página principal.' : error.message;
+    setHomeSaved(true);
+    setSavedContent((current) => ({ ...current, ...pickHomeContent(snapshot) }));
     return null;
   };
 
@@ -809,7 +817,7 @@ export default function AdminPage() {
     <Tabs value={activeTab} onValueChange={(value) => selectTab(value as string)} className="admin-tabs" orientation="vertical">
       <TabsList className="admin-tabs-list">
         <TabsTrigger value="products"><Package size={17} /> Productos</TabsTrigger>
-        <TabsTrigger value="home"><House size={17} /> Página principal</TabsTrigger>
+        {role === 'admin' && <TabsTrigger value="home"><House size={17} /> Página principal</TabsTrigger>}
         <TabsTrigger value="calculator"><DollarSign size={17} /> Calcular precios</TabsTrigger>
         <TabsTrigger value="orders"><Truck size={17} /> Pedidos</TabsTrigger>
         <TabsTrigger value="metrics"><BarChart3 size={17} /> Métricas</TabsTrigger>
@@ -958,9 +966,9 @@ export default function AdminPage() {
         <label className="shipping-rate-address-toggle"><input type="checkbox" checked={Boolean(content.shippingCollectEnabled)} onChange={async (event) => {
           if (!supabase) return;
           const next = {...content, shippingCollectEnabled: event.target.checked};
-          const {error} = await supabase.from('site_content').upsert({key:'store',value:next,updated_at:new Date().toISOString()});
+          const {error} = await supabase.from('site_content').upsert({key:'store',value:storeContentValue(next, homeSaved),updated_at:new Date().toISOString()});
           if (error) {setMessage('No se pudo guardar la forma de despacho.'); return;}
-          setContent(next); setMessage('Forma de despacho actualizada.');
+          setContent(next); markStoreSaved(next); setMessage('Forma de despacho actualizada.');
         }} /> Usar Blue Express por pagar para envíos a domicilio</label>
         <p className="admin-section-note">{content.shippingCollectEnabled ? 'El cliente paga el despacho aparte. Las tarifas de abajo se conservan, pero no se cobran para envíos a domicilio. Retiro y entrega personal mantienen su tarifa.' : 'Se cobran las tarifas de abajo al comprar.'} La etiqueta se genera en Blue Express; no se contrata ni se compra un envío desde esta página.</p>
         <div className="shipping-rates-grid">
@@ -985,7 +993,7 @@ export default function AdminPage() {
         <p className="admin-section-note">Desmarca "Requiere dirección" para zonas de retiro/entrega personal: la cliente paga sin ingresar comuna ni dirección.</p>
       </TabsContent>
       <TabsContent value="calculator"><PriceCalculator /></TabsContent>
-      <TabsContent value="home"><HomePageAdmin content={content} setContent={setContent} savedContent={savedContent} products={products} onSave={saveHomeContent} /></TabsContent>
+      {role === 'admin' && <TabsContent value="home"><HomePageAdmin content={content} setContent={setContent} savedContent={savedContent} products={products} onSave={saveHomeContent} /></TabsContent>}
       <TabsContent value="products">
         <div className="admin-section-heading"><div><h2>Productos</h2><p>{products.length} productos en el catálogo</p></div><Button onClick={openNewProduct}><PackagePlus size={17} /> Nuevo producto</Button></div>
         {lowStockCount > 0 && (
