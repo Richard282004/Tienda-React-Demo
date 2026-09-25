@@ -406,7 +406,7 @@ p.home-admin-hint { margin: 6px 0 0; }
   .home-admin-footer button { width: 100%; min-height: 48px; }
 }
 
-.home-admin-steps { display: grid; gap: 4px; margin: -6px 0 14px; padding: 12px 14px 12px 34px; border-radius: 14px; background: #fff; border: 1px solid #eadfda; color: #5f4c55; font-size: 13px; line-height: 1.5; }
+.home-admin-steps { list-style: decimal; display: grid; gap: 4px; margin: -6px 0 14px; padding: 12px 14px 12px 34px; border-radius: 14px; background: #fff; border: 1px solid #eadfda; color: #5f4c55; font-size: 13px; line-height: 1.5; }
 .home-admin-steps b { color: #5c2640; }
 .home-admin-list li { row-gap: 6px; }
 .home-admin-category-photo { display: flex; align-items: center; gap: 8px; margin-left: auto; }
@@ -420,3 +420,6 @@ p.home-admin-hint { margin: 6px 0 0; }
 }
 .home-admin [data-slot="button"] { min-height: 44px; padding-inline: 16px; }
 .home-admin-toggle button { min-height: 44px; }
+.home-admin-photo-fade { position: absolute; inset: 0; pointer-events: none; }
+.home-admin-fade { margin-top: 16px !important; }
+.home-admin > .admin-collapse > .home-admin-switch { margin-bottom: 8px; }

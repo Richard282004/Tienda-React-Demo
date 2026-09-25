@@ -156,6 +156,48 @@ export function resolveHomeBlocks(
   });
 }
 
+// Banner principal "Una colección": una foto protagonista a la derecha que se
+// funde con el fondo crema mediante una capa de degradado independiente (no
+// se toca ni se desenfoca la foto). Si está activo, reemplaza a los dos
+// bloques en la tienda; la configuración de los bloques se conserva.
+export type HomeBanner = HomeBlock & {
+  // 0-100: qué tan opaco es el degradado en su tramo medio.
+  fadeStrength: number;
+  // 10-70: qué porcentaje de la foto ocupa la transición (desde el borde del texto).
+  fadeSize: number;
+};
+
+export const BANNER_FADE_DEFAULTS = { fadeStrength: 85, fadeSize: 38 };
+
+export function getHomeBanner(saved: Partial<HomeBanner> | undefined, categories: string[]): HomeBanner {
+  // Sin configuración guardada: la categoría de flores si existe (la de la
+  // referencia B1) o la primera categoría real de la tienda.
+  const preferred = categories.find((name) => /flor/i.test(name)) ?? categories[0];
+  const base: HomeBanner = {
+    ...makeHomeBlock(preferred, 0),
+    id: 'banner',
+    enabled: true,
+    description: 'Crochet hecho a mano, pieza por pieza.',
+    ...BANNER_FADE_DEFAULTS,
+  };
+  return saved ? { ...base, ...saved, id: 'banner' } : base;
+}
+
+export type ResolvedHomeBanner = ResolvedHomeBlock & { fadeStrength: number; fadeSize: number };
+
+export function resolveHomeBanner(
+  banner: HomeBanner,
+  categories: string[],
+  products: Pick<Product, 'id' | 'name' | 'type' | 'active' | 'image_url'>[],
+): ResolvedHomeBanner {
+  const [resolved] = resolveHomeBlocks([{ ...banner, enabled: true }], categories, products);
+  return {
+    ...resolved,
+    fadeStrength: clampNumber(banner.fadeStrength, 0, 100, BANNER_FADE_DEFAULTS.fadeStrength),
+    fadeSize: clampNumber(banner.fadeSize, 10, 70, BANNER_FADE_DEFAULTS.fadeSize),
+  };
+}
+
 // Categorías visibles en la portada, en el orden elegido. Sin selección
 // guardada se muestran todas; las que ya no existen se descartan.
 export function resolveHomeCategories(selected: string[] | undefined, categories: string[]): string[] {

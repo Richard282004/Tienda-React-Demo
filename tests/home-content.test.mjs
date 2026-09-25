@@ -93,3 +93,17 @@ test('la portada se lee del registro home y no se duplica en store', () => {
   assert.equal(pickHomeContent(merged).brandName, undefined);
   assert.equal(mergeSiteContent([]), null);
 });
+
+test('banner: por defecto la categoría de flores, foto real y difuminado acotado', async () => {
+  const { getHomeBanner, resolveHomeBanner, BANNER_FADE_DEFAULTS } = await import('../lib/home-content.ts');
+  const banner = getHomeBanner(undefined, ['Llaveros', 'Flores']);
+  assert.equal(banner.enabled, true);
+  assert.deepEqual(banner.target, { kind: 'category', value: 'Flores' });
+  assert.equal(banner.fadeStrength, BANNER_FADE_DEFAULTS.fadeStrength);
+  const items = [...products, { id: 'f', name: 'Ramo', type: 'Flores', active: true, image_url: 'https://cdn.test/f.jpg' }];
+  const resolved = resolveHomeBanner({ ...banner, fadeStrength: 500, fadeSize: -3 }, ['Llaveros', 'Flores'], items);
+  assert.equal(resolved.image, 'https://cdn.test/f.jpg');
+  assert.equal(resolved.fadeStrength, 100);
+  assert.equal(resolved.fadeSize, 10);
+  assert.equal(getHomeBanner({ enabled: false }, ['Flores']).enabled, false);
+});

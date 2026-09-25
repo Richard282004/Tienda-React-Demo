@@ -477,6 +477,40 @@ h2 { font-size: clamp(34px, 3.6vw, 50px); line-height: 1.13; }
   .home-path:hover { --hover-zoom: 1; }
 }
 
+/* Banner principal B1 · "Una colección". Primero celular: foto arriba y
+   contenido compacto debajo; desde ~700px, texto a la izquierda y foto a la
+   derecha. El difuminado es una capa propia (.home-banner-fade) encima de la
+   foto: pinta el mismo crema del fondo con transparencia creciente, así la
+   foto se integra sin desenfocarse y el efecto sobrevive a cambiar la imagen.
+   --fade-strength (0-1) y --fade-size (%) vienen del administrador. */
+.home-banner-wrap { container-type: inline-size; }
+.home-banner { --banner-bg: 251 243 238; position: relative; display: grid; overflow: hidden; border: 1px solid var(--border); border-radius: 20px; background: rgb(var(--banner-bg)); color: var(--ink); }
+.home-banner-media { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: rgb(var(--banner-bg)); }
+.home-banner-media picture { display: contents; }
+.home-banner-media img { --x: var(--path-mx); --y: var(--path-my); --z: var(--path-mzoom); position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--x) var(--y); transform-origin: var(--x) var(--y); transform: scale(var(--z)); }
+.home-banner-fade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgb(var(--banner-bg) / 0) calc(100% - var(--fade-size) * .4), rgb(var(--banner-bg) / var(--fade-strength)) calc(100% - var(--fade-size) * .12), rgb(var(--banner-bg)) 100%); }
+.home-banner.is-empty .home-banner-media { aspect-ratio: 16 / 5; background: linear-gradient(160deg, #f9ecee, rgb(var(--banner-bg))); }
+.home-banner-body { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; padding: 2px 18px 18px; }
+.home-banner-title { margin: 0; font-family: Georgia, serif; font-size: 27px; font-weight: 400; line-height: 1.1; letter-spacing: -.025em; overflow-wrap: anywhere; hyphens: auto; }
+.home-banner-text { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.home-banner-cta { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 44px; margin-top: 4px; padding: 10px 20px; border-radius: 999px; background: var(--plum); color: #fff; font-size: 14px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; transition: background-color 160ms ease, transform 260ms var(--ease-out); }
+.home-banner-cta svg { flex-shrink: 0; transition: transform 260ms var(--ease-out); }
+.home-banner-cta:focus-visible { outline: 3px solid var(--rose); outline-offset: 3px; }
+.home-banner-cta:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) { .home-banner-cta:hover { background: #461a30; } .home-banner-cta:hover svg { transform: translateX(3px); } }
+@container (min-width: 700px) {
+  .home-banner { display: block; height: clamp(300px, 30cqi, 380px); border-radius: 24px; }
+  .home-banner-media { position: absolute; top: 0; right: 0; bottom: 0; height: 100%; width: auto; max-width: 62%; aspect-ratio: 4 / 3; }
+  .home-banner-media img { --x: var(--path-x); --y: var(--path-y); --z: var(--path-zoom); }
+  .home-banner-fade { background: linear-gradient(to right, rgb(var(--banner-bg)) 0%, rgb(var(--banner-bg) / var(--fade-strength)) calc(var(--fade-size) * .4), rgb(var(--banner-bg) / 0) var(--fade-size)); }
+  .home-banner.is-empty .home-banner-media { aspect-ratio: 4 / 3; }
+  .home-banner-body { justify-content: center; gap: 12px; width: 46%; height: 100%; padding: 32px 24px 32px clamp(28px, 5cqi, 64px); }
+  .home-banner-title { font-size: clamp(32px, 4cqi, 48px); line-height: 1.05; }
+  .home-banner-text { max-width: 38ch; font-size: 16px; }
+  .home-banner-cta { margin-top: 6px; padding-inline: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { .home-banner-cta, .home-banner-cta svg { transition: none; } .home-banner-cta:active { transform: none; } }
+
 /* Accesos a categorías, sobre el catálogo. */
 .home-categories { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
 .home-categories button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; max-width: 100%; padding: 5px 16px 5px 6px; border: 1px solid var(--border); border-radius: 999px; background: #fff; color: var(--ink); font: inherit; font-size: 14px; font-weight: 500; line-height: 1.2; cursor: pointer; transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease; }

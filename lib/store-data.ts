@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { HomeBlock } from './home-content';
+import type { HomeBanner, HomeBlock } from './home-content';
 
 export type Product = {
   id: string;
@@ -109,6 +109,7 @@ export type StoreContent = {
   shippingOriginPhone?: string;
   // Página principal (Admin → Página principal). Ver lib/home-content.ts.
   homeBlocks?: HomeBlock[];
+  homeBanner?: HomeBanner;
   homeCategories?: string[];
   homeCategoryImages?: Record<string, string>;
   homeFeaturedIds?: string[];
@@ -244,7 +245,7 @@ Tu contraseña se guarda cifrada por Supabase; nunca tenemos acceso a ella en te
 // que solo una administradora puede escribir (RLS), separados de 'store' que
 // también edita el rol dev. Ver supabase/migrations/20260924_home_admin_only.sql.
 export const HOME_CONTENT_FIELDS = [
-  'homeBlocks', 'homeCategories', 'homeCategoryImages', 'homeFeaturedIds',
+  'homeBanner', 'homeBlocks', 'homeCategories', 'homeCategoryImages', 'homeFeaturedIds',
   'collectionKicker', 'collectionTitle', 'collectionHighlight',
   'cookieTitle', 'cookieText',
   'devCreditEnabled', 'devCreditText', 'devCreditName', 'devCreditUrl',

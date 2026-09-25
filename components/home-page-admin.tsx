@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { AlertTriangle, Check, ChevronDown, ChevronUp, ImagePlus, Monitor, Save, Smartphone, Trash2, X } from 'lucide-react';
 
+import { HomeBanner } from '@/components/home-banner';
 import { HomePaths } from '@/components/home-paths';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,8 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea';
 import {
   HOME_PAGES, HOME_ZOOM_MAX, HOME_ZOOM_MIN, categoryImages, describeTarget, getHomeBlocks, isSafeImageUrl, resolveHomeBlocks, resolveHomeCategories, safeExternalUrl,
-  type HomeBlock, type HomeTargetKind,
+  BANNER_FADE_DEFAULTS, getHomeBanner, resolveHomeBanner,
+  type HomeBanner as HomeBannerConfig, type HomeBlock, type HomeTarget, type HomeTargetKind, type ResolvedHomeBlock,
 } from '@/lib/home-content';
 import { HOME_CONTENT_FIELDS, defaultStoreContent, type Product, type StoreContent } from '@/lib/store-data';
 import { supabase } from '@/lib/supabase';
@@ -87,6 +89,8 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
   const categories = content.categories;
   const blocks = useMemo(() => getHomeBlocks(content.homeBlocks, categories), [content.homeBlocks, categories]);
   const resolved = useMemo(() => resolveHomeBlocks(blocks, categories, products), [blocks, categories, products]);
+  const banner = useMemo(() => getHomeBanner(content.homeBanner, categories), [content.homeBanner, categories]);
+  const resolvedBanner = useMemo(() => resolveHomeBanner(banner, categories, products), [banner, categories, products]);
   const visibleCategories = useMemo(() => resolveHomeCategories(content.homeCategories, categories), [content.homeCategories, categories]);
   const featuredIds = (content.homeFeaturedIds ?? []).filter((id) => products.some((product) => product.id === id));
   const dirty = pickHome(content) !== pickHome(savedContent);
@@ -101,6 +105,10 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
   }, [dirty]);
 
   const update = (patch: Partial<StoreContent>) => { setStatus(null); setContent((current) => ({ ...current, ...patch })); };
+  const updateBanner = (patch: Partial<HomeBannerConfig>) => {
+    setStatus(null);
+    setContent((current) => ({ ...current, homeBanner: { ...getHomeBanner(current.homeBanner, current.categories), ...patch } }));
+  };
   const updateBlock = (index: number, patch: Partial<HomeBlock>) => {
     setStatus(null);
     setContent((current) => {
@@ -139,10 +147,10 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
     }
   };
 
-  const uploadPhoto = async (index: number, field: 'imageUrl' | 'mobileImageUrl', file: File | undefined) => {
-    const url = await uploadImage(`${index}-${field}`, file, field === 'imageUrl' ? 1600 : 1000);
+  const uploadPhoto = async (key: string, field: 'imageUrl' | 'mobileImageUrl', file: File | undefined, apply: (patch: Partial<HomeBlock>) => void) => {
+    const url = await uploadImage(`${key}-${field}`, file, field === 'imageUrl' ? 1600 : 1000);
     if (!url) return;
-    updateBlock(index, field === 'imageUrl'
+    apply(field === 'imageUrl'
       ? { imageUrl: url, imageX: 50, imageY: 50, imageZoom: 1 }
       : { mobileImageUrl: url, mobileImageX: 50, mobileImageY: 50, mobileImageZoom: 1 });
   };
@@ -193,12 +201,23 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
   const productLabel = (product: Product) => `${product.name}${product.active === false ? ' (oculto)' : ''}`;
   const previewThumbs = categoryImages(categories, content.homeCategoryImages, products);
 
-  const photoEditor = (block: HomeBlock, index: number, kind: 'desktop' | 'mobile') => {
+  // Editor de una foto (principal o de celular) con su encuadre. Sirve para
+  // los bloques y para el banner; `fade` muestra encima el difuminado del banner.
+  type PhotoEditorOptions = {
+    item: HomeBlock;
+    resolvedItem: ResolvedHomeBlock | undefined;
+    apply: (patch: Partial<HomeBlock>) => void;
+    uploadKey: string;
+    kind: 'desktop' | 'mobile';
+    frameClass: string;
+    help: string;
+    fade?: { strength: number; size: number; direction: 'right' | 'bottom' };
+  };
+  const photoEditor = ({ item, resolvedItem, apply, uploadKey, kind, frameClass, help, fade }: PhotoEditorOptions) => {
     const isDesktop = kind === 'desktop';
-    const resolvedBlock = resolved.find((item) => item.id === block.id);
-    const ownUrl = isDesktop ? block.imageUrl : block.mobileImageUrl;
-    const shownUrl = isDesktop ? resolvedBlock?.image : resolvedBlock?.mobileImage;
-    const framing = isDesktop ? resolvedBlock?.framing : resolvedBlock?.mobileFraming;
+    const ownUrl = isDesktop ? item.imageUrl : item.mobileImageUrl;
+    const shownUrl = isDesktop ? resolvedItem?.image : resolvedItem?.mobileImage;
+    const framing = isDesktop ? resolvedItem?.framing : resolvedItem?.mobileFraming;
     // Cualquier foto visible se puede encuadrar, también la tomada de un
     // producto: cada composición necesita su propio ajuste.
     const canFrame = Boolean(shownUrl);
@@ -206,42 +225,78 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
     const yKey = isDesktop ? 'imageY' : 'mobileImageY';
     const zKey = isDesktop ? 'imageZoom' : 'mobileImageZoom';
     const field = isDesktop ? 'imageUrl' : 'mobileImageUrl';
-    const busy = uploading === `${index}-${field}`;
+    const busy = uploading === `${uploadKey}-${field}`;
     const frameStyle = {
       objectPosition: `${framing?.x ?? 50}% ${framing?.y ?? 50}%`,
       transformOrigin: `${framing?.x ?? 50}% ${framing?.y ?? 50}%`,
       transform: `scale(${framing?.zoom ?? 1})`,
     } as CSSProperties;
+    const fadeStyle = fade && ({
+      background: fade.direction === 'right'
+        ? `linear-gradient(to right, rgb(251 243 238) 0%, rgb(251 243 238 / ${fade.strength / 100}) ${fade.size * 0.4}%, rgb(251 243 238 / 0) ${fade.size}%)`
+        : `linear-gradient(to bottom, rgb(251 243 238 / 0) ${100 - fade.size * 0.4}%, rgb(251 243 238 / ${fade.strength / 100}) ${100 - fade.size * 0.12}%, rgb(251 243 238) 100%)`,
+    } as CSSProperties);
     return (
       <div className="home-admin-photo">
         <div className="home-admin-photo-head">
           <strong>{isDesktop ? <><Monitor size={15} /> Foto principal (computador y celular)</> : <><Smartphone size={15} /> Foto para celular (opcional)</>}</strong>
-          <small>{isDesktop
-            ? 'Se ve arriba del bloque en computador (formato 4:3) y al lado del texto en celular. Si no subes una, se usa la foto de un producto del destino.'
-            : 'Opcional. Si la dejas vacía, en celular se usa la foto principal con este encuadre (formato casi cuadrado).'}</small>
+          <small>{help}</small>
         </div>
-        <div className={`home-admin-photo-frame ${isDesktop ? 'is-desktop' : 'is-mobile'}`}>
-          {shownUrl ? <img src={shownUrl} alt="" style={frameStyle} /> : <span>Sin foto: el bloque se verá con un fondo suave.</span>}
+        <div className={`home-admin-photo-frame ${frameClass}`}>
+          {shownUrl ? <img src={shownUrl} alt="" style={frameStyle} /> : <span>Sin foto: se verá con un fondo suave.</span>}
+          {shownUrl && fadeStyle && <i className="home-admin-photo-fade" style={fadeStyle} aria-hidden="true" />}
         </div>
         {!ownUrl && shownUrl && <p className="home-admin-hint">{isDesktop ? 'Foto tomada de un producto del destino. Puedes encuadrarla o subir otra.' : 'Usando la foto principal.'}</p>}
         <div className="home-admin-photo-actions">
           <label className={`home-admin-upload${busy ? ' is-busy' : ''}`}>
             <ImagePlus size={16} /> {busy ? 'Subiendo…' : ownUrl ? 'Reemplazar foto' : 'Subir foto'}
-            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading !== null} onChange={(event) => { void uploadPhoto(index, field, event.target.files?.[0]); event.target.value = ''; }} />
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading !== null} onChange={(event) => { void uploadPhoto(uploadKey, field, event.target.files?.[0], apply); event.target.value = ''; }} />
           </label>
-          {ownUrl && <button type="button" className="home-admin-remove" onClick={() => updateBlock(index, { [field]: '' })}><Trash2 size={15} /> Eliminar foto</button>}
+          {ownUrl && <button type="button" className="home-admin-remove" onClick={() => apply({ [field]: '' })}><Trash2 size={15} /> Eliminar foto</button>}
         </div>
         {canFrame && (
           <fieldset className="home-admin-framing">
             <legend>Encuadre {isDesktop ? 'en computador' : 'en celular'}</legend>
-            <label>Horizontal <span>{Math.round(framing?.x ?? 50)}%</span><input type="range" min={0} max={100} value={framing?.x ?? 50} onChange={(event) => updateBlock(index, { [xKey]: Number(event.target.value) })} /></label>
-            <label>Vertical <span>{Math.round(framing?.y ?? 50)}%</span><input type="range" min={0} max={100} value={framing?.y ?? 50} onChange={(event) => updateBlock(index, { [yKey]: Number(event.target.value) })} /></label>
-            <label>Tamaño (alejar ← → acercar) <span>{Math.round((framing?.zoom ?? 1) * 100)}%</span><input type="range" min={HOME_ZOOM_MIN} max={HOME_ZOOM_MAX} step={0.05} value={framing?.zoom ?? 1} onChange={(event) => updateBlock(index, { [zKey]: Number(event.target.value) })} /></label>
+            <label>Horizontal <span>{Math.round(framing?.x ?? 50)}%</span><input type="range" min={0} max={100} value={framing?.x ?? 50} onChange={(event) => apply({ [xKey]: Number(event.target.value) })} /></label>
+            <label>Vertical <span>{Math.round(framing?.y ?? 50)}%</span><input type="range" min={0} max={100} value={framing?.y ?? 50} onChange={(event) => apply({ [yKey]: Number(event.target.value) })} /></label>
+            <label>Tamaño (alejar ← → acercar) <span>{Math.round((framing?.zoom ?? 1) * 100)}%</span><input type="range" min={HOME_ZOOM_MIN} max={HOME_ZOOM_MAX} step={0.05} value={framing?.zoom ?? 1} onChange={(event) => apply({ [zKey]: Number(event.target.value) })} /></label>
             <small className="home-admin-hint">Mueve hasta que el producto se vea completo en el recuadro. Alejar deja un borde suave alrededor.</small>
-            <button type="button" className="home-admin-link" onClick={() => updateBlock(index, { [xKey]: 50, [yKey]: 50, [zKey]: 1 })}>Centrar de nuevo</button>
+            <button type="button" className="home-admin-link" onClick={() => apply({ [xKey]: 50, [yKey]: 50, [zKey]: 1 })}>Centrar de nuevo</button>
           </fieldset>
         )}
       </div>
+    );
+  };
+
+  // Selector de destino (categoría, producto o página existente).
+  const targetPicker = (target: HomeTarget, onChange: (next: HomeTarget) => void, legend: string, missingNote: string) => {
+    const described = describeTarget(target, categories, products);
+    return (
+      <fieldset className="home-admin-target">
+        <legend>{legend}</legend>
+        <div className="form-grid">
+          <label>Tipo de destino
+            <NativeSelect className="admin-select" value={target.kind} onChange={(event) => {
+              const kind = event.target.value as HomeTargetKind;
+              const value = kind === 'category' ? categories[0] ?? '' : kind === 'product' ? products.find((product) => product.active !== false)?.id ?? '' : '#tienda';
+              onChange({ kind, value });
+            }}>
+              <NativeSelectOption value="category">Una categoría</NativeSelectOption>
+              <NativeSelectOption value="product">Un producto</NativeSelectOption>
+              <NativeSelectOption value="page">Una página de la tienda</NativeSelectOption>
+            </NativeSelect>
+          </label>
+          <label>{target.kind === 'category' ? 'Categoría' : target.kind === 'product' ? 'Producto' : 'Página'}
+            <NativeSelect className="admin-select" value={target.value} onChange={(event) => onChange({ kind: target.kind, value: event.target.value })}>
+              {described.missing && <NativeSelectOption value={target.value}>— Ya no disponible —</NativeSelectOption>}
+              {target.kind === 'category' && categories.map((name) => <NativeSelectOption key={name} value={name}>{name}</NativeSelectOption>)}
+              {target.kind === 'product' && products.map((product) => <NativeSelectOption key={product.id} value={product.id}>{productLabel(product)}</NativeSelectOption>)}
+              {target.kind === 'page' && HOME_PAGES.map((page) => <NativeSelectOption key={page.value} value={page.value}>{page.label}</NativeSelectOption>)}
+            </NativeSelect>
+          </label>
+        </div>
+        {described.missing && <p className="home-admin-warning"><AlertTriangle size={15} /> {missingNote}</p>}
+      </fieldset>
     );
   };
 
@@ -264,12 +319,12 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
   return (
     <div className="content-editor home-admin">
       <div className="admin-section-heading">
-        <div><h2>Página principal</h2><p>Lo primero que ven tus clientas: los dos bloques de portada, las categorías y los productos destacados.</p></div>
+        <div><h2>Página principal</h2><p>Lo primero que ven tus clientas: el banner (o los dos bloques), las categorías y los productos destacados.</p></div>
         <Button type="button" disabled={saving || !dirty} onClick={() => void save()}><Save size={17} /> {saving ? 'Guardando…' : 'Guardar cambios'}</Button>
       </div>
 
       <ol className="home-admin-steps">
-        <li>Edita cada bloque: textos, destino y fotos.</li>
+        <li>Edita el banner (o los dos bloques, si lo ocultas): textos, destino y fotos.</li>
         <li>Mueve el encuadre hasta que el producto se vea completo, en <b>Celular</b> y en <b>Computador</b>.</li>
         <li>Toca <b>Guardar cambios</b>. Se publica al instante.</li>
       </ol>
@@ -290,7 +345,9 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
         </div>
         <ScaledPreview width={previewMode === 'mobile' ? 390 : 1180}>
           <div className="home-admin-preview-page">
-            {resolved.length ? <HomePaths blocks={resolved} preview={previewMode} /> : <p className="home-admin-preview-empty">Los dos bloques están ocultos: la portada empieza directo en las categorías.</p>}
+            {banner.enabled
+              ? <HomeBanner banner={resolvedBanner} preview={previewMode} />
+              : resolved.length ? <HomePaths blocks={resolved} preview={previewMode} /> : <p className="home-admin-preview-empty">El banner y los dos bloques están ocultos: la portada empieza directo en las categorías.</p>}
             <div className="home-admin-preview-catalog">
               {visibleCategories.length > 0 && (
                 <div className="home-categories" aria-hidden="true">
@@ -307,12 +364,37 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
         </ScaledPreview>
       </section>
 
+      <details className="admin-collapse" open>
+        <summary><span className="home-admin-summary">Banner principal {!banner.enabled && <em>Oculto</em>}</span></summary>
+        <p className="admin-section-note">Una colección destacada: texto y botón a la izquierda, foto a la derecha (en celular, la foto arriba). Mientras esté activo, reemplaza a los dos bloques de abajo; ellos conservan su configuración.</p>
+        <label className="home-admin-switch"><input type="checkbox" checked={banner.enabled} onChange={(event) => updateBanner({ enabled: event.target.checked })} /> Mostrar el banner en la portada</label>
+        <div className="form-grid">
+          <label>Título<Input value={banner.title} maxLength={70} onChange={(event) => updateBanner({ title: event.target.value })} placeholder="Ej: Flores que no se marchitan" /></label>
+          <label>Texto del botón<Input value={banner.ctaLabel} maxLength={32} onChange={(event) => updateBanner({ ctaLabel: event.target.value })} placeholder="Ej: Ver flores" /></label>
+          <label className="full">Descripción (opcional)<Textarea rows={2} maxLength={160} value={banner.description} onChange={(event) => updateBanner({ description: event.target.value })} placeholder="Una o dos frases sobre la colección." /><small className="home-admin-hint">{banner.description.length}/160 caracteres.</small></label>
+        </div>
+        {targetPicker(banner.target, (next) => updateBanner({ target: next }), '¿A dónde lleva el botón?', 'El destino elegido ya no está disponible. Mientras tanto, el botón lleva al catálogo completo.')}
+        <div className="home-admin-photos">
+          {photoEditor({ item: banner, resolvedItem: resolvedBanner, apply: updateBanner, uploadKey: 'banner', kind: 'desktop', frameClass: 'is-desktop', fade: { strength: resolvedBanner.fadeStrength, size: resolvedBanner.fadeSize, direction: 'right' }, help: 'Se ve a la derecha en computador y arriba en celular (formato 4:3). Si no subes una, se usa la foto de un producto del destino.' })}
+          {photoEditor({ item: banner, resolvedItem: resolvedBanner, apply: updateBanner, uploadKey: 'banner', kind: 'mobile', frameClass: 'is-desktop', fade: { strength: resolvedBanner.fadeStrength, size: resolvedBanner.fadeSize, direction: 'bottom' }, help: 'Opcional. Si la dejas vacía, en celular se usa la foto principal con este encuadre.' })}
+        </div>
+        <fieldset className="home-admin-framing home-admin-fade">
+          <legend>Difuminado hacia el fondo</legend>
+          <label>Intensidad <span>{resolvedBanner.fadeStrength}%</span><input type="range" min={0} max={100} value={resolvedBanner.fadeStrength} onChange={(event) => updateBanner({ fadeStrength: Number(event.target.value) })} /></label>
+          <label>Extensión <span>{resolvedBanner.fadeSize}%</span><input type="range" min={10} max={70} value={resolvedBanner.fadeSize} onChange={(event) => updateBanner({ fadeSize: Number(event.target.value) })} /></label>
+          <small className="home-admin-hint">Suaviza el borde de la foto hacia el fondo crema, sin desenfocar el producto. Si tapa el producto, baja la extensión o mueve el encuadre.</small>
+          <button type="button" className="home-admin-link" onClick={() => updateBanner({ ...BANNER_FADE_DEFAULTS })}>Volver a los valores iniciales</button>
+        </fieldset>
+        <label className="home-admin-alt">Descripción de la foto para lectores de pantalla (opcional)
+          <Input value={banner.imageAlt} maxLength={140} onChange={(event) => updateBanner({ imageAlt: event.target.value })} placeholder="Ej: Ramo de girasoles tejidos a crochet" />
+        </label>
+      </details>
+
       {blocks.map((block, index) => {
-        const target = describeTarget(block.target, categories, products);
         return (
           <details className="admin-collapse" key={block.id} open={index === 0}>
             <summary>
-              <span className="home-admin-summary">Bloque {index + 1}: {block.title.trim() || 'sin título'} {!block.enabled && <em>Oculto</em>}</span>
+              <span className="home-admin-summary">Bloque {index + 1}: {block.title.trim() || 'sin título'} {banner.enabled ? <em>En pausa: el banner está activo</em> : !block.enabled && <em>Oculto</em>}</span>
             </summary>
             <div className="home-admin-block-bar">
               <label className="home-admin-switch"><input type="checkbox" checked={block.enabled} onChange={(event) => updateBlock(index, { enabled: event.target.checked })} /> Mostrar este bloque en la portada</label>
@@ -328,35 +410,11 @@ export function HomePageAdmin({ content, setContent, savedContent, products, onS
               <label className="full">Descripción (opcional)<Textarea rows={2} maxLength={140} value={block.description} onChange={(event) => updateBlock(index, { description: event.target.value })} placeholder="Una frase corta que invite a entrar." /><small className="home-admin-hint">{block.description.length}/140 caracteres. Mejor corta: en celular se ve junto a la foto.</small></label>
             </div>
 
-            <fieldset className="home-admin-target">
-              <legend>¿A dónde lleva este bloque?</legend>
-              <div className="form-grid">
-                <label>Tipo de destino
-                  <NativeSelect className="admin-select" value={block.target.kind} onChange={(event) => {
-                    const kind = event.target.value as HomeTargetKind;
-                    const value = kind === 'category' ? categories[0] ?? '' : kind === 'product' ? products.find((product) => product.active !== false)?.id ?? '' : '#tienda';
-                    updateBlock(index, { target: { kind, value } });
-                  }}>
-                    <NativeSelectOption value="category">Una categoría</NativeSelectOption>
-                    <NativeSelectOption value="product">Un producto</NativeSelectOption>
-                    <NativeSelectOption value="page">Una página de la tienda</NativeSelectOption>
-                  </NativeSelect>
-                </label>
-                <label>{block.target.kind === 'category' ? 'Categoría' : block.target.kind === 'product' ? 'Producto' : 'Página'}
-                  <NativeSelect className="admin-select" value={block.target.value} onChange={(event) => updateBlock(index, { target: { kind: block.target.kind, value: event.target.value } })}>
-                    {target.missing && <NativeSelectOption value={block.target.value}>— Ya no disponible —</NativeSelectOption>}
-                    {block.target.kind === 'category' && categories.map((name) => <NativeSelectOption key={name} value={name}>{name}</NativeSelectOption>)}
-                    {block.target.kind === 'product' && products.map((product) => <NativeSelectOption key={product.id} value={product.id}>{productLabel(product)}</NativeSelectOption>)}
-                    {block.target.kind === 'page' && HOME_PAGES.map((page) => <NativeSelectOption key={page.value} value={page.value}>{page.label}</NativeSelectOption>)}
-                  </NativeSelect>
-                </label>
-              </div>
-              {target.missing && <p className="home-admin-warning"><AlertTriangle size={15} /> El destino elegido ya no está disponible. Mientras tanto, el bloque lleva al catálogo completo.</p>}
-            </fieldset>
+            {targetPicker(block.target, (next) => updateBlock(index, { target: next }), '¿A dónde lleva este bloque?', 'El destino elegido ya no está disponible. Mientras tanto, el bloque lleva al catálogo completo.')}
 
             <div className="home-admin-photos">
-              {photoEditor(block, index, 'desktop')}
-              {photoEditor(block, index, 'mobile')}
+              {photoEditor({ item: block, resolvedItem: resolved.find((item) => item.id === block.id), apply: (patch) => updateBlock(index, patch), uploadKey: `block-${index}`, kind: 'desktop', frameClass: 'is-desktop', help: 'Se ve arriba del bloque en computador (formato 4:3) y al lado del texto en celular. Si no subes una, se usa la foto de un producto del destino.' })}
+              {photoEditor({ item: block, resolvedItem: resolved.find((item) => item.id === block.id), apply: (patch) => updateBlock(index, patch), uploadKey: `block-${index}`, kind: 'mobile', frameClass: 'is-mobile', help: 'Opcional. Si la dejas vacía, en celular se usa la foto principal con este encuadre (formato casi cuadrado).' })}
             </div>
             <label className="home-admin-alt">Descripción de la foto para lectores de pantalla (opcional)
               <Input value={block.imageAlt} maxLength={140} onChange={(event) => updateBlock(index, { imageAlt: event.target.value })} placeholder="Ej: Llaveros de conejito tejidos en tonos rosados" />

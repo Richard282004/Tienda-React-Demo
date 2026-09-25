@@ -2,8 +2,9 @@
 
 import { catalogPrice } from '@/lib/product-variants';
 import { DeveloperCredit } from '@/components/developer-credit';
+import { HomeBanner } from '@/components/home-banner';
 import { HomePaths } from '@/components/home-paths';
-import { categoryImages, getHomeBlocks, orderFeaturedFirst, resolveHomeBlocks, resolveHomeCategories } from '@/lib/home-content';
+import { categoryImages, getHomeBanner, getHomeBlocks, orderFeaturedFirst, resolveHomeBanner, resolveHomeBlocks, resolveHomeCategories } from '@/lib/home-content';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
@@ -105,6 +106,11 @@ export default function Home() {
     () => (category === 'Todo' ? orderFeaturedFirst(products, content.homeFeaturedIds) : products.filter((product) => product.type === category)),
     [category, products, content.homeFeaturedIds],
   );
+  // Banner principal: si está activo reemplaza a los dos bloques.
+  const homeBanner = useMemo(() => {
+    const banner = getHomeBanner(content.homeBanner, content.categories);
+    return banner.enabled ? resolveHomeBanner(banner, content.categories, products) : null;
+  }, [content.homeBanner, content.categories, products]);
   const homeBlocks = useMemo(
     () => resolveHomeBlocks(getHomeBlocks(content.homeBlocks, content.categories), content.categories, products),
     [content.homeBlocks, content.categories, products],
@@ -545,7 +551,7 @@ export default function Home() {
 
       <section id="inicio" className="home-intro" aria-labelledby="home-title">
         <h1 id="home-title" className="sr-only">{content.brandName}: {content.brandTagline}</h1>
-        <div className="page-width"><HomePaths blocks={homeBlocks} onSelectCategory={selectCategory} /></div>
+        <div className="page-width">{homeBanner ? <HomeBanner banner={homeBanner} onSelectCategory={selectCategory} /> : <HomePaths blocks={homeBlocks} onSelectCategory={selectCategory} />}</div>
       </section>
 
       <section id="tienda" className="collection-section page-width">
