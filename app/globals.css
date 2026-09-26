@@ -520,7 +520,6 @@ h2 { font-size: clamp(34px, 3.6vw, 50px); line-height: 1.13; }
 .home-categories button.active { border-color: var(--plum); background: var(--plum); color: #fff; }
 .home-categories button.active .home-category-mark { background: rgba(255,255,255,.18); color: #fff; }
 .home-categories button:focus-visible { outline: 3px solid var(--rose); outline-offset: 2px; }
-@media (hover: hover) and (pointer: fine) { .home-categories button:not(.active):hover { border-color: #d6bcc6; background: #fdf6f8; } }
 .storefront-home .collection-section .section-heading:empty { display: none; }
 @media (max-width: 640px) {
   .home-intro { padding-top: 12px; }
@@ -707,13 +706,11 @@ h2 { font-size: clamp(34px, 3.6vw, 50px); line-height: 1.13; }
   transition: transform 260ms var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
-  .storefront-home :is(.primary-button, .add-button):not(:disabled):hover { transform: translateY(-2px); }
+  .storefront-home .primary-button:not(:disabled):hover { transform: translateY(-2px); }
   .storefront-home :is(.primary-button, .text-link):hover > svg { transform: translateX(3px); }
   .storefront-home .add-button:not(:disabled):hover > svg { transform: rotate(90deg); }
   .storefront-home :is(.header-actions button, .welcome-offer-code):not(:disabled):hover { transform: translateY(-2px); }
   .storefront-home .category-tabs button:hover { transform: translateY(-1px); }
-  .storefront-home .product-card:hover { transform: translateY(-3px); }
-  .storefront-home .product-card:hover .product-visual { box-shadow: none; }
 }
 .storefront-home :is(.primary-button, .add-button, .header-actions button, .category-tabs button, .welcome-offer-code):not(:disabled):active {
   transform: scale(.97) !important;
@@ -724,6 +721,45 @@ h2 { font-size: clamp(34px, 3.6vw, 50px); line-height: 1.13; }
     transform: none !important;
   }
 }
+
+/* Microinteracciones del catálogo (categorías y tarjetas). Una sola capa que
+   reemplaza los efectos anteriores para no acumularlos:
+   - Mouse (solo con hover real y puntero preciso): la tarjeta sube 2px con
+     sombra suave y la foto se amplía 2% dentro de su recuadro (propiedad
+     `scale`, que se suma al zoom/encuadre en línea de la foto sin pisarlo).
+   - Toque: respuesta breve al pulsar (escala mínima); el primer toque navega.
+   - Movimiento reducido: sin desplazamientos ni escalas; quedan color y foco. */
+.storefront-home .product-card { transition: transform 200ms var(--ease-out), opacity 340ms var(--ease-out); }
+.storefront-home .product-visual { transition: box-shadow 200ms var(--ease-out), border-color 200ms var(--ease-out), transform 120ms var(--ease-out); }
+.storefront-home .product-photo { transition: scale 200ms var(--ease-out); }
+.storefront-home .product-visual:active:not(:has(button:active)) { transform: scale(.985); }
+.storefront-home .product-visual:focus-visible { outline: 3px solid var(--rose); outline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .storefront-home .product-card:hover { transform: translateY(-2px); }
+  .storefront-home .product-card:hover .product-visual { box-shadow: 0 12px 24px -10px rgba(56,42,50,.28); border-bottom-color: var(--rose); }
+  .storefront-home .product-card:hover .product-photo { scale: 1.02; }
+}
+
+.storefront-home .home-categories button { transition: background-color 180ms var(--ease-out), border-color 180ms var(--ease-out), color 180ms var(--ease-out), box-shadow 180ms var(--ease-out), transform 180ms var(--ease-out); }
+.storefront-home .home-categories button:active { transform: scale(.97); transition-duration: 100ms; }
+@media (hover: hover) and (pointer: fine) {
+  /* Temporal (mouse): rosa claro y borde rosado. Seleccionada: ciruela sólido. */
+  .storefront-home .home-categories button:not(.active):hover { border-color: #e2bccb; background: #fbeef2; color: var(--plum); box-shadow: 0 4px 10px -6px rgba(92,38,64,.35); transform: translateY(-2px); }
+  .storefront-home .home-categories button.active:hover { background: #4f1f37; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .storefront-home .product-card, .storefront-home .product-card:hover,
+  .storefront-home .product-visual:active, .storefront-home .home-categories button { transform: none !important; }
+  .storefront-home .product-photo, .storefront-home .product-card:hover .product-photo { scale: none; transition: none; }
+  .storefront-home .home-categories button:hover { transform: none !important; }
+}
+
+/* Controles táctiles de al menos 44px en las tarjetas. El nombre del producto
+   agranda su zona de toque sin mover el diseño (padding + margen negativo). */
+.storefront-home .heart-icon { width: 44px; height: 44px; }
+.storefront-home .product-name-link { display: inline-block; padding-block: 11px; margin-block: -11px; }
+.storefront-home .product-name-link:focus-visible { outline: 3px solid var(--rose); outline-offset: 2px; border-radius: 4px; }
 
 .storefront-home .catalog-variant-picker { margin: 10px 0 0; }
 .storefront-home .catalog-variant-caption { min-height: 44px; display: flex; flex-direction: column; justify-content: center; gap: 3px; color: #64283f; }
